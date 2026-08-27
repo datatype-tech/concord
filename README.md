@@ -1,0 +1,165 @@
+<p align="center">
+  <img src="assets/Concord.png" alt="Concord Flash" width="192">
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="README.zh.md">简体中文</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/License-MPL--2.0-2B3137?logo=mozilla&logoColor=white" alt="MPL 2.0">
+  <img src="https://img.shields.io/badge/C%2B%2B-23-00599C?logo=cplusplus&logoColor=white" alt="C++23">
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Vulkan-0078D4" alt="Windows and Vulkan">
+  <img src="https://img.shields.io/badge/Build-CMake%20%2B%20Ninja-064F8C?logo=cmake&logoColor=white" alt="CMake and Ninja">
+</p>
+
+# Concord Flash
+
+Concord Flash is the second generation of the [Concord](https://github.com/lattice-tech/concord)
+engine: a native Forward+ Vulkan 3D engine for Windows. It keeps the first
+generation's user-facing syntax, but rewrites the render backend, deepens the
+ECS model, and deliberately cuts complexity that never earned its keep.
+
+> **Status**: the engine is still laying its foundation. Windowing, the
+> Vulkan frame lifecycle, the ECS core, and the two-DLL architecture are all
+> up and verified; the render pipeline itself (depth pre-pass, tiled light
+> culling, materials) is not implemented yet. APIs, file formats, and
+> runtime behavior may change without any compatibility guarantee.
+
+## Why a second generation
+
+The first generation of Concord was built on [bgfx](https://github.com/bkaradzic/bgfx),
+trading a cross-platform rendering abstraction for portability across
+Windows, macOS, and Linux. That abstraction itself created three problems the
+second generation set out to solve:
+
+1. **The cost of indirection.** bgfx's cross-backend design meant any
+   Vulkan-specific capability (dynamic rendering, explicit frame
+   synchronization, precise memory layout) had to first ask "does bgfx
+   support this?" instead of just being written. The second generation
+   programs against Vulkan directly, trading cross-platform reach the first
+   generation never used for full control over the render pipeline.
+2. **Modules split too finely.** The first generation split the engine into
+   30+ `C*.h` facade headers and several independent DLLs
+   (`CEngine.dll`/`CAudio.dll`/`CGUI.dll`/`CSystem.dll`/`CTime.dll`), many
+   of which had a facade with no real content this early in the project. The
+   second generation only builds a facade header once a module actually has
+   code, and splits DLLs along real coupling boundaries (runtime vs. render
+   backend) rather than one per module.
+3. **Scene and ECS were two parallel states.** The first generation's
+   `Scene::Spawn` produced node objects that owned their own data, while
+   `Ecs::World` was a completely separate component database — neither knew
+   the other existed. Using ECS meant giving up the node API, and vice versa.
+
+## What the second generation fixes, and what's better
+
+### A Scene *is* an ECS World
+
+This is the central improvement. `Scene::Spawn<T>` and `Scene::Query<...>`
+now share the same component storage — the object-oriented spawn syntax is
+just a thin shell over the data-oriented query:
+
+```cpp
+// Object-oriented view: spawn an archetype, then chain a custom component onto it.
+scene.Spawn<Object::Box>({.material = {.albedo = COLOR_RGB(224, 64, 64)}})
+     .Add<Spin>({.degreesPerSecond = 60.0f});
+
+// Data-oriented view: compose an entity component by component, no archetype at all.
+scene.CreateEntity()
+     .Add<Transform>({.position = {4.0f, 1.5f, 1.0f}})
+     .Add<MeshRenderer>({});
+
+// One query sees both — because they were always the same data.
+scene.Query<Transform, MeshRenderer>([](Entity, Transform& t, MeshRenderer& m) { ... });
+```
+
+See [docs/场景与ECS.md](docs/场景与ECS.md) for the full model (Chinese; English
+translation pending).
+
+### Simpler syntax — every cut is pure boilerplate
+
+| First generation | Concord Flash |
+|---|---|
+| `scene.Spawn<Object::Box>(Object::BoxDesc{...})` repeats the type name | `scene.Spawn<Object::Box>({...})`, `T::Desc` is deduced |
+| `.material = {.surface = {.albedo = ...}}` nests two levels | `.material = {.albedo = ...}`, flattened to one |
+| 30+ facade headers, some for empty modules | Facade headers only for modules that actually exist, added as needed |
+| `Concord::Sleep(20000)` to keep the window alive | `game.Run()`, a real main loop |
+| Every primitive has its own stateful Desc + Node pair | Node becomes a stateless "recipe"; all state lives in the ECS |
+
+### Native Vulkan backend, two DLLs instead of many
+
+The engine splits into two DLLs: `ConcordFlashGameEngineRuntime.dll`
+(lifecycle, ECS, scene, window) and `ConcordFlashGameEngineRender.dll`
+(the Vulkan backend). Runtime obtains a render backend instance through a
+self-registering factory and never references Vulkan symbols directly —
+keeping the dependency between the two DLLs one-directional, and letting the
+render backend be replaced or upgraded independently without recompiling the
+whole runtime. See [docs/渲染架构.md](docs/渲染架构.md) for details.
+
+## Syntax example
+
+```cpp
+#include <Concord/CApplication.h>
+#include <Concord/CCamera.h>
+#include <Concord/CLight.h>
+#include <Concord/CObject.h>
+#include <Concord/CRender.h>
+#include <Concord/CScene.h>
+
+int main()
+{
+    Concord::LinkVulkanRenderBackend();
+
+    Concord::Game game;
+    Concord::Window window({.title = "My Game", .resolution = {1280, 720}});
+    game.AttachWindow(window);
+
+    Concord::Scene scene;
+    scene.Spawn<Concord::Object::Camera>({.position = {0.0f, 2.0f, -5.0f}});
+    scene.Spawn<Concord::Object::SunLight>({.elevationDegrees = 45.0f});
+    scene.Spawn<Concord::Object::Box>({.transform = {.position = {0.0f, 1.0f, 0.0f}}});
+
+    game.LoadScene(scene);
+    game.Run();
+}
+```
+
+## Documentation
+
+Full syntax and architecture documentation lives under [docs/](docs/)
+(currently written in Chinese; English translations are planned):
+
+- [Quick Start](docs/快速开始.md)
+- [Application & Window](docs/应用与窗口.md)
+- [Scene & ECS](docs/场景与ECS.md)
+- [Components & Archetypes](docs/组件与原型.md)
+- [Systems & Scheduling](docs/系统与调度.md)
+- [Render Architecture](docs/渲染架构.md)
+- [Build & Dependencies](docs/构建与依赖.md)
+
+Engineering standards (naming, file layout, the per-file line limit, etc.)
+live in `AGENTS.md` at the repository root.
+
+## License
+
+Concord Flash is licensed under the [Mozilla Public License 2.0](LICENSE):
+modifying an engine source file requires publishing that file's changes, but
+a game built with the engine is entirely unaffected and can be distributed
+closed-source. Third-party dependencies keep their own original licenses;
+see the subdirectories under `src/3rd/`.
+
+## About
+
+Concord Flash is developed by **Datatype Team** (datatype.me), a
+full-stack development team founded by Simalth Wang, the original creator of
+Concord. The previous maintainer, Lattice Games, no longer updates the first
+generation of the engine; all active development now happens here, under
+Datatype Team.
+
+<br>
+
+<p align="center">
+  <img src="assets/DatatypeTeamLogo.png" alt="Datatype Team" width="64">
+  <br>
+  <sub>Developed by Datatype Team (datatype.me)</sub>
+</p>

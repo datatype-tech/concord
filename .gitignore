@@ -1,0 +1,30 @@
+# Build trees
+build/
+build-*/
+out/
+cmake-build-*/
+
+# IDE / editor state
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Compiler / linker intermediates (in case of in-tree builds)
+*.obj
+*.o
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.a
+!lib/*.dll
+!lib/*.lib
+!lib/*.a
+
+# Logs and local diagnostics
+*.log
+*_out.txt
+*_err.txt
