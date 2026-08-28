@@ -30,6 +30,14 @@ CENGINE_API void RegisterRenderBackend(CreateRenderBackendFn factory);
 /**
  * Constructs the registered backend.
  *
+ * Application code never has to arrange for the registration in the first
+ * place: linking `concord::render` (which `concord::concord` always does)
+ * force-resolves a link anchor in Render.dll (see
+ * `ConcordRenderBackendLinkAnchor` in `VulkanBackendRegistration.cpp` and
+ * the linker flags in `concord/CMakeLists.txt`), which is what makes
+ * Windows actually load the DLL — and with it, this factory's registration
+ * — before `main()` runs.
+ *
  * @return An empty pointer when no render backend DLL was loaded — Game
  *         treats this the same as `GameConfig::enableRendering = false`.
  */

@@ -11,10 +11,12 @@ cmake_minimum_required(VERSION 3.24)
 #   ConcordFlashGameEngineRuntime.dll  lifecycle, ECS, scenes, windowing
 #   ConcordFlashGameEngineRender.dll   the Vulkan backend
 #
-# Runtime never names the concrete Vulkan backend: Render registers itself
-# through RenderBackendFactory (CRender.h), so the DLL dependency runs one
-# way only (Render -> Runtime, for Window access) even though Runtime is the
-# one that constructs a renderer.
+# Runtime never names the concrete Vulkan backend: Render self-registers
+# through RenderBackendFactory the moment it is loaded, and a forced link
+# anchor (see the target_link_options below) makes sure Windows always
+# loads it — so the DLL dependency runs one way only (Render -> Runtime,
+# for Window access) even though Runtime is the one that constructs a
+# renderer, and application code never has to call anything to wire it up.
 #
 #   target_link_libraries(<consumer> PRIVATE concord::runtime concord::render)
 
@@ -85,6 +87,19 @@ target_include_directories(concord_render PRIVATE
 
 # Render depends on Runtime for Window; never the reverse.
 target_link_libraries(concord_render PRIVATE concord::runtime SDL3::SDL3 Vulkan::Vulkan)
+
+# On Windows, an unreferenced import library contributes nothing to a link:
+# linking concord::render alone would not make the loader actually pull the
+# DLL in at process start, so its self-registering static initializer
+# (VulkanBackendRegistration.cpp) would never run. Forcing every consumer to
+# resolve ConcordRenderBackendLinkAnchor closes that gap without asking
+# application code to call anything — Game::AttachWindow finds a renderer
+# automatically the moment concord::concord is linked.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_link_options(concord_render INTERFACE "-Wl,-u,ConcordRenderBackendLinkAnchor")
+elseif(MSVC)
+    target_link_options(concord_render INTERFACE "/INCLUDE:ConcordRenderBackendLinkAnchor")
+endif()
 
 # ---------------------------------------------------------------------------
 # concord::concord — convenience alias linking both DLLs

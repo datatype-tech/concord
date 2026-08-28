@@ -90,13 +90,10 @@ Runtime 通过一个自注册工厂获得渲染后端实例，从不直接引用
 #include <Concord/CCamera.h>
 #include <Concord/CLight.h>
 #include <Concord/CObject.h>
-#include <Concord/CRender.h>
 #include <Concord/CScene.h>
 
 int main()
 {
-    Concord::LinkVulkanRenderBackend();
-
     Concord::Game game;
     Concord::Window window({.title = "我的游戏", .resolution = {1280, 720}});
     game.AttachWindow(window);

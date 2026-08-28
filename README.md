@@ -103,13 +103,10 @@ whole runtime. See [docs/渲染架构.md](docs/渲染架构.md) for details.
 #include <Concord/CCamera.h>
 #include <Concord/CLight.h>
 #include <Concord/CObject.h>
-#include <Concord/CRender.h>
 #include <Concord/CScene.h>
 
 int main()
 {
-    Concord::LinkVulkanRenderBackend();
-
     Concord::Game game;
     Concord::Window window({.title = "My Game", .resolution = {1280, 720}});
     game.AttachWindow(window);
