@@ -15,16 +15,7 @@
 namespace Concord {
 
 class Game;
-class Window;
-struct VulkanContext;
-
-/**
- * Creates the Vulkan presentation surface for an open window.
- *
- * Declared here so it can be the sole befriended accessor of the native
- * handle, keeping SDL details out of every other renderer unit.
- */
-bool CreateVulkanSurface(VulkanContext& context, const Window& window);
+struct WindowAccess;
 
 /**
  * A window the application asks the engine to open.
@@ -33,7 +24,9 @@ bool CreateVulkanSurface(VulkanContext& context, const Window& window);
  * from a WindowDesc so a caller can name just the fields it cares about
  * (`Window({.title = "My Game"})`). The real platform window appears once
  * the spec is handed to Game::AttachWindow, after which this same object
- * doubles as a live handle whose Set() calls reach the open window.
+ * doubles as a live handle whose Set() calls reach the open window. A Window
+ * has stable identity and is intentionally non-movable, so an attached Game
+ * never retains a pointer to a moved-from handle.
  *
  * SDL lives entirely behind the pimpl, so including this header never drags
  * `SDL3/SDL.h` into application code.
@@ -45,8 +38,8 @@ public:
 
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
-    Window(Window&&) noexcept;
-    Window& operator=(Window&&) noexcept;
+    Window(Window&&) = delete;
+    Window& operator=(Window&&) = delete;
 
     /** The full current description. */
     [[nodiscard]] const WindowDesc& Desc() const noexcept;
@@ -86,14 +79,13 @@ public:
 
 private:
     friend class Game;
-    friend bool CreateVulkanSurface(VulkanContext&, const Window&);
-    friend class VulkanRenderBackend;
+    friend struct WindowAccess;
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;
 
-    /** Creates the OS window. Returns false when the platform refuses. */
-    bool Open();
+    /** Creates the OS window, optionally with Vulkan surface support. */
+    bool Open(bool enableVulkan);
 
     /** Destroys the OS window, leaving the description intact. */
     void Close();

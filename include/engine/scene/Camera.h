@@ -14,6 +14,9 @@
 #include "engine/ecs/Entity.h"
 #include "engine/ecs/World.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace Concord::Object {
 
 /** Every field a Camera can be spawned from. */
@@ -73,11 +76,22 @@ struct Camera {
 /**
  * Projection matrix for a camera.
  *
- * @param aspect Viewport width divided by height.
+ * @param aspect Viewport width divided by height. The renderer supplies the
+ *        current window ratio by default.
  */
 [[nodiscard]] inline Mat4 ProjectionMatrix(const CameraComponent& camera, f32 aspect) noexcept
 {
-    return Mat4::Perspective(Radians(camera.fovYDegrees), aspect, camera.nearPlane, camera.farPlane);
+    const f32 fov = std::isfinite(camera.fovYDegrees)
+                        ? std::clamp(camera.fovYDegrees, 1.0f, 179.0f)
+                        : 60.0f;
+    const f32 nearPlane = std::isfinite(camera.nearPlane) && camera.nearPlane > 0.0f
+                              ? camera.nearPlane
+                              : 0.1f;
+    const f32 farPlane = std::isfinite(camera.farPlane) && camera.farPlane > nearPlane
+                             ? camera.farPlane
+                             : nearPlane + 1000.0f;
+    const f32 safeAspect = std::isfinite(aspect) && aspect > 0.0f ? aspect : 1.0f;
+    return Mat4::Perspective(Radians(fov), safeAspect, nearPlane, farPlane);
 }
 
 } // namespace Concord::Object

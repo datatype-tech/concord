@@ -120,7 +120,8 @@ struct Mat4 {
      * Perspective projection using the Vulkan clip convention.
      *
      * @param fovYRadians Vertical field of view in radians.
-     * @param aspect      Viewport width divided by height.
+     * @param aspect      Viewport width divided by height; callers should use
+     *                    the current viewport ratio unless overriding it.
      */
     [[nodiscard]] static Mat4 Perspective(f32 fovYRadians, f32 aspect, f32 nearPlane, f32 farPlane) noexcept
     {

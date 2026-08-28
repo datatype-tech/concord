@@ -5,6 +5,7 @@
 #ifndef CONCORD_SYSTEM_H
 #define CONCORD_SYSTEM_H
 
+#include "Concord/CExport.h"
 #include "engine/core/Types.h"
 
 namespace Concord {
@@ -18,7 +19,7 @@ class Scene;
  * each object updating itself, a system queries the components it cares
  * about and updates them in bulk.
  */
-class ISystem {
+class CENGINE_API ISystem {
 public:
     virtual ~ISystem() = default;
 
@@ -32,7 +33,7 @@ public:
      */
     virtual void OnUpdate(Scene& scene, f32 deltaTime) = 0;
 
-    /** Called once when the system is removed or the schedule is destroyed. */
+    /** Called once when Game explicitly stops the active scene. */
     virtual void OnStop(Scene&) {}
 };
 

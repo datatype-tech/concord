@@ -6,6 +6,7 @@
 #define CONCORD_VULKANCONTEXT_H
 
 #include "engine/core/Types.h"
+#include "engine/render/vulkan/VulkanRayTracingSupport.h"
 
 #include <vulkan/vulkan.h>
 
@@ -28,6 +29,10 @@ struct VulkanContext {
 
     /** Whether the validation layer was actually enabled at instance creation. */
     bool validationEnabled = false;
+    VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
+
+    /** Optional hardware ray-tracing path enabled for this logical device. */
+    VulkanRayTracingSupport rayTracing{};
 };
 
 } // namespace Concord

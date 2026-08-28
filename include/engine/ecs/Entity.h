@@ -19,12 +19,16 @@ namespace Concord {
 struct Entity {
     u32 index = kInvalidIndex;
     u32 generation = 0;
+    u64 worldId = 0;
 
     /** Sentinel index meaning "names no slot". */
     static constexpr u32 kInvalidIndex = 0xFFFFFFFFu;
 
-    /** Whether this handle was ever handed out by World::Create. */
-    [[nodiscard]] bool IsValid() const noexcept { return index != kInvalidIndex; }
+    /** Whether this handle has a non-zero slot and World identity. */
+    [[nodiscard]] bool IsValid() const noexcept
+    {
+        return index != kInvalidIndex && worldId != 0;
+    }
 
     friend bool operator==(Entity, Entity) noexcept = default;
 };

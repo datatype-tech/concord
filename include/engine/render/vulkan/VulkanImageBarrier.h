@@ -13,13 +13,19 @@ namespace Concord {
  * Transitions a swapchain image from its undefined state to a colour
  * attachment, ready to be rendered into.
  */
-void TransitionToColorAttachment(VkCommandBuffer commandBuffer, VkImage image);
+void TransitionToColorAttachment(VkCommandBuffer commandBuffer, VkImage image,
+                                 VkImageLayout oldLayout = VK_IMAGE_LAYOUT_UNDEFINED);
+
+/** Transitions a depth image into the layout used by dynamic rendering. */
+void TransitionToDepthAttachment(VkCommandBuffer commandBuffer, VkImage image,
+                                 VkImageLayout oldLayout = VK_IMAGE_LAYOUT_UNDEFINED);
 
 /**
  * Transitions a swapchain image from colour attachment to the layout the
  * presentation engine requires.
  */
-void TransitionToPresent(VkCommandBuffer commandBuffer, VkImage image);
+void TransitionToPresent(VkCommandBuffer commandBuffer, VkImage image,
+                         VkImageLayout oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 } // namespace Concord
 

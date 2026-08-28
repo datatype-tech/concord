@@ -5,6 +5,7 @@
 #include "engine/render/vulkan/VulkanSurface.h"
 
 #include "engine/window/Window.h"
+#include "engine/window/WindowAccess.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -15,7 +16,7 @@ namespace Concord {
 
 bool CreateVulkanSurface(VulkanContext& context, const Window& window)
 {
-    auto* handle = static_cast<SDL_Window*>(window.NativeHandle());
+    auto* handle = static_cast<SDL_Window*>(WindowAccess::NativeHandle(window));
     if (!handle) {
         std::fprintf(stderr, "[Concord] window is not open; attach it before initializing\n");
         return false;

@@ -4,6 +4,7 @@
 
 #include "engine/render/vulkan/VulkanPhysicalDevice.h"
 
+#include <cstring>
 #include <vector>
 
 namespace Concord {
@@ -15,6 +16,7 @@ u32 FindGraphicsPresentQueue(VkPhysicalDevice device, VkSurfaceKHR surface)
     std::vector<VkQueueFamilyProperties> families(count);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &count, families.data());
 
+    u32 graphicsPresentFallback = kInvalidQueueFamily;
     for (u32 i = 0; i < count; ++i) {
         if ((families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0) {
             continue;
@@ -23,10 +25,50 @@ u32 FindGraphicsPresentQueue(VkPhysicalDevice device, VkSurfaceKHR surface)
         VkBool32 presentSupported = VK_FALSE;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupported);
         if (presentSupported == VK_TRUE) {
-            return i;
+            if ((families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0) {
+                return i;
+            }
+            if (graphicsPresentFallback == kInvalidQueueFamily) {
+                graphicsPresentFallback = i;
+            }
         }
     }
-    return kInvalidQueueFamily;
+    return graphicsPresentFallback;
+}
+
+bool SupportsVulkanRenderDevice(VkPhysicalDevice device)
+{
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(device, &properties);
+    if (properties.apiVersion < VK_API_VERSION_1_3) {
+        return false;
+    }
+
+    u32 extensionCount = 0;
+    if (vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr) != VK_SUCCESS) {
+        return false;
+    }
+    std::vector<VkExtensionProperties> extensions(extensionCount);
+    if (vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
+                                             extensions.data()) != VK_SUCCESS) {
+        return false;
+    }
+
+    bool hasSwapchain = false;
+    for (const VkExtensionProperties& extension : extensions) {
+        if (std::strcmp(extension.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0) {
+            hasSwapchain = true;
+            break;
+        }
+    }
+
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRendering{};
+    dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+    VkPhysicalDeviceFeatures2 features{};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features.pNext = &dynamicRendering;
+    vkGetPhysicalDeviceFeatures2(device, &features);
+    return hasSwapchain && dynamicRendering.dynamicRendering == VK_TRUE;
 }
 
 VkPhysicalDevice SelectPhysicalDevice(VkInstance instance, VkSurfaceKHR surface, u32& queueFamilyOut)
@@ -46,7 +88,7 @@ VkPhysicalDevice SelectPhysicalDevice(VkInstance instance, VkSurfaceKHR surface,
 
     for (VkPhysicalDevice device : devices) {
         const u32 queue = FindGraphicsPresentQueue(device, surface);
-        if (queue == kInvalidQueueFamily) {
+        if (queue == kInvalidQueueFamily || !SupportsVulkanRenderDevice(device)) {
             continue;
         }
 

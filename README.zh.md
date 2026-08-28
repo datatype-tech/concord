@@ -20,8 +20,14 @@ Concord Flash 是 [Concord](https://github.com/lattice-tech/concord) 引擎的�
 语法设计，但重写了渲染后端、深化了 ECS 模型，并主动砍掉了不必要的复杂度。
 
 > **当前状态**：引擎正在打地基阶段。窗口、Vulkan 帧生命周期、ECS 核心、
-> 双 DLL 架构均已跑通并验证；渲染管线（深度预通道、光源分块裁剪、材质）
-> 尚未实现。API、文件格式和运行时行为都可能在没有兼容性保证的情况下变化。
+> 双 DLL 架构均已跑通并验证；在构建并 staging SPIR-V 后，已有可选的内置 Box
+> 深度预通道和 forward 路径，相机、环境光及有上限的方向/点/聚光灯通过 per-frame
+> UBO 提供，并接入了第一版固定网格 tile light-list compute pass。该路径采用
+> 保守裁剪，资源溢出或不可用时回退完整灯光遍历；更精确的深度分层裁剪和材质系统
+> 仍待实现。方向光阴影和可选硬件 ray-query 阴影已接入：每个 frame slot 拥有隔离的
+> device-address 几何与 BLAS/TLAS 资源，RT 不可用时自动回退现有光栅路径；完整
+> ray-generation/SBT 渲染仍在后续计划中。API、文件
+> 格式和运行时行为都可能在没有兼容性保证的情况下变化。
 
 ## 为什么要有第二代
 
@@ -52,12 +58,12 @@ Concord Flash 是 [Concord](https://github.com/lattice-tech/concord) 引擎的�
 ```cpp
 // 面向对象视图：生成一个原型，再挂一个自定义组件。
 scene.Spawn<Object::Box>({.material = {.albedo = COLOR_RGB(224, 64, 64)}})
-     .Add<Spin>({.degreesPerSecond = 60.0f});
+     .Add<Spin>(Spin{.degreesPerSecond = 60.0f});
 
 // 数据导向视图：逐组件拼装，完全不经过任何原型。
 scene.CreateEntity()
-     .Add<Transform>({.position = {4.0f, 1.5f, 1.0f}})
-     .Add<MeshRenderer>({});
+     .Add<Transform>(Transform{.position = {4.0f, 1.5f, 1.0f}})
+     .Add<MeshRenderer>(MeshRenderer{});
 
 // 一次查询同时看到上面两个实体——因为它们本来就是同一份数据。
 scene.Query<Transform, MeshRenderer>([](Entity, Transform& t, MeshRenderer& m) { ... });

@@ -20,6 +20,9 @@ struct WindowState {
     WindowDesc desc{};
     SDL_Window* handle = nullptr;
 
+    /** Whether this Window owns an SDL video-subsystem reference. */
+    bool sdlVideoInitialized = false;
+
     /** Set when the user asked to close, cleared only by reopening. */
     bool shouldClose = false;
 

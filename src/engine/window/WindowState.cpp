@@ -42,7 +42,8 @@ void PumpWindowEvents(WindowState& state)
             break;
 
         case SDL_EVENT_KEY_DOWN:
-            if (event.key.scancode == SDL_SCANCODE_ESCAPE) {
+            if (event.key.scancode == SDL_SCANCODE_ESCAPE &&
+                BelongsTo(state, event.key.windowID)) {
                 state.shouldClose = true;
             }
             break;

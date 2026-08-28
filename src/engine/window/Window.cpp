@@ -4,6 +4,7 @@
 
 #include "engine/window/Window.h"
 
+#include "engine/window/WindowImpl.h"
 #include "engine/window/SdlWindowFlags.h"
 #include "engine/window/WindowState.h"
 
@@ -12,10 +13,6 @@
 #include <utility>
 
 namespace Concord {
-
-struct Window::Impl {
-    WindowState state{};
-};
 
 Window::Window(WindowDesc desc) : m_impl(std::make_unique<Impl>())
 {
@@ -28,9 +25,6 @@ Window::~Window()
         Close();
     }
 }
-
-Window::Window(Window&&) noexcept = default;
-Window& Window::operator=(Window&&) noexcept = default;
 
 const WindowDesc& Window::Desc() const noexcept { return m_impl->state.desc; }
 const std::string& Window::Title() const noexcept { return m_impl->state.desc.title; }
@@ -51,7 +45,7 @@ u32 Window::Height() const noexcept
     return state.handle ? state.pixelHeight : state.desc.resolution.height;
 }
 
-bool Window::Open()
+bool Window::Open(bool enableVulkan)
 {
     WindowState& state = m_impl->state;
     if (state.handle) {
@@ -60,12 +54,15 @@ bool Window::Open()
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         return false;
     }
+    state.sdlVideoInitialized = true;
 
     state.handle = SDL_CreateWindow(state.desc.title.c_str(),
                                     static_cast<int>(state.desc.resolution.width),
                                     static_cast<int>(state.desc.resolution.height),
-                                    ToSdlWindowFlags(state.desc));
+                                    ToSdlWindowFlags(state.desc, enableVulkan));
     if (!state.handle) {
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
+        state.sdlVideoInitialized = false;
         return false;
     }
 
@@ -86,57 +83,13 @@ void Window::Close()
         SDL_DestroyWindow(state.handle);
         state.handle = nullptr;
     }
+    if (state.sdlVideoInitialized) {
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
+        state.sdlVideoInitialized = false;
+    }
 }
 
 void Window::PumpEvents() { PumpWindowEvents(m_impl->state); }
-
-void Window::Set(WindowDesc desc)
-{
-    WindowState& state = m_impl->state;
-    state.desc = std::move(desc);
-    if (!state.handle) {
-        return;
-    }
-
-    SDL_SetWindowTitle(state.handle, state.desc.title.c_str());
-    SDL_SetWindowResizable(state.handle, state.desc.resizable);
-    SDL_SetWindowSize(state.handle, static_cast<int>(state.desc.resolution.width),
-                      static_cast<int>(state.desc.resolution.height));
-    ApplySdlWindowMode(state.handle, state.desc.mode);
-    SetVisible(state.desc.visible);
-
-    state.resized = true;
-}
-
-void Window::SetTitle(std::string title)
-{
-    WindowState& state = m_impl->state;
-    state.desc.title = std::move(title);
-    if (state.handle) {
-        SDL_SetWindowTitle(state.handle, state.desc.title.c_str());
-    }
-}
-
-void Window::SetMode(WindowMode mode)
-{
-    WindowDesc desc = m_impl->state.desc;
-    desc.mode = mode;
-    Set(std::move(desc));
-}
-
-void Window::SetVisible(bool visible)
-{
-    WindowState& state = m_impl->state;
-    state.desc.visible = visible;
-    if (!state.handle) {
-        return;
-    }
-    if (visible) {
-        SDL_ShowWindow(state.handle);
-    } else {
-        SDL_HideWindow(state.handle);
-    }
-}
 
 void* Window::NativeHandle() const noexcept { return m_impl->state.handle; }
 

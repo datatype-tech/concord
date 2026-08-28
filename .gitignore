@@ -1,8 +1,12 @@
 # Build trees
 build/
 build-*/
+*-build/
+*-build-*/
+*-build*/
 out/
 cmake-build-*/
+review-build/
 
 # IDE / editor state
 .idea/
@@ -23,6 +27,7 @@ cmake-build-*/
 !lib/*.dll
 !lib/*.lib
 !lib/*.a
+*.spv
 
 # Logs and local diagnostics
 *.log

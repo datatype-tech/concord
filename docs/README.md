@@ -13,4 +13,5 @@
 | [组件与原型.md](组件与原型.md) | 内置组件、如何定义自定义组件和新原型 |
 | [系统与调度.md](系统与调度.md) | `ISystem`/`SystemSchedule`，每帧行为怎么接入 |
 | [渲染架构.md](渲染架构.md) | 双 DLL 划分、Forward+ 路线图、Vulkan 帧生命周期 |
+| [着色器工具链.md](着色器工具链.md) | GLSL 编译、SPIR-V 输出和运行时 staging |
 | [构建与依赖.md](构建与依赖.md) | `concord/` 自包含布局、CMake 结构、第三方库管理 |

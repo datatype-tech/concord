@@ -48,14 +48,26 @@ public:
             return m_dense[m_sparse[index]];
         }
 
-        if (index >= m_sparse.size()) {
+        const usize previousSparseSize = m_sparse.size();
+        if (index >= previousSparseSize) {
             m_sparse.resize(index + 1, kEmpty);
         }
 
-        m_sparse[index] = static_cast<u32>(m_dense.size());
-        m_dense.push_back(T{std::forward<Args>(args)...});
-        m_owners.push_back(index);
-        return m_dense.back();
+        const u32 dense = static_cast<u32>(m_dense.size());
+        try {
+            m_dense.push_back(T{std::forward<Args>(args)...});
+            m_owners.push_back(index);
+        } catch (...) {
+            if (m_dense.size() > dense) {
+                m_dense.pop_back();
+            }
+            if (m_sparse.size() != previousSparseSize) {
+                m_sparse.resize(previousSparseSize);
+            }
+            throw;
+        }
+        m_sparse[index] = dense;
+        return m_dense[dense];
     }
 
     /** Returns the component owned by `index`, or nullptr when absent. */
@@ -69,7 +81,10 @@ public:
 
     [[nodiscard]] const T* Get(u32 index) const noexcept
     {
-        return const_cast<ComponentStorage*>(this)->Get(index);
+        if (index >= m_sparse.size() || m_sparse[index] == kEmpty) {
+            return nullptr;
+        }
+        return &m_dense[m_sparse[index]];
     }
 
     void Erase(u32 index) override

@@ -6,16 +6,21 @@
 #define CONCORD_VULKANFRAMESYNC_H
 
 #include "engine/core/Types.h"
+#include "engine/render/RenderFrameData.h"
 #include "engine/render/vulkan/VulkanContext.h"
+#include "engine/render/vulkan/VulkanFrameLimits.h"
 
 namespace Concord {
-
-/** How many frames the CPU may record ahead of the GPU. */
-inline constexpr u32 kMaxFramesInFlight = 2;
 
 /** The command buffer and synchronization objects belonging to one frame. */
 struct VulkanFrame {
     VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+
+    /** Whether the command buffer is currently between Begin and End. */
+    bool commandBufferRecording = false;
+
+    /** CPU-side frame packet reserved for the upcoming GPU buffer upload. */
+    RenderFrameData renderData{};
 
     /** Signalled by the presentation engine once its image may be drawn to. */
     VkSemaphore imageAvailable = VK_NULL_HANDLE;
@@ -46,6 +51,14 @@ struct VulkanFrameRing {
  * @return False when any object could not be created.
  */
 bool CreateVulkanFrameRing(const VulkanContext& context, VulkanFrameRing& ring);
+
+/**
+ * Recreates a frame's semaphore and signalled fence after an aborted frame.
+ *
+ * The helper waits for submitted work, closes a recording command buffer,
+ * resets it, and only then replaces the synchronization objects.
+ */
+bool RecoverVulkanFrame(const VulkanContext& context, VulkanFrame& frame);
 
 /** Destroys everything the ring owns. */
 void DestroyVulkanFrameRing(const VulkanContext& context, VulkanFrameRing& ring);

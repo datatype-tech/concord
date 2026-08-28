@@ -4,13 +4,27 @@
 
 #include "engine/render/vulkan/VulkanPresent.h"
 
+#include "engine/render/vulkan/VulkanResult.h"
+
 namespace Concord {
 
 bool SubmitFrame(const VulkanContext& context, const VulkanSwapchain& swapchain,
                  VulkanFrame& frame, u32 imageIndex)
 {
-    if (vkEndCommandBuffer(frame.commandBuffer) != VK_SUCCESS) {
+    if (imageIndex >= swapchain.renderFinished.size() ||
+        swapchain.renderFinished[imageIndex] == VK_NULL_HANDLE) {
         return false;
+    }
+    const VkResult endResult = vkEndCommandBuffer(frame.commandBuffer);
+    frame.commandBufferRecording = false;
+    if (endResult != VK_SUCCESS) {
+        VulkanFailed("vkEndCommandBuffer", endResult);
+        return false;
+    }
+
+    const VkResult resetResult = vkResetFences(context.device, 1, &frame.inFlight);
+    if (resetResult != VK_SUCCESS) {
+        return VulkanFailed("vkResetFences", resetResult);
     }
 
     VkSemaphore signal = swapchain.renderFinished[imageIndex];
@@ -26,11 +40,19 @@ bool SubmitFrame(const VulkanContext& context, const VulkanSwapchain& swapchain,
     submit.signalSemaphoreCount = 1;
     submit.pSignalSemaphores = &signal;
 
-    return vkQueueSubmit(context.graphicsQueue, 1, &submit, frame.inFlight) == VK_SUCCESS;
+    const VkResult submitResult = vkQueueSubmit(context.graphicsQueue, 1, &submit, frame.inFlight);
+    if (submitResult != VK_SUCCESS) {
+        return VulkanFailed("vkQueueSubmit", submitResult);
+    }
+    return true;
 }
 
 bool PresentFrame(const VulkanContext& context, const VulkanSwapchain& swapchain, u32 imageIndex)
 {
+    if (imageIndex >= swapchain.renderFinished.size() ||
+        swapchain.renderFinished[imageIndex] == VK_NULL_HANDLE) {
+        return true;
+    }
     VkSemaphore wait = swapchain.renderFinished[imageIndex];
 
     VkPresentInfoKHR present{};
@@ -42,7 +64,14 @@ bool PresentFrame(const VulkanContext& context, const VulkanSwapchain& swapchain
     present.pImageIndices = &imageIndex;
 
     const VkResult result = vkQueuePresentKHR(context.graphicsQueue, &present);
-    return result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR;
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        return true;
+    }
+    if (result != VK_SUCCESS) {
+        VulkanFailed("vkQueuePresentKHR", result);
+        return true;
+    }
+    return false;
 }
 
 } // namespace Concord

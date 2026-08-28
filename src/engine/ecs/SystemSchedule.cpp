@@ -6,6 +6,7 @@
 
 #include "engine/scene/Scene.h"
 
+#include <exception>
 #include <utility>
 
 namespace Concord {
@@ -43,8 +44,21 @@ void SystemSchedule::AddFunction(std::string name, std::function<void(Scene&, f3
 
 void SystemSchedule::Start(Scene& scene)
 {
-    for (auto& system : m_systems) {
-        system->OnStart(scene);
+    usize started = 0;
+    try {
+        for (; started < m_systems.size(); ++started) {
+            m_systems[started]->OnStart(scene);
+        }
+    } catch (...) {
+        const std::exception_ptr failure = std::current_exception();
+        while (started > 0) {
+            --started;
+            try {
+                m_systems[started]->OnStop(scene);
+            } catch (...) {
+            }
+        }
+        std::rethrow_exception(failure);
     }
 }
 
@@ -57,8 +71,18 @@ void SystemSchedule::Update(Scene& scene, f32 deltaTime)
 
 void SystemSchedule::Stop(Scene& scene)
 {
+    std::exception_ptr failure;
     for (auto it = m_systems.rbegin(); it != m_systems.rend(); ++it) {
-        (*it)->OnStop(scene);
+        try {
+            (*it)->OnStop(scene);
+        } catch (...) {
+            if (!failure) {
+                failure = std::current_exception();
+            }
+        }
+    }
+    if (failure) {
+        std::rethrow_exception(failure);
     }
 }
 

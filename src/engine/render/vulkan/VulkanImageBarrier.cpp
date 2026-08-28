@@ -24,22 +24,59 @@ VkImageMemoryBarrier MakeColorBarrier(VkImage image)
 
 } // namespace
 
-void TransitionToColorAttachment(VkCommandBuffer commandBuffer, VkImage image)
+void TransitionToColorAttachment(VkCommandBuffer commandBuffer, VkImage image,
+                                 VkImageLayout oldLayout)
 {
     VkImageMemoryBarrier barrier = MakeColorBarrier(image);
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.oldLayout = oldLayout;
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barrier.srcAccessMask = (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ||
+                             oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+                                ? 0
+                                : VK_ACCESS_MEMORY_READ_BIT;
     barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    const VkPipelineStageFlags sourceStage =
+        oldLayout == VK_IMAGE_LAYOUT_UNDEFINED
+            ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
+            : oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+                  ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
+                  : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    vkCmdPipelineBarrier(commandBuffer, sourceStage,
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr,
                          1, &barrier);
 }
 
-void TransitionToPresent(VkCommandBuffer commandBuffer, VkImage image)
+void TransitionToDepthAttachment(VkCommandBuffer commandBuffer, VkImage image,
+                                 VkImageLayout oldLayout)
+{
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.srcAccessMask = oldLayout == VK_IMAGE_LAYOUT_UNDEFINED
+                                ? 0
+                                : VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+    const VkPipelineStageFlags sourceStage = oldLayout == VK_IMAGE_LAYOUT_UNDEFINED
+                                                 ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
+                                                 : VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    vkCmdPipelineBarrier(commandBuffer, sourceStage,
+                         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                             VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+void TransitionToPresent(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout)
 {
     VkImageMemoryBarrier barrier = MakeColorBarrier(image);
-    barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barrier.oldLayout = oldLayout;
     barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 

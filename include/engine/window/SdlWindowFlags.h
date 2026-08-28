@@ -12,12 +12,12 @@
 namespace Concord {
 
 /**
- * Maps a window description onto SDL creation flags.
+ * Maps a window description and renderer request onto SDL creation flags.
  *
  * Module-private: it names SDL types, so it lives beside the sources that
  * already include SDL and never reaches a public header.
  */
-SDL_WindowFlags ToSdlWindowFlags(const WindowDesc& desc);
+SDL_WindowFlags ToSdlWindowFlags(const WindowDesc& desc, bool enableVulkan);
 
 /** Applies the presentation mode to an already-open SDL window. */
 void ApplySdlWindowMode(SDL_Window* handle, WindowMode mode);

@@ -6,78 +6,41 @@
 
 #include "engine/render/vulkan/VulkanResult.h"
 #include "engine/render/vulkan/VulkanSurfaceFormat.h"
+#include "engine/render/vulkan/VulkanSwapchainResources.h"
 
 #include <algorithm>
 #include <limits>
 
 namespace Concord {
-
 namespace {
-
 /** Resolves the swapchain extent, honouring a surface that dictates its own. */
 VkExtent2D ResolveExtent(const VkSurfaceCapabilitiesKHR& caps, u32 width, u32 height)
 {
     if (caps.currentExtent.width != std::numeric_limits<u32>::max()) {
         return caps.currentExtent;
     }
-    return VkExtent2D{
-        std::clamp(width, caps.minImageExtent.width, caps.maxImageExtent.width),
-        std::clamp(height, caps.minImageExtent.height, caps.maxImageExtent.height),
-    };
+    return VkExtent2D{std::clamp(width, caps.minImageExtent.width, caps.maxImageExtent.width),
+                      std::clamp(height, caps.minImageExtent.height, caps.maxImageExtent.height)};
 }
-
-/** Creates one view per swapchain image. */
-bool CreateImageViews(const VulkanContext& context, VulkanSwapchain& swapchain)
-{
-    swapchain.views.resize(swapchain.images.size());
-    for (usize i = 0; i < swapchain.images.size(); ++i) {
-        VkImageViewCreateInfo info{};
-        info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        info.image = swapchain.images[i];
-        info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        info.format = swapchain.format;
-        info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        info.subresourceRange.levelCount = 1;
-        info.subresourceRange.layerCount = 1;
-
-        const VkResult result = vkCreateImageView(context.device, &info, nullptr, &swapchain.views[i]);
-        if (result != VK_SUCCESS) {
-            return VulkanFailed("vkCreateImageView", result);
-        }
-    }
-    return true;
-}
-
-/** Creates the per-image semaphore presentation waits on. */
-bool CreateRenderFinishedSemaphores(const VulkanContext& context, VulkanSwapchain& swapchain)
-{
-    swapchain.renderFinished.resize(swapchain.images.size(), VK_NULL_HANDLE);
-    for (VkSemaphore& semaphore : swapchain.renderFinished) {
-        VkSemaphoreCreateInfo info{};
-        info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-        const VkResult result = vkCreateSemaphore(context.device, &info, nullptr, &semaphore);
-        if (result != VK_SUCCESS) {
-            return VulkanFailed("vkCreateSemaphore", result);
-        }
-    }
-    return true;
-}
-
 } // namespace
-
 bool CreateVulkanSwapchain(const VulkanContext& context, VulkanSwapchain& swapchain,
-                           u32 width, u32 height, bool vsync)
+                           u32 width, u32 height, bool vsync, VkSwapchainKHR oldSwapchain)
 {
+    if (context.device == VK_NULL_HANDLE || context.physicalDevice == VK_NULL_HANDLE ||
+        context.surface == VK_NULL_HANDLE) {
+        return false;
+    }
     VkSurfaceCapabilitiesKHR caps{};
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.physicalDevice, context.surface, &caps);
-
+    const VkResult capsResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        context.physicalDevice, context.surface, &caps);
+    if (capsResult != VK_SUCCESS) {
+        return VulkanFailed("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", capsResult);
+    }
     const VkSurfaceFormatKHR format = SelectSurfaceFormat(context.physicalDevice, context.surface);
     swapchain.extent = ResolveExtent(caps, width, height);
     if (swapchain.extent.width == 0 || swapchain.extent.height == 0) {
         return false;
     }
-
     u32 imageCount = caps.minImageCount + 1;
     if (caps.maxImageCount > 0 && imageCount > caps.maxImageCount) {
         imageCount = caps.maxImageCount;
@@ -97,41 +60,64 @@ bool CreateVulkanSwapchain(const VulkanContext& context, VulkanSwapchain& swapch
     info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     info.presentMode = SelectPresentMode(context.physicalDevice, context.surface, vsync);
     info.clipped = VK_TRUE;
-
+    info.oldSwapchain = oldSwapchain;
     const VkResult result = vkCreateSwapchainKHR(context.device, &info, nullptr, &swapchain.handle);
     if (result != VK_SUCCESS) {
         return VulkanFailed("vkCreateSwapchainKHR", result);
     }
 
     swapchain.format = format.format;
-
     u32 count = 0;
-    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &count, nullptr);
+    const VkResult countResult =
+        vkGetSwapchainImagesKHR(context.device, swapchain.handle, &count, nullptr);
+    if (countResult != VK_SUCCESS || count == 0) {
+        DestroyVulkanSwapchain(context, swapchain);
+        return countResult == VK_SUCCESS ? false : VulkanFailed("vkGetSwapchainImagesKHR", countResult);
+    }
     swapchain.images.resize(count);
-    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &count, swapchain.images.data());
+    const VkResult imagesResult = vkGetSwapchainImagesKHR(
+        context.device, swapchain.handle, &count, swapchain.images.data());
+    if (imagesResult != VK_SUCCESS && imagesResult != VK_INCOMPLETE) {
+        DestroyVulkanSwapchain(context, swapchain);
+        return VulkanFailed("vkGetSwapchainImagesKHR", imagesResult);
+    }
+    swapchain.images.resize(count);
+    swapchain.imageLayouts.assign(swapchain.images.size(), VK_IMAGE_LAYOUT_UNDEFINED);
 
-    return CreateImageViews(context, swapchain) && CreateRenderFinishedSemaphores(context, swapchain);
+    if (!CreateVulkanSwapchainImageViews(context, swapchain) ||
+        !CreateVulkanRenderFinishedSemaphores(context, swapchain)) {
+        DestroyVulkanSwapchain(context, swapchain);
+        return false;
+    }
+    swapchain.imagesInFlight.assign(swapchain.images.size(), VK_NULL_HANDLE);
+    return true;
 }
-
 void DestroyVulkanSwapchain(const VulkanContext& context, VulkanSwapchain& swapchain)
 {
-    for (VkSemaphore semaphore : swapchain.renderFinished) {
-        if (semaphore != VK_NULL_HANDLE) {
-            vkDestroySemaphore(context.device, semaphore, nullptr);
+    if (context.device != VK_NULL_HANDLE) {
+        for (VkSemaphore semaphore : swapchain.renderFinished) {
+            if (semaphore != VK_NULL_HANDLE) {
+                vkDestroySemaphore(context.device, semaphore, nullptr);
+            }
+        }
+
+        for (VkImageView view : swapchain.views) {
+            if (view != VK_NULL_HANDLE) {
+                vkDestroyImageView(context.device, view, nullptr);
+            }
+        }
+        if (swapchain.handle != VK_NULL_HANDLE) {
+            vkDestroySwapchainKHR(context.device, swapchain.handle, nullptr);
         }
     }
     swapchain.renderFinished.clear();
-
-    for (VkImageView view : swapchain.views) {
-        vkDestroyImageView(context.device, view, nullptr);
-    }
+    swapchain.imagesInFlight.clear();
+    swapchain.imageLayouts.clear();
     swapchain.views.clear();
     swapchain.images.clear();
-
-    if (swapchain.handle != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(context.device, swapchain.handle, nullptr);
-        swapchain.handle = VK_NULL_HANDLE;
-    }
+    swapchain.handle = VK_NULL_HANDLE;
+    swapchain.format = VK_FORMAT_UNDEFINED;
+    swapchain.extent = {};
 }
 
 } // namespace Concord

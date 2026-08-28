@@ -1,0 +1,107 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+#version 450
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+struct FrameCameraData {
+    mat4 view;
+    mat4 projection;
+};
+
+struct FrameLightData {
+    vec4 positionType;
+    vec4 directionRange;
+    vec4 colorIntensity;
+    vec4 spotShadow;
+};
+
+layout(std140, set = 0, binding = 0) uniform FrameDataBlock {
+    uvec4 header;
+    FrameCameraData camera;
+    vec4 ambientColorIntensity;
+    FrameLightData lights[64];
+} frame;
+
+struct TileHeader {
+    uint offset;
+    uint count;
+    uint overflow;
+    uint reserved;
+};
+
+layout(std430, set = 0, binding = 1) buffer TileLightList {
+    TileHeader tiles[16384];
+    uint indices[1048576];
+} tile;
+
+layout(push_constant) uniform TileDispatchInfo {
+    uint viewportWidth;
+    uint viewportHeight;
+    uint tileColumns;
+    uint tileRows;
+} info;
+
+const uint TILE_SIZE = 16u;
+const uint MAX_LIGHTS_PER_TILE = 64u;
+
+/** Conservative screen-space sphere test for point and spot lights. */
+bool IntersectsTile(FrameLightData light, uint tileX, uint tileY)
+{
+    float range = max(light.directionRange.w, 0.0);
+    if (range <= 0.0) {
+        return false;
+    }
+    vec4 viewPosition = frame.camera.view * vec4(light.positionType.xyz, 1.0);
+    float depth = max(-viewPosition.z, 0.0);
+    if (depth <= range) {
+        return true;
+    }
+    vec4 clipPosition = frame.camera.projection * viewPosition;
+    if (clipPosition.w <= 0.0) {
+        return true;
+    }
+    vec2 viewport = vec2(info.viewportWidth, info.viewportHeight);
+    vec2 screen = (clipPosition.xy / clipPosition.w * 0.5 + 0.5) * viewport;
+    float projectedScale = max(abs(frame.camera.projection[0][0]) * viewport.x,
+                               abs(frame.camera.projection[1][1]) * viewport.y);
+    float radius = range * projectedScale * 0.5 / max(depth - range, 0.001);
+    vec2 tileMin = vec2(tileX, tileY) * float(TILE_SIZE);
+    vec2 tileMax = min(tileMin + vec2(TILE_SIZE), viewport);
+    vec2 closest = clamp(screen, tileMin, tileMax);
+    return dot(screen - closest, screen - closest) <= radius * radius;
+}
+
+void main()
+{
+    uint tileX = gl_GlobalInvocationID.x;
+    uint tileY = gl_GlobalInvocationID.y;
+    if (tileX >= info.tileColumns || tileY >= info.tileRows ||
+        tileX >= 128u || tileY >= 128u) {
+        return;
+    }
+    uint tileIndex = tileY * 128u + tileX;
+    uint offset = tileIndex * MAX_LIGHTS_PER_TILE;
+    tile.tiles[tileIndex].offset = offset;
+    tile.tiles[tileIndex].count = 0u;
+    tile.tiles[tileIndex].overflow = 0u;
+    tile.tiles[tileIndex].reserved = 0u;
+
+    uint lightCount = min(frame.header.y, 64u);
+    for (uint i = 0u; i < lightCount; ++i) {
+        FrameLightData light = frame.lights[i];
+        bool include = light.positionType.w == 0.0 || IntersectsTile(light, tileX, tileY);
+        if (!include || light.colorIntensity.w <= 0.0) {
+            continue;
+        }
+        uint count = tile.tiles[tileIndex].count;
+        if (count < MAX_LIGHTS_PER_TILE) {
+            tile.indices[offset + count] = i;
+            tile.tiles[tileIndex].count = count + 1u;
+        } else {
+            tile.tiles[tileIndex].overflow = 1u;
+        }
+    }
+}

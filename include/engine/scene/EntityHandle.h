@@ -39,17 +39,35 @@ public:
     template <typename T, typename... Args>
     EntityHandle& Add(Args&&... args)
     {
-        if (m_world) {
+        if (IsAlive()) {
             m_world->Add<T>(m_entity, std::forward<Args>(args)...);
         }
         return *this;
     }
 
-    /** Returns a component, or nullptr when absent. */
+    /** Returns a mutable component, or nullptr when absent. */
     template <typename T>
-    [[nodiscard]] T* Get() const noexcept
+    [[nodiscard]] T* Get() noexcept
     {
-        return m_world ? m_world->Get<T>(m_entity) : nullptr;
+        return IsAlive() ? m_world->Get<T>(m_entity) : nullptr;
+    }
+
+    /** Returns a read-only component, or nullptr when absent. */
+    template <typename T>
+    [[nodiscard]] const T* Get() const noexcept
+    {
+        const World* world = m_world;
+        return world && world->IsAlive(m_entity) ? world->Get<T>(m_entity) : nullptr;
+    }
+
+    /** Attaches a component from a brace-initialized value. */
+    template <typename T>
+    EntityHandle& Add(T value)
+    {
+        if (IsAlive()) {
+            m_world->Add<T>(m_entity, std::move(value));
+        }
+        return *this;
     }
 
     /** Whether the entity carries component `T`. */
@@ -63,7 +81,7 @@ public:
     template <typename T>
     EntityHandle& Remove()
     {
-        if (m_world) {
+        if (IsAlive()) {
             m_world->Remove<T>(m_entity);
         }
         return *this;

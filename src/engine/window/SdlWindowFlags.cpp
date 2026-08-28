@@ -6,9 +6,12 @@
 
 namespace Concord {
 
-SDL_WindowFlags ToSdlWindowFlags(const WindowDesc& desc)
+SDL_WindowFlags ToSdlWindowFlags(const WindowDesc& desc, bool enableVulkan)
 {
-    SDL_WindowFlags flags = SDL_WINDOW_VULKAN;
+    SDL_WindowFlags flags = 0;
+    if (enableVulkan) {
+        flags |= SDL_WINDOW_VULKAN;
+    }
 
     if (desc.resizable) {
         flags |= SDL_WINDOW_RESIZABLE;

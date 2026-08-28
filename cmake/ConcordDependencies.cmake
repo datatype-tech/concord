@@ -51,4 +51,8 @@ function(concord_stage_runtime target)
                 COMMENT "Stage ${dll} beside ${target}")
         endif()
     endforeach()
+
+    if(COMMAND concord_stage_shaders)
+        concord_stage_shaders(${target})
+    endif()
 endfunction()

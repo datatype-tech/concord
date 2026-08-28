@@ -24,8 +24,10 @@ struct VulkanSwapchain {
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkExtent2D extent{};
     std::vector<VkImage> images;
+    std::vector<VkImageLayout> imageLayouts;
     std::vector<VkImageView> views;
     std::vector<VkSemaphore> renderFinished;
+    std::vector<VkFence> imagesInFlight;
 };
 
 /**
@@ -34,10 +36,13 @@ struct VulkanSwapchain {
  * @param width  Fallback width used when the surface reports no fixed extent.
  * @param height Fallback height for the same case.
  * @param vsync  Requested presentation policy.
+ * @param oldSwapchain Existing swapchain retained during transactional
+ *        recreation; pass null during initial creation.
  * @return False when creation failed or the window has zero area.
  */
 bool CreateVulkanSwapchain(const VulkanContext& context, VulkanSwapchain& swapchain,
-                           u32 width, u32 height, bool vsync);
+                           u32 width, u32 height, bool vsync,
+                           VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
 
 /** Destroys the swapchain, its views and its semaphores. */
 void DestroyVulkanSwapchain(const VulkanContext& context, VulkanSwapchain& swapchain);

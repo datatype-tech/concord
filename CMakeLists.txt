@@ -26,9 +26,24 @@ project(Concord
     LANGUAGES C CXX
 )
 
+# Every DLL and its consumer exchange STL-bearing API types.  Keep the CRT
+# choice explicit for MSVC so release/debug heaps and iterator settings cannot
+# diverge across the Runtime/Render boundary.
+if(MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+        CACHE STRING "MSVC runtime used by Concord and its consumers")
+endif()
+
+option(CONCORD_BUILD_TESTS "Build Concord's non-GPU regression tests" OFF)
+option(CONCORD_BUILD_GPU_TESTS "Build the Vulkan validation smoke test" OFF)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
 
 # Cached so the functions this file defines still resolve these paths when a
 # parent project calls them from its own scope.
@@ -39,6 +54,9 @@ set(CONCORD_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib" CACHE INTERNAL
 
 include(cmake/ConcordDependencies.cmake)
 include(cmake/ConcordSources.cmake)
+include(cmake/ConcordShaders.cmake)
+
+concord_configure_shaders()
 
 # ---------------------------------------------------------------------------
 # ConcordFlashGameEngineRuntime.dll
@@ -78,7 +96,8 @@ set_target_properties(concord_render PROPERTIES
 )
 
 target_compile_features(concord_render PUBLIC cxx_std_23)
-target_compile_definitions(concord_render PRIVATE CONCORD_SHARED CRENDER_EXPORTS)
+target_compile_definitions(concord_render PUBLIC CONCORD_SHARED)
+target_compile_definitions(concord_render PRIVATE CRENDER_EXPORTS)
 
 target_include_directories(concord_render PRIVATE
     ${CONCORD_3RD_DIR}/SDL3
@@ -87,6 +106,7 @@ target_include_directories(concord_render PRIVATE
 
 # Render depends on Runtime for Window; never the reverse.
 target_link_libraries(concord_render PRIVATE concord::runtime SDL3::SDL3 Vulkan::Vulkan)
+concord_attach_shaders(concord_render)
 
 # On Windows, an unreferenced import library contributes nothing to a link:
 # linking concord::render alone would not make the loader actually pull the
@@ -95,10 +115,10 @@ target_link_libraries(concord_render PRIVATE concord::runtime SDL3::SDL3 Vulkan:
 # resolve ConcordRenderBackendLinkAnchor closes that gap without asking
 # application code to call anything — Game::AttachWindow finds a renderer
 # automatically the moment concord::concord is linked.
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_link_options(concord_render INTERFACE "-Wl,-u,ConcordRenderBackendLinkAnchor")
-elseif(MSVC)
+if(MSVC OR CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
     target_link_options(concord_render INTERFACE "/INCLUDE:ConcordRenderBackendLinkAnchor")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_link_options(concord_render INTERFACE "-Wl,-u,ConcordRenderBackendLinkAnchor")
 endif()
 
 # ---------------------------------------------------------------------------
@@ -107,3 +127,5 @@ endif()
 add_library(concord INTERFACE)
 add_library(concord::concord ALIAS concord)
 target_link_libraries(concord INTERFACE concord::runtime concord::render)
+
+include(cmake/ConcordTests.cmake)

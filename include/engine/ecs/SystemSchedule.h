@@ -5,6 +5,7 @@
 #ifndef CONCORD_SYSTEMSCHEDULE_H
 #define CONCORD_SYSTEMSCHEDULE_H
 
+#include "Concord/CExport.h"
 #include "engine/core/Types.h"
 #include "engine/ecs/System.h"
 
@@ -25,7 +26,7 @@ class Scene;
  * an explicit dependency graph can be layered on later without changing the
  * calling convention.
  */
-class SystemSchedule {
+class CENGINE_API SystemSchedule {
 public:
     SystemSchedule() = default;
 
@@ -37,7 +38,8 @@ public:
     /**
      * Constructs and registers a system of type `T`.
      *
-     * @return Reference to the stored system, valid until it is removed.
+     * @return Reference to the stored system, valid until this schedule is
+     *         destroyed.
      */
     template <typename T, typename... Args>
     T& Add(Args&&... args)
@@ -55,13 +57,22 @@ public:
      */
     void AddFunction(std::string name, std::function<void(Scene&, f32)> update);
 
-    /** Runs every system's OnStart, in registration order. */
+    /**
+     * Runs every system's OnStart, in registration order.
+     *
+     * If a start hook throws, already-started systems receive OnStop in
+     * reverse order before the exception is propagated.
+     */
     void Start(Scene& scene);
 
     /** Runs every system's OnUpdate, in registration order. */
     void Update(Scene& scene, f32 deltaTime);
 
-    /** Runs every system's OnStop, in reverse registration order. */
+    /**
+     * Runs every system's OnStop, in reverse registration order.
+     *
+     * All hooks are attempted; the first exception is rethrown afterwards.
+     */
     void Stop(Scene& scene);
 
     /** Number of registered systems. */

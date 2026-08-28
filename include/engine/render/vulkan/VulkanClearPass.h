@@ -20,7 +20,8 @@ namespace Concord {
  *
  * @param color Clear colour in linear space.
  */
-void RecordClearPass(VkCommandBuffer commandBuffer, VkImageView target, VkExtent2D extent, Vec3 color);
+void RecordClearPass(VkCommandBuffer commandBuffer, VkImageView target, VkExtent2D extent,
+                     Vec3 color, VkImageView depthTarget = VK_NULL_HANDLE);
 
 } // namespace Concord
 

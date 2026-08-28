@@ -26,8 +26,8 @@ bool SubmitFrame(const VulkanContext& context, const VulkanSwapchain& swapchain,
 /**
  * Queues the acquired image for presentation.
  *
- * @return True when the swapchain needs rebuilding because it went
- *         out of date or suboptimal.
+ * @return True when presentation did not complete normally and the caller
+ *         should discard and rebuild the swapchain before acquiring again.
  */
 bool PresentFrame(const VulkanContext& context, const VulkanSwapchain& swapchain, u32 imageIndex);
 

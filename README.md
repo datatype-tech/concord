@@ -22,9 +22,18 @@ ECS model, and deliberately cuts complexity that never earned its keep.
 
 > **Status**: the engine is still laying its foundation. Windowing, the
 > Vulkan frame lifecycle, the ECS core, and the two-DLL architecture are all
-> up and verified; the render pipeline itself (depth pre-pass, tiled light
-> culling, materials) is not implemented yet. APIs, file formats, and
-> runtime behavior may change without any compatibility guarantee.
+> up and verified. When staged SPIR-V artifacts are built, an optional
+> procedural Box depth/forward path uses a per-frame UBO for camera, ambient,
+> and bounded directional/point/spot lights, plus a first fixed-grid tile
+> light-list compute pass. The tile pass is intentionally conservative and
+> falls back to full-light evaluation when its resources overflow or are
+> unavailable. Directional shadow mapping and optional hardware ray-query
+> shadows are now present: each frame slot owns isolated device-address
+> geometry and BLAS/TLAS resources, with raster/shadow-map fallback when RT is
+> unavailable. Full ray-generation/SBT rendering remains ahead.
+> APIs, file
+> formats, and runtime behavior
+> may change without any compatibility guarantee.
 
 ## Why a second generation
 
@@ -62,12 +71,12 @@ just a thin shell over the data-oriented query:
 ```cpp
 // Object-oriented view: spawn an archetype, then chain a custom component onto it.
 scene.Spawn<Object::Box>({.material = {.albedo = COLOR_RGB(224, 64, 64)}})
-     .Add<Spin>({.degreesPerSecond = 60.0f});
+     .Add<Spin>(Spin{.degreesPerSecond = 60.0f});
 
 // Data-oriented view: compose an entity component by component, no archetype at all.
 scene.CreateEntity()
-     .Add<Transform>({.position = {4.0f, 1.5f, 1.0f}})
-     .Add<MeshRenderer>({});
+     .Add<Transform>(Transform{.position = {4.0f, 1.5f, 1.0f}})
+     .Add<MeshRenderer>(MeshRenderer{});
 
 // One query sees both — because they were always the same data.
 scene.Query<Transform, MeshRenderer>([](Entity, Transform& t, MeshRenderer& m) { ... });

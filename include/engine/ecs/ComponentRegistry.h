@@ -45,7 +45,9 @@ public:
     template <typename T>
     [[nodiscard]] const ComponentStorage<T>* Find() const noexcept
     {
-        return const_cast<ComponentRegistry*>(this)->Find<T>();
+        const auto it = m_storages.find(std::type_index(typeid(T)));
+        return it == m_storages.end() ? nullptr
+                                      : static_cast<const ComponentStorage<T>*>(it->second.get());
     }
 
     /** Erases every component belonging to a slot, whatever its type. */

@@ -61,7 +61,7 @@ struct CameraComponent {
     /** Far clip distance. */
     f32 farPlane = 1000.0f;
 
-    /** The scene renders through the enabled camera with the lowest priority. */
+    /** The scene renders through the camera with the lowest priority. */
     i32 priority = 0;
 };
 

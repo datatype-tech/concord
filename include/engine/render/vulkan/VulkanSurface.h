@@ -10,11 +10,13 @@
 
 namespace Concord {
 
+/** Creates a Vulkan presentation surface for an open Window. */
+bool CreateVulkanSurface(VulkanContext& context, const Window& window);
+
 /**
  * Destroys the presentation surface and clears the handle.
  *
- * The matching creation function is declared in `Window.h`: it needs
- * private access to the native handle, so that header befriends it.
+ * Creation uses the private WindowAccess bridge and remains inside Render.dll.
  */
 void DestroyVulkanSurface(VulkanContext& context);
 

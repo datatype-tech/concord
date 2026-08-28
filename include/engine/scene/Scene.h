@@ -26,7 +26,8 @@ namespace Concord {
  * `scene.Spawn<Object::Box>({...})`. The data-oriented view walks the same
  * storage directly: `scene.Query<Transform, MeshRenderer>(...)`. They are
  * two faces of one component store, so a change made through either is
- * immediately visible to the other.
+ * immediately visible to the other. A Scene is non-movable so its handles
+ * always retain a stable World address.
  */
 class Scene {
 public:
@@ -34,8 +35,8 @@ public:
 
     Scene(const Scene&) = delete;
     Scene& operator=(const Scene&) = delete;
-    Scene(Scene&&) noexcept = default;
-    Scene& operator=(Scene&&) noexcept = default;
+    Scene(Scene&&) = delete;
+    Scene& operator=(Scene&&) = delete;
 
     /**
      * Creates an entity of archetype `T` from its descriptor.
@@ -49,7 +50,16 @@ public:
     EntityHandle Spawn(typename T::Desc desc)
     {
         const Entity entity = m_world.Create();
-        T::Build(m_world, entity, desc);
+        try {
+            T::Build(m_world, entity, desc);
+        } catch (...) {
+            try {
+                m_world.Destroy(entity);
+            } catch (...) {
+                // Preserve the archetype's construction failure for the caller.
+            }
+            throw;
+        }
         return EntityHandle{m_world, entity};
     }
 
@@ -80,26 +90,37 @@ public:
         m_world.Query<T, Rest...>(std::forward<Fn>(fn));
     }
 
+    /** Const query view exposing borrowed components as const references. */
+    template <typename T, typename... Rest, typename Fn>
+    void Query(Fn&& fn) const
+    {
+        m_world.Query<T, Rest...>(std::forward<Fn>(fn));
+    }
+
     /** The component store, for systems that need the full ECS surface. */
     [[nodiscard]] World& GetWorld() noexcept { return m_world; }
     [[nodiscard]] const World& GetWorld() const noexcept { return m_world; }
 
+    /** Applies structural commands queued by Query callbacks. */
+    usize FlushDeferred() { return m_world.FlushDeferred(); }
+
     /**
-     * The entity the scene renders through: the enabled camera with the
-     * lowest priority, or an invalid handle when none was spawned.
+     * The entity the scene renders through: the camera with the lowest
+     * priority that also has a Transform, or an invalid handle when no
+     * complete camera was spawned.
      */
     [[nodiscard]] Entity MainCamera() const noexcept
     {
-        World& world = const_cast<World&>(m_world);
         Entity best = kInvalidEntity;
         i32 bestPriority = 0;
 
-        world.Query<CameraComponent>([&](Entity entity, CameraComponent& camera) {
-            if (!best.IsValid() || camera.priority < bestPriority) {
-                best = entity;
-                bestPriority = camera.priority;
-            }
-        });
+        m_world.Query<CameraComponent, Transform>(
+            [&](Entity entity, const CameraComponent& camera, const Transform&) {
+                if (!best.IsValid() || camera.priority < bestPriority) {
+                    best = entity;
+                    bestPriority = camera.priority;
+                }
+            });
         return best;
     }
 

@@ -54,8 +54,9 @@ public:
      * Makes `scene` the active scene: its entities start being rendered.
      *
      * A Game holds at most one active scene, so this deactivates whichever
-     * was loaded before. `scene` must outlive the Game or the next
-     * LoadScene call, whichever comes first.
+     * was loaded before. Calls made during Run() are applied at the next safe
+     * frame boundary. `scene` must outlive the Game or the next LoadScene
+     * call, whichever comes first.
      */
     void LoadScene(Scene& scene);
 
@@ -85,10 +86,10 @@ public:
     /** Requests that the loop started by Run() finish after the current frame. */
     void Quit() noexcept;
 
-    /** Seconds elapsed between the two most recently presented frames. */
+    /** Seconds elapsed between the two most recently processed frames. */
     [[nodiscard]] f32 DeltaTime() const noexcept;
 
-    /** Frames presented since Run() started. */
+    /** Frame-loop iterations processed since Run() started. */
     [[nodiscard]] u64 FrameCount() const noexcept;
 
 private:
