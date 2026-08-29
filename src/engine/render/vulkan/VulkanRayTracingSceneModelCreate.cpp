@@ -49,7 +49,9 @@ bool CreateVulkanRayTracingModelPrimitive(
 {
     if (source == nullptr || !gpu.HasRayTracingGeometry() || range.indexCount < 3 ||
         range.indexCount % 3 != 0 || range.vertexCount == 0 || gpu.vertexCount == 0 ||
-        gpu.indexCount == 0 || range.firstVertex > gpu.vertexCount - range.vertexCount ||
+        gpu.indexCount == 0 || range.vertexCount > gpu.vertexCount ||
+        range.indexCount > gpu.indexCount ||
+        range.firstVertex > gpu.vertexCount - range.vertexCount ||
         range.firstIndex > gpu.indexCount - range.indexCount ||
         range.materialIndex >= kVulkanRayTracingModelInstanceBit ||
         scene.scratchAlignment == 0) {
