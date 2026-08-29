@@ -28,7 +28,11 @@ bool SubmitFrame(const VulkanContext& context, const VulkanSwapchain& swapchain,
     }
 
     VkSemaphore signal = swapchain.renderFinished[imageIndex];
-    const VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    // RT output compositing may touch the acquired image in the transfer stage
+    // before any dynamic-rendering color attachment, so the acquire wait must
+    // cover both consumers.
+    const VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TRANSFER_BIT |
+                                           VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     VkSubmitInfo submit{};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

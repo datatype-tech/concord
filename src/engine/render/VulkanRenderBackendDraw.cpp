@@ -11,13 +11,13 @@
 #include "engine/render/VulkanRenderBackendShadow.h"
 #include "engine/render/VulkanRenderBackendDebug.h"
 #include "engine/render/VulkanRenderBackendExtensions.h"
+#include "engine/render/VulkanRenderBackendRayTracing.h"
 #include "engine/render/VulkanRenderBackendState.h"
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
 #include "engine/render/vulkan/VulkanClearPass.h"
 #include "engine/render/vulkan/VulkanFrameDataResources.h"
 #include "engine/render/vulkan/VulkanImageBarrier.h"
 #include "engine/render/vulkan/VulkanTileLightCulling.h"
-#include "engine/render/vulkan/VulkanRayTracingSceneRing.h"
 #include "engine/scene/Scene.h"
 namespace Concord {
 void VulkanRenderBackend::DrawScene(const Scene& scene)
@@ -43,16 +43,6 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const RenderSceneSnapshot snapshot = ExtractRenderScene(scene, aspect);
     impl.visibleObjectCount = snapshot.objects.size();
     frame.renderData = BuildRenderFrameData(snapshot);
-    bool rayTracingBuilt = false;
-    if (rayTracing.IsReady() && !snapshot.objects.empty()) {
-        BeginVulkanDebugLabel(impl.context, commandBuffer, "Concord.RayTracingBuild",
-                              {0.2f, 0.9f, 0.8f});
-        rayTracingBuilt = RecordVulkanRayTracingSceneBuild(commandBuffer, rayTracing, &snapshot);
-        if (rayTracingBuilt) {
-            InsertVulkanRayTracingSceneReadBarrier(commandBuffer);
-        }
-        EndVulkanDebugLabel(impl.context, commandBuffer);
-    }
     const bool tileInBounds = impl.swapchain.extent.width <= kMaxTileColumns * kTileSizePixels &&
                               impl.swapchain.extent.height <= kMaxTileRows * kTileSizePixels;
     const bool tileEnabled = snapshot.hasCamera && impl.frameData.IsTileReady() &&
@@ -72,12 +62,22 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const VkDescriptorSet frameDataSet = impl.frameData.IsReady()
                                              ? impl.frameData.sets[impl.frames.currentFrame]
                                              : VK_NULL_HANDLE;
-
+    bool rayTracingBuilt = false;
+    const bool rayTracingRendered = RecordVulkanRayTracingFrame(
+        impl.context, commandBuffer, rayTracing, snapshot, impl.rayTracingPipeline,
+        impl.rayTracingOutput, impl.boxPipeline, frameDataSet, impl.frames.currentFrame,
+        rayTracingBuilt);
     TransitionToColorAttachment(commandBuffer, image,
                                 impl.swapchain.imageLayouts[impl.imageIndex]);
     impl.swapchain.imageLayouts[impl.imageIndex] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     TransitionToDepthAttachment(commandBuffer, depth.image, depth.layout);
     depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    const bool rayTracingComposited =
+        rayTracingRendered && impl.swapchain.transferDestinationSupported &&
+        CompositeVulkanRayTracingFrame(
+            impl.context, commandBuffer, impl.rayTracingOutput, impl.frames.currentFrame, image,
+            impl.swapchain.format, impl.swapchain.imageLayouts[impl.imageIndex],
+            impl.swapchain.extent);
     RunVulkanRenderExtensions(impl.context, impl.swapchain, depth, frame,
                               impl.frames.currentFrame, impl.imageIndex,
                               frameDataSet,
@@ -88,7 +88,7 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const Vec3 skyColor = ToLinear(snapshot.environment.skyColor);
     impl.hasCamera = frame.renderData.header.cameraValid != 0;
     impl.lightCount = frame.renderData.header.lightCount;
-    const bool canDrawBoxes = snapshot.hasCamera && !snapshot.objects.empty() && impl.boxPipeline.HasDepth() &&
+    const bool canDrawBoxes = !rayTracingComposited && snapshot.hasCamera && !snapshot.objects.empty() && impl.boxPipeline.HasDepth() &&
                               impl.boxPipeline.HasColor() && frameDataSet != VK_NULL_HANDLE;
     if (canDrawBoxes) {
         if (shadowState.enabled) {
@@ -124,7 +124,7 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
                                       ? rayTracing.descriptorSet
                                      : VK_NULL_HANDLE);
         EndVulkanDebugLabel(impl.context, commandBuffer);
-    } else {
+    } else if (!rayTracingComposited) {
         BeginVulkanDebugLabel(impl.context, commandBuffer, "Concord.ClearPass", {0.2f, 0.8f, 0.4f});
         RecordClearPass(commandBuffer, impl.swapchain.views[impl.imageIndex], impl.swapchain.extent,
                         skyColor, depth.view);

@@ -26,7 +26,8 @@ u32 UploadVulkanRayTracingInstances(VulkanRayTracingScene& scene,
         instances[0].accelerationStructureReference = scene.bottomLevelAddress;
     } else {
         for (const RenderObjectSnapshot& object : snapshot->objects) {
-            if (object.shape != PrimitiveShape::Box || !object.castShadow ||
+            if (object.shape != PrimitiveShape::Box ||
+                (!scene.includeNonShadowCasters && !object.castShadow) ||
                 count >= kVulkanRayTracingMaxInstances) {
                 continue;
             }

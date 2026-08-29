@@ -16,6 +16,13 @@ target_compile_features(concord_ecs_tests PRIVATE cxx_std_23)
 target_include_directories(concord_ecs_tests PRIVATE ${CONCORD_TEST_INCLUDE})
 add_test(NAME concord_ecs_tests COMMAND concord_ecs_tests)
 
+add_executable(concord_asset_tests
+    tests/AssetTests.cpp
+    ${CONCORD_ASSET_SOURCES})
+target_compile_features(concord_asset_tests PRIVATE cxx_std_23)
+target_include_directories(concord_asset_tests PRIVATE ${CONCORD_TEST_INCLUDE})
+add_test(NAME concord_asset_tests COMMAND concord_asset_tests)
+
 add_executable(concord_render_snapshot_tests
     tests/RenderSceneSnapshotTests.cpp src/engine/render/RenderSceneSnapshot.cpp)
 target_compile_features(concord_render_snapshot_tests PRIVATE cxx_std_23)

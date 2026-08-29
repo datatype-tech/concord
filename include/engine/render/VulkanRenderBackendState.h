@@ -12,11 +12,14 @@
 #include "engine/render/vulkan/VulkanShadowMap.h"
 #include "engine/render/vulkan/VulkanShadowPipeline.h"
 #include "engine/render/vulkan/VulkanRayTracingSceneRing.h"
+#include "engine/render/vulkan/VulkanRayTracingPipeline.h"
+#include "engine/render/vulkan/VulkanRayTracingOutput.h"
 #include "engine/render/vulkan/VulkanResult.h"
 #include "engine/render/vulkan/VulkanSwapchain.h"
 #include "engine/window/Window.h"
-#include <utility>
+
 namespace Concord {
+
 /** Groups the native objects owned by the Vulkan backend implementation. */
 struct VulkanRenderBackend::Impl {
     Window* window = nullptr;
@@ -29,6 +32,8 @@ struct VulkanRenderBackend::Impl {
     VulkanShadowMap shadowMaps[kMaxFramesInFlight]{};
     VulkanShadowPipeline shadowPipeline{};
     VulkanRayTracingSceneRing rayTracing{};
+    VulkanRayTracingPipeline rayTracingPipeline{};
+    VulkanRayTracingOutputRing rayTracingOutput{};
     VulkanFrameRing frames{};
     u32 imageIndex = 0;
     VkFence acquiredImageFence = VK_NULL_HANDLE;
@@ -77,74 +82,11 @@ struct VulkanRenderBackend::Impl {
             acquiredImageFence = VK_NULL_HANDLE;
         }
     }
-    bool RecreateSwapchain()
-    {
-        if (!window || context.device == VK_NULL_HANDLE || window->Width() == 0 ||
-            window->Height() == 0) {
-            return false;
-        }
-        const VkResult idleResult = vkDeviceWaitIdle(context.device);
-        if (idleResult != VK_SUCCESS) {
-            VulkanFailed("vkDeviceWaitIdle (recreate swapchain)", idleResult);
-            frameSyncReady = false;
-            return false;
-        }
-        VulkanSwapchain replacement{};
-        VulkanDepthBuffer depthReplacement[kMaxFramesInFlight]{};
-        VulkanBoxPipeline boxReplacement{};
-        if (!CreateVulkanSwapchain(context, replacement, window->Width(), window->Height(),
-                                   window->Vsync(), swapchain.handle)) {
-            DestroyVulkanSwapchain(context, replacement);
-            return false;
-        }
-        for (u32 i = 0; i < kMaxFramesInFlight; ++i) {
-            if (!CreateVulkanDepthBuffer(context, depthReplacement[i], replacement.extent)) {
-                for (u32 j = 0; j <= i; ++j) {
-                    DestroyVulkanDepthBuffer(context, depthReplacement[j]);
-                }
-                DestroyVulkanSwapchain(context, replacement);
-                return false;
-            }
-        }
-        if (frameData.IsReady()) {
-            const VkDescriptorSetLayout shadowLayout =
-                shadowPipeline.IsReady() ? shadowMaps[0].descriptorLayout : VK_NULL_HANDLE;
-            const VkDescriptorSetLayout rayTracingLayout =
-                rayTracing.IsReady() && context.rayTracing.IsRayQueryUsable()
-                    ? rayTracing.scenes[0].descriptorLayout
-                    : VK_NULL_HANDLE;
-            bool boxReady = CreateVulkanBoxPipeline(context, replacement.format,
-                                                    depthReplacement[0].format, frameData.layout,
-                                                    boxReplacement, shadowLayout,
-                                                    rayTracingLayout);
-            if (!boxReady && shadowLayout != VK_NULL_HANDLE) {
-                boxReady = CreateVulkanBoxPipeline(context, replacement.format,
-                                                   depthReplacement[0].format, frameData.layout,
-                                                   boxReplacement, VK_NULL_HANDLE,
-                                                   rayTracingLayout);
-            }
-            if (!boxReady && rayTracingLayout != VK_NULL_HANDLE) {
-                boxReady = CreateVulkanBoxPipeline(context, replacement.format,
-                                                   depthReplacement[0].format, frameData.layout,
-                                                   boxReplacement, VK_NULL_HANDLE,
-                                                   VK_NULL_HANDLE);
-            }
-        }
-        for (VulkanDepthBuffer& buffer : depth) {
-            DestroyVulkanDepthBuffer(context, buffer);
-        }
-        DestroyVulkanSwapchain(context, swapchain);
-        DestroyVulkanBoxPipeline(context, boxPipeline);
-        swapchain = std::move(replacement);
-        boxPipeline = std::move(boxReplacement);
-        for (u32 i = 0; i < kMaxFramesInFlight; ++i) {
-            depth[i] = std::move(depthReplacement[i]);
-        }
-        acquiredImageFence = VK_NULL_HANDLE;
-        ++swapchainGeneration;
-        swapchainDirty = false;
-        return true;
-    }
+    bool RecreateSwapchain();
+    void CreateReplacementBoxPipeline(const VulkanSwapchain& replacement,
+                                      const VulkanDepthBuffer* depthReplacement,
+                                      VulkanBoxPipeline& boxReplacement);
 };
+
 } // namespace Concord
 #endif // CONCORD_VULKANRENDERBACKENDSTATE_H

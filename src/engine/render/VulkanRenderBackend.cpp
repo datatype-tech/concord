@@ -13,6 +13,7 @@
 #include "engine/render/vulkan/VulkanFrameDataResources.h"
 #include "engine/render/vulkan/VulkanInstance.h"
 #include "engine/render/vulkan/VulkanRayTracingSceneRing.h"
+#include "engine/render/vulkan/VulkanRayTracingOutput.h"
 #include "engine/render/vulkan/VulkanShaderModule.h"
 #include "engine/render/vulkan/VulkanSurface.h"
 #include "engine/render/vulkan/VulkanSwapchain.h"
@@ -52,7 +53,14 @@ bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
     impl.swapchainGeneration = 1;
     const bool rayQueryShaderAvailable =
         !ReadVulkanShaderCode("solid_rayquery.frag.spv").empty();
-    if (rayQueryShaderAvailable && impl.context.rayTracing.IsRayQueryUsable() &&
+    const bool rayPipelineShaderAvailable =
+        !ReadVulkanShaderCode("raygen.rgen.spv").empty() &&
+        !ReadVulkanShaderCode("raymiss.rmiss.spv").empty() &&
+        !ReadVulkanShaderCode("rayhit.rchit.spv").empty();
+    const bool wantsRayScene =
+        (rayQueryShaderAvailable && impl.context.rayTracing.IsRayQueryUsable()) ||
+        (rayPipelineShaderAvailable && impl.context.rayTracing.IsUsable());
+    if (wantsRayScene &&
         !CreateVulkanRayTracingSceneRing(impl.context, impl.rayTracing)) {
         std::fprintf(stderr, "[Concord] ray-tracing acceleration structures unavailable; "
                              "using raster path\n");
@@ -60,6 +68,18 @@ bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
     if (!CreateVulkanFrameDataResources(impl.context, impl.frameData)) {
         std::fprintf(stderr, "[Concord] frame data buffer unavailable; using clear-only fallback\n");
     } else {
+        if (rayPipelineShaderAvailable && impl.rayTracing.IsReady() &&
+            CreateVulkanRayTracingPipeline(impl.context, impl.frameData.layout,
+                                           impl.rayTracing.scenes[0].descriptorLayout,
+                                           impl.rayTracingPipeline)) {
+            if (!impl.swapchain.transferDestinationSupported ||
+                !SupportsVulkanRayTracingComposite(impl.context, impl.swapchain.format) ||
+                !CreateVulkanRayTracingOutputRing(impl.context,
+                                                  impl.rayTracingPipeline.outputLayout,
+                                                  impl.swapchain.extent, impl.rayTracingOutput)) {
+                DestroyVulkanRayTracingPipeline(impl.context, impl.rayTracingPipeline);
+            }
+        }
         bool shadowsReady = true;
         for (u32 i = 0; i < kMaxFramesInFlight; ++i) {
             if (!CreateVulkanShadowMap(impl.context,

@@ -19,15 +19,14 @@ Concord Flash 是 [Concord](https://github.com/lattice-tech/concord) 引擎的�
 一款面向 Windows 的原生 Forward+ Vulkan 3D 引擎。它继承了第一代面向用户的
 语法设计，但重写了渲染后端、深化了 ECS 模型，并主动砍掉了不必要的复杂度。
 
-> **当前状态**：引擎正在打地基阶段。窗口、Vulkan 帧生命周期、ECS 核心、
-> 双 DLL 架构均已跑通并验证；在构建并 staging SPIR-V 后，已有可选的内置 Box
-> 深度预通道和 forward 路径，相机、环境光及有上限的方向/点/聚光灯通过 per-frame
-> UBO 提供，并接入了第一版固定网格 tile light-list compute pass。该路径采用
-> 保守裁剪，资源溢出或不可用时回退完整灯光遍历；更精确的深度分层裁剪和材质系统
-> 仍待实现。方向光阴影和可选硬件 ray-query 阴影已接入：每个 frame slot 拥有隔离的
-> device-address 几何与 BLAS/TLAS 资源，RT 不可用时自动回退现有光栅路径；完整
-> ray-generation/SBT 渲染仍在后续计划中。API、文件
-> 格式和运行时行为都可能在没有兼容性保证的情况下变化。
+> **当前状态**：引擎基础已跑通并完成验证。窗口、Vulkan 帧生命周期、ECS 核心和
+> 双 DLL 架构均已可用；在构建并 staging SPIR-V 后，内置 Box 深度预通道和
+> forward 路径通过 per-frame UBO 提供相机、环境光及有上限的方向/点/聚光灯，
+> 并接入固定网格 tile light-list compute pass。方向光阴影和引擎内部 KHR
+> ray-generation 管线也已接入：每个 frame slot 拥有隔离的 device-address 几何、
+> BLAS/TLAS、SBT 和输出资源；设备或交换链能力不足时自动回退 Forward+ 光栅路径。
+> 导入模型的 GPU 上传和骨骼 skinning 是下一阶段。API、文件格式和运行时行为都可能
+> 在没有兼容性保证的情况下变化。
 
 ### 自定义 Vulkan Pass
 
@@ -142,6 +141,7 @@ int main()
 - [组件与原型](docs/组件与原型.md)
 - [系统与调度](docs/系统与调度.md)
 - [渲染架构](docs/渲染架构.md)
+- [模型导入与骨骼动画](docs/资源与骨骼动画.md)
 - [构建与依赖](docs/构建与依赖.md)
 
 工程规范（命名、文件布局、单文件行数上限等）见仓库根目录的 `AGENTS.md`。

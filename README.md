@@ -20,17 +20,16 @@ engine: a native Forward+ Vulkan 3D engine for Windows. It keeps the first
 generation's user-facing syntax, but rewrites the render backend, deepens the
 ECS model, and deliberately cuts complexity that never earned its keep.
 
-> **Status**: the engine is still laying its foundation. Windowing, the
-> Vulkan frame lifecycle, the ECS core, and the two-DLL architecture are all
-> up and verified. When staged SPIR-V artifacts are built, an optional
-> procedural Box depth/forward path uses a per-frame UBO for camera, ambient,
-> and bounded directional/point/spot lights, plus a first fixed-grid tile
-> light-list compute pass. The tile pass is intentionally conservative and
-> falls back to full-light evaluation when its resources overflow or are
-> unavailable. Directional shadow mapping and optional hardware ray-query
-> shadows are now present: each frame slot owns isolated device-address
-> geometry and BLAS/TLAS resources, with raster/shadow-map fallback when RT is
-> unavailable. Full ray-generation/SBT rendering remains ahead.
+> **Status**: the engine foundation is verified. Windowing, the Vulkan frame
+> lifecycle, the ECS core, and the two-DLL architecture are operational. When
+> staged SPIR-V artifacts are built, the procedural Box depth/forward path uses
+> a per-frame UBO for camera, ambient, and bounded directional/point/spot
+> lights, plus a fixed-grid tile light-list compute pass. Directional shadow
+> mapping and an internal KHR ray-generation pipeline are also available: each
+> frame slot owns isolated device-address geometry, BLAS/TLAS, SBT, and output
+> resources. Devices or swapchains without the required capabilities fall back
+> to the Forward+ raster path automatically. Imported model data and GPU
+> skinning remain the next rendering slice.
 > APIs, file
 > formats, and runtime behavior
 > may change without any compatibility guarantee.
@@ -164,6 +163,7 @@ Full syntax and architecture documentation lives under [docs/](docs/)
 - [Components & Archetypes](docs/组件与原型.md)
 - [Systems & Scheduling](docs/系统与调度.md)
 - [Render Architecture](docs/渲染架构.md)
+- [Model Import & Skeletal Animation](docs/资源与骨骼动画.md)
 - [Build & Dependencies](docs/构建与依赖.md)
 
 Engineering standards (naming, file layout, the per-file line limit, etc.)

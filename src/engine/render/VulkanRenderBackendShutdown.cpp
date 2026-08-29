@@ -43,6 +43,8 @@ void VulkanRenderBackend::Shutdown()
         }
         DestroyVulkanTileLightCulling(impl.context, impl.tileCulling);
         DestroyVulkanBoxPipeline(impl.context, impl.boxPipeline);
+        DestroyVulkanRayTracingOutputRing(impl.context, impl.rayTracingOutput);
+        DestroyVulkanRayTracingPipeline(impl.context, impl.rayTracingPipeline);
         DestroyVulkanRayTracingSceneRing(impl.context, impl.rayTracing);
         DestroyVulkanShadowPipeline(impl.context, impl.shadowPipeline);
         for (VulkanShadowMap& map : impl.shadowMaps) {

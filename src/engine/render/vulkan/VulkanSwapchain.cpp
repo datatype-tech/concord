@@ -55,6 +55,11 @@ bool CreateVulkanSwapchain(const VulkanContext& context, VulkanSwapchain& swapch
     info.imageExtent = swapchain.extent;
     info.imageArrayLayers = 1;
     info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    swapchain.transferDestinationSupported =
+        (caps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT) != 0;
+    if (swapchain.transferDestinationSupported) {
+        info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
     info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.preTransform = caps.currentTransform;
     info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -118,6 +123,7 @@ void DestroyVulkanSwapchain(const VulkanContext& context, VulkanSwapchain& swapc
     swapchain.handle = VK_NULL_HANDLE;
     swapchain.format = VK_FORMAT_UNDEFINED;
     swapchain.extent = {};
+    swapchain.transferDestinationSupported = false;
 }
 
 } // namespace Concord

@@ -3,12 +3,40 @@
 # Listed explicitly rather than globbed so that adding a file is a visible,
 # reviewable change and CMake never silently misses one.
 
+# CPU-side model and animation importers are kept in a named group so tests
+# can exercise them without linking the window/runtime implementation.
+set(CONCORD_ASSET_SOURCES
+    src/engine/asset/Animation.cpp
+    src/engine/asset/AnimationPlayer.cpp
+    src/engine/asset/GltfAccessors.cpp
+    src/engine/asset/GltfBuffers.cpp
+    src/engine/asset/GltfGeometryMaterials.cpp
+    src/engine/asset/GltfGeometryMeshes.cpp
+    src/engine/asset/GltfLoader.cpp
+    src/engine/asset/GltfSceneAnimations.cpp
+    src/engine/asset/GltfSceneNodes.cpp
+    src/engine/asset/GltfSceneSkins.cpp
+    src/engine/asset/JsonParser.cpp
+    src/engine/asset/JsonParserContainers.cpp
+    src/engine/asset/JsonParserString.cpp
+    src/engine/asset/JsonValue.cpp
+    src/engine/asset/ModelAsset.cpp
+    src/engine/asset/ModelLoader.cpp
+    src/engine/asset/ObjLoader.cpp
+    src/engine/asset/ObjLoaderFaces.cpp
+    src/engine/asset/ObjLoaderGeometry.cpp
+    src/engine/asset/ObjLoaderMtl.cpp
+    src/engine/asset/Skeleton.cpp
+)
+
 # ConcordFlashGameEngineRuntime.dll: lifecycle, ECS, scenes, windowing.
 # Depends on nothing under render/ except the IRenderBackend interface and
 # the factory slot a render DLL plugs into.
 set(CONCORD_RUNTIME_SOURCES
     src/engine/app/Game.cpp
     src/engine/app/GameWindow.cpp
+
+    ${CONCORD_ASSET_SOURCES}
 
     src/engine/ecs/WorldId.cpp
     src/engine/ecs/SystemSchedule.cpp
@@ -35,6 +63,8 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/VulkanRenderBackendDebug.cpp
     src/engine/render/VulkanRenderBackendExtensions.cpp
     src/engine/render/VulkanRenderBackendFrame.cpp
+    src/engine/render/VulkanRenderBackendSwapchain.cpp
+    src/engine/render/VulkanRenderBackendRayTracing.cpp
     src/engine/render/VulkanRenderBackendShadow.cpp
     src/engine/render/vulkan/VulkanBackendRegistration.cpp
     src/engine/render/vulkan/VulkanBoxPipeline.cpp
@@ -59,6 +89,13 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanResult.cpp
     src/engine/render/vulkan/VulkanRayTracingSupport.cpp
     src/engine/render/vulkan/VulkanRayTracingPipeline.cpp
+    src/engine/render/vulkan/VulkanRayTracingPipelineCreate.cpp
+    src/engine/render/vulkan/VulkanRayTracingPipelineSbt.cpp
+    src/engine/render/vulkan/VulkanRayTracingPipelineDispatch.cpp
+    src/engine/render/vulkan/VulkanRayTracingPipelineLifecycle.cpp
+    src/engine/render/vulkan/VulkanRayTracingOutput.cpp
+    src/engine/render/vulkan/VulkanRayTracingOutputImage.cpp
+    src/engine/render/vulkan/VulkanRayTracingOutputComposite.cpp
     src/engine/render/vulkan/VulkanRayTracingScene.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneRing.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneGeometry.cpp

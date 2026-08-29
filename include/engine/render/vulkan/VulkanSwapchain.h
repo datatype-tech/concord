@@ -23,6 +23,7 @@ struct VulkanSwapchain {
     VkSwapchainKHR handle = VK_NULL_HANDLE;
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkExtent2D extent{};
+    bool transferDestinationSupported = false;
     std::vector<VkImage> images;
     std::vector<VkImageLayout> imageLayouts;
     std::vector<VkImageView> views;

@@ -1,0 +1,32 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+#version 460
+#extension GL_EXT_ray_tracing : require
+
+struct FrameCameraData { mat4 view; mat4 projection; };
+layout(std140, set = 0, binding = 0) uniform FrameDataBlock {
+    uvec4 header;
+    FrameCameraData camera;
+} frame;
+layout(set = 1, binding = 0, rgba16f) uniform image2D outputImage;
+layout(set = 2, binding = 0) uniform accelerationStructureEXT scene;
+layout(location = 0) rayPayloadEXT vec4 payload;
+
+/** Generates a primary camera ray and stores the hit or miss color. */
+void main()
+{
+    ivec2 pixel = ivec2(gl_LaunchIDEXT.xy);
+    vec2 extent = vec2(gl_LaunchSizeEXT.xy);
+    vec2 ndc = (vec2(pixel) + vec2(0.5)) / extent * 2.0 - 1.0;
+    vec4 viewPosition = inverse(frame.camera.projection) * vec4(ndc, 1.0, 1.0);
+    viewPosition /= max(abs(viewPosition.w), 0.0001);
+    mat4 inverseView = inverse(frame.camera.view);
+    vec3 origin = (inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec3 direction = normalize((inverseView * vec4(viewPosition.xyz, 0.0)).xyz);
+    payload = vec4(0.02, 0.025, 0.04, 1.0);
+    traceRayEXT(scene, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin, 0.01,
+                direction, 10000.0, 0);
+    imageStore(outputImage, pixel, payload);
+}

@@ -22,7 +22,10 @@ set(CONCORD_SHADER_SOURCES
     "${CONCORD_SHADER_SOURCE_DIR}/solid_shadow.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/solid_rayquery.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/tile_cull.comp"
-    "${CONCORD_SHADER_SOURCE_DIR}/directional_shadow.vert" CACHE INTERNAL
+    "${CONCORD_SHADER_SOURCE_DIR}/directional_shadow.vert"
+    "${CONCORD_SHADER_SOURCE_DIR}/raygen.rgen"
+    "${CONCORD_SHADER_SOURCE_DIR}/raymiss.rmiss"
+    "${CONCORD_SHADER_SOURCE_DIR}/rayhit.rchit" CACHE INTERNAL
     "Bundled Concord GLSL sources" FORCE)
 
 function(concord_configure_shaders)

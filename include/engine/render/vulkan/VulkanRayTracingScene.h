@@ -58,6 +58,8 @@ struct VulkanRayTracingScene {
     VkDescriptorSetLayout descriptorLayout = VK_NULL_HANDLE;
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    /** Includes non-shadow-casting meshes when this scene feeds primary RT rays. */
+    bool includeNonShadowCasters = false;
 
     /** Whether all buffers, acceleration structures, and dispatch commands exist. */
     [[nodiscard]] bool IsReady() const noexcept

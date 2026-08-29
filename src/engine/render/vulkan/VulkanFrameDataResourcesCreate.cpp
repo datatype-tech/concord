@@ -52,6 +52,11 @@ bool CreateVulkanFrameDataResources(const VulkanContext& context,
     frameBinding.descriptorCount = 1;
     frameBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT |
                               VK_SHADER_STAGE_COMPUTE_BIT;
+    if (context.rayTracing.IsUsable()) {
+        frameBinding.stageFlags |= VK_SHADER_STAGE_RAYGEN_BIT_KHR |
+                                   VK_SHADER_STAGE_MISS_BIT_KHR |
+                                   VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    }
     VkDescriptorSetLayoutBinding tileBinding{};
     tileBinding.binding = 1;
     tileBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
