@@ -21,7 +21,8 @@ namespace Concord {
 void RecordVulkanDirectionalShadowPass(VkCommandBuffer commandBuffer, VulkanShadowMap& shadowMap,
                                        const VulkanShadowPipeline& pipeline,
                                        const RenderSceneSnapshot& snapshot,
-                                       const Mat4& lightViewProjection) noexcept;
+                                       const Mat4& lightViewProjection,
+                                       const VulkanModelAssetCache* modelAssets = nullptr) noexcept;
 
 } // namespace Concord
 

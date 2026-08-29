@@ -29,14 +29,15 @@ VulkanDirectionalShadowState PrepareVulkanDirectionalShadowFrame(
 void RecordVulkanDirectionalShadowPass(VkCommandBuffer commandBuffer, VulkanShadowMap& shadowMap,
                                        const VulkanShadowPipeline& pipeline,
                                        const RenderSceneSnapshot& snapshot,
-                                       const Mat4& lightViewProjection) noexcept
+                                       const Mat4& lightViewProjection,
+                                       const VulkanModelAssetCache* modelAssets) noexcept
 {
     if (!shadowMap.IsReady() || !pipeline.IsReady() || snapshot.objects.empty()) {
         return;
     }
     TransitionVulkanShadowMapToDepth(commandBuffer, shadowMap);
     RecordVulkanShadowPass(commandBuffer, shadowMap.extent, shadowMap.view, pipeline, snapshot,
-                            lightViewProjection);
+                            lightViewProjection, modelAssets);
     TransitionVulkanShadowMapToRead(commandBuffer, shadowMap);
 }
 

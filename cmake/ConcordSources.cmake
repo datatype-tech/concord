@@ -136,5 +136,7 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanShadowMapTransitions.cpp
     src/engine/render/vulkan/VulkanShadowPipeline.cpp
     src/engine/render/vulkan/VulkanShadowPipelineRecord.cpp
+    src/engine/render/vulkan/VulkanShadowPipelineModel.cpp
+    src/engine/render/vulkan/VulkanShadowPipelineState.cpp
     src/engine/render/vulkan/VulkanShadowMath.cpp
 )

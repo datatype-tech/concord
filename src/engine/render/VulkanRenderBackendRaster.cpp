@@ -30,7 +30,7 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
             BeginVulkanDebugLabel(context, commandBuffer, "Concord.DirectionalShadow",
                                   {0.9f, 0.7f, 0.2f});
             RecordVulkanDirectionalShadowPass(commandBuffer, shadowMap, shadowPipeline,
-                                              snapshot, shadowState.viewProjection);
+                                              snapshot, shadowState.viewProjection, &modelAssets);
             EndVulkanDebugLabel(context, commandBuffer);
         } else if (shadowBindingReady) {
             TransitionVulkanShadowMapToRead(commandBuffer, shadowMap);

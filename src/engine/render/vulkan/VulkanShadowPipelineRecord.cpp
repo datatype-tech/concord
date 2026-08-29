@@ -42,11 +42,15 @@ void DrawShadowCasters(VkCommandBuffer commandBuffer, const VulkanShadowPipeline
 void RecordVulkanShadowPass(VkCommandBuffer commandBuffer, VkExtent2D extent,
                             VkImageView depthView, const VulkanShadowPipeline& pipeline,
                             const RenderSceneSnapshot& snapshot,
-                            const Mat4& lightViewProjection) noexcept
+                            const Mat4& lightViewProjection,
+                            const VulkanModelAssetCache* modelAssets) noexcept
 {
     if (commandBuffer == VK_NULL_HANDLE || depthView == VK_NULL_HANDLE || !pipeline.IsReady() ||
         extent.width == 0 || extent.height == 0) {
         return;
+    }
+    if (modelAssets != nullptr && pipeline.HasModel()) {
+        InsertVulkanModelShadowInputBarrier(commandBuffer, snapshot, *modelAssets);
     }
     VkRenderingAttachmentInfo attachment{};
     attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -63,6 +67,10 @@ void RecordVulkanShadowPass(VkCommandBuffer commandBuffer, VkExtent2D extent,
     vkCmdBeginRendering(commandBuffer, &rendering);
     SetViewport(commandBuffer, extent);
     DrawShadowCasters(commandBuffer, pipeline, snapshot, lightViewProjection);
+    if (modelAssets != nullptr && pipeline.HasModel()) {
+        RecordVulkanModelShadowCasters(commandBuffer, pipeline, snapshot,
+                                        lightViewProjection, *modelAssets);
+    }
     vkCmdEndRendering(commandBuffer);
 }
 

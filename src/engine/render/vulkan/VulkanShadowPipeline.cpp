@@ -12,7 +12,6 @@
 
 namespace Concord {
 namespace {
-
 /** Creates a pipeline layout containing only the vertex shadow ABI. */
 VkPipelineLayout CreateLayout(const VulkanContext& context)
 {
@@ -28,7 +27,6 @@ VkPipelineLayout CreateLayout(const VulkanContext& context)
                ? layout
                : VK_NULL_HANDLE;
 }
-
 /** Creates a depth-only dynamic-rendering graphics pipeline. */
 VkPipeline CreateDepthPipeline(const VulkanContext& context, VkFormat depthFormat,
                                VkPipelineLayout layout, VkShaderModule vertex)
@@ -91,9 +89,7 @@ VkPipeline CreateDepthPipeline(const VulkanContext& context, VkFormat depthForma
     }
     return pipeline;
 }
-
 } // namespace
-
 bool CreateVulkanShadowPipeline(const VulkanContext& context, VkFormat depthFormat,
                                 VulkanShadowPipeline& pipeline)
 {
@@ -102,13 +98,26 @@ bool CreateVulkanShadowPipeline(const VulkanContext& context, VkFormat depthForm
         return false;
     }
     const std::vector<u32> code = ReadVulkanShaderCode("directional_shadow.vert.spv");
+    const std::vector<u32> modelCode = ReadVulkanShaderCode("directional_shadow_model.vert.spv");
     const VkShaderModule shader = CreateVulkanShaderModule(context, code);
+    const VkShaderModule modelShader = CreateVulkanShaderModule(context, modelCode);
     if (shader == VK_NULL_HANDLE) {
+        if (modelShader != VK_NULL_HANDLE) vkDestroyShaderModule(context.device, modelShader, nullptr);
         return false;
     }
     pipeline.layout = CreateLayout(context);
     if (pipeline.layout != VK_NULL_HANDLE) {
         pipeline.depth = CreateDepthPipeline(context, depthFormat, pipeline.layout, shader);
+    }
+    if (modelShader != VK_NULL_HANDLE) {
+        pipeline.modelLayout = CreateVulkanModelShadowPipelineLayout(context);
+        if (pipeline.modelLayout != VK_NULL_HANDLE) {
+            pipeline.modelDepth = CreateVulkanModelShadowDepthPipeline(
+                context, depthFormat, pipeline.modelLayout, modelShader);
+        }
+    }
+    if (modelShader != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(context.device, modelShader, nullptr);
     }
     vkDestroyShaderModule(context.device, shader, nullptr);
     if (!pipeline.IsReady()) {
@@ -117,7 +126,6 @@ bool CreateVulkanShadowPipeline(const VulkanContext& context, VkFormat depthForm
     }
     return true;
 }
-
 void DestroyVulkanShadowPipeline(const VulkanContext& context,
                                  VulkanShadowPipeline& pipeline) noexcept
 {
@@ -125,8 +133,14 @@ void DestroyVulkanShadowPipeline(const VulkanContext& context,
         if (pipeline.depth != VK_NULL_HANDLE) {
             vkDestroyPipeline(context.device, pipeline.depth, nullptr);
         }
+        if (pipeline.modelDepth != VK_NULL_HANDLE) {
+            vkDestroyPipeline(context.device, pipeline.modelDepth, nullptr);
+        }
         if (pipeline.layout != VK_NULL_HANDLE) {
             vkDestroyPipelineLayout(context.device, pipeline.layout, nullptr);
+        }
+        if (pipeline.modelLayout != VK_NULL_HANDLE) {
+            vkDestroyPipelineLayout(context.device, pipeline.modelLayout, nullptr);
         }
     }
     pipeline = {};
