@@ -40,6 +40,13 @@ Concord Flash 是 [Concord](https://github.com/lattice-tech/concord) 引擎的�
 拥有的 command buffer。`Initialize`/`Shutdown` 仅用于生命周期通知，此时
 `imageIndex` 为 `VulkanPassInvalidImageIndex`，所有帧附件、描述符和加速结构句柄均为零。
 
+### ConcordScript shader 编译选项
+
+`ConcordScriptShaders.cmake` 生成的 helper 支持为每个 inline 或 external shader
+单独传递 `DEFINES`、`INCLUDE_DIRS` 和 `OPTIONS`。每一项都会作为独立的编译器参数
+传递，带空格的路径不会被拆开；选项变化也会参与输出文件名哈希。相同配置会保留在
+JSON manifest 中，便于反射和 pipeline 工具读取。
+
 ## 为什么要有第二代
 
 第一代 Concord 建立在 [bgfx](https://github.com/bkaradzic/bgfx) 之上，

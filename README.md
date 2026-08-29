@@ -49,6 +49,15 @@ engine-owned command buffer. `Initialize` and `Shutdown` are lifecycle-only:
 they report `VulkanPassInvalidImageIndex` and zero per-frame attachment,
 descriptor, and acceleration-structure handles.
 
+### ConcordScript shader options
+
+The generated `ConcordScriptShaders.cmake` helper can compile inline and
+external shader sidecars with per-shader `DEFINES`, `INCLUDE_DIRS`, and
+`OPTIONS`. Each item is passed as a separate compiler argument, so paths with
+spaces remain valid and the output name changes when options change. The same
+configuration is retained in the generated JSON manifest for reflection and
+pipeline tooling.
+
 ## Why a second generation
 
 The first generation of Concord was built on [bgfx](https://github.com/bkaradzic/bgfx),

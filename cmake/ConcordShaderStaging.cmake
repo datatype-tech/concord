@@ -4,7 +4,7 @@
 
 # Stages generated SPIR-V outputs beside a consuming executable.
 function(concord_stage_shader_outputs target)
-    cmake_parse_arguments(ARG "" "" "OUTPUTS" ${ARGN})
+    cmake_parse_arguments(PARSE_ARGV 1 ARG "" "" "OUTPUTS")
     foreach(output IN LISTS ARG_OUTPUTS)
         get_filename_component(name "${output}" NAME)
         add_custom_command(TARGET ${target} POST_BUILD

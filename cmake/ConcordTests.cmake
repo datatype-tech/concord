@@ -119,6 +119,10 @@ target_link_libraries(concord_vulkan_pass_registry_tests PRIVATE concord::runtim
 concord_stage_runtime(concord_vulkan_pass_registry_tests)
 add_test(NAME concord_vulkan_pass_registry_tests COMMAND concord_vulkan_pass_registry_tests)
 
+add_test(NAME concord_shader_option_arguments
+    COMMAND ${CMAKE_COMMAND} -P
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/ShaderOptionsScript.cmake)
+
 add_executable(concord_vulkan_pass_context_tests
     tests/VulkanPassContextAdapterTests.cpp
     src/engine/render/VulkanRenderBackendExtensions.cpp
