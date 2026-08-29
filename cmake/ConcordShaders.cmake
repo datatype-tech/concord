@@ -19,6 +19,7 @@ set(CONCORD_SHADER_SOURCE_DIR
 set(CONCORD_SHADER_SOURCES
     "${CONCORD_SHADER_SOURCE_DIR}/mesh.vert"
     "${CONCORD_SHADER_SOURCE_DIR}/model.vert"
+    "${CONCORD_SHADER_SOURCE_DIR}/model.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/skinned.vert"
     "${CONCORD_SHADER_SOURCE_DIR}/solid.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/skinned.frag"
@@ -27,6 +28,7 @@ set(CONCORD_SHADER_SOURCES
     "${CONCORD_SHADER_SOURCE_DIR}/tile_cull.comp"
     "${CONCORD_SHADER_SOURCE_DIR}/directional_shadow.vert"
     "${CONCORD_SHADER_SOURCE_DIR}/directional_shadow_model.vert"
+    "${CONCORD_SHADER_SOURCE_DIR}/directional_shadow_skinned.vert"
     "${CONCORD_SHADER_SOURCE_DIR}/raygen.rgen"
     "${CONCORD_SHADER_SOURCE_DIR}/raymiss.rmiss"
     "${CONCORD_SHADER_SOURCE_DIR}/rayhit.rchit" CACHE INTERNAL

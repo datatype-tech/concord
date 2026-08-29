@@ -87,7 +87,7 @@ void VulkanRenderBackend::Impl::CreateReplacementSkinnedPipeline(
     }
     CreateVulkanSkinnedPipeline(context, replacement.format, depthReplacement[0].format,
                                 frameData.layout, skinningResources.layout,
-                                skinnedReplacement);
+                                textureCache.DescriptorLayout(), skinnedReplacement);
 }
 
 void VulkanRenderBackend::Impl::CreateReplacementModelPipeline(
@@ -98,7 +98,7 @@ void VulkanRenderBackend::Impl::CreateReplacementModelPipeline(
         return;
     }
     CreateVulkanModelPipeline(context, replacement.format, depthReplacement[0].format,
-                              frameData.layout, modelReplacement);
+                              frameData.layout, textureCache.DescriptorLayout(), modelReplacement);
 }
 
 void VulkanRenderBackend::Impl::CreateReplacementBoxPipeline(

@@ -14,6 +14,7 @@
 namespace Concord {
 
 struct VulkanModelAssetCache;
+struct VulkanSkinningResources;
 
 /** Optional depth-only pipeline for a single directional shadow map. */
 struct VulkanShadowPipeline {
@@ -21,6 +22,8 @@ struct VulkanShadowPipeline {
     VkPipeline depth = VK_NULL_HANDLE;
     VkPipeline modelDepth = VK_NULL_HANDLE;
     VkPipelineLayout modelLayout = VK_NULL_HANDLE;
+    VkPipeline skinnedDepth = VK_NULL_HANDLE;
+    VkPipelineLayout skinnedLayout = VK_NULL_HANDLE;
 
     /** Whether the shadow pass can be recorded. */
     [[nodiscard]] bool IsReady() const noexcept
@@ -33,11 +36,22 @@ struct VulkanShadowPipeline {
     {
         return modelLayout != VK_NULL_HANDLE && modelDepth != VK_NULL_HANDLE;
     }
+
+    /** Whether the optional GPU-skinned model shadow pipeline is available. */
+    [[nodiscard]] bool HasSkinned() const noexcept
+    {
+        return skinnedLayout != VK_NULL_HANDLE && skinnedDepth != VK_NULL_HANDLE;
+    }
 };
 
 /** Loads the bundled directional-shadow vertex shader and creates its pipeline. */
 bool CreateVulkanShadowPipeline(const VulkanContext& context, VkFormat depthFormat,
                                VulkanShadowPipeline& pipeline);
+
+/** Installs the optional GPU-skinned model shadow pipeline on an existing shadow object. */
+bool CreateVulkanSkinnedShadowPipeline(const VulkanContext& context, VkFormat depthFormat,
+                                       VkDescriptorSetLayout skinningLayout,
+                                       VulkanShadowPipeline& pipeline);
 
 /** Releases the optional directional-shadow pipeline. */
 void DestroyVulkanShadowPipeline(const VulkanContext& context,
@@ -48,7 +62,9 @@ void RecordVulkanShadowPass(VkCommandBuffer commandBuffer, VkExtent2D extent,
                             VkImageView depthView, const VulkanShadowPipeline& pipeline,
                             const RenderSceneSnapshot& snapshot,
                             const Mat4& lightViewProjection,
-                            const VulkanModelAssetCache* modelAssets = nullptr) noexcept;
+                            const VulkanModelAssetCache* modelAssets = nullptr,
+                            const VulkanSkinningResources* skinningResources = nullptr,
+                            u32 skinningFrameIndex = 0) noexcept;
 
 } // namespace Concord
 

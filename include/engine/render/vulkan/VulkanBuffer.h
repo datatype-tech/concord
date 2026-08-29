@@ -69,6 +69,11 @@ bool CreateVulkanBuffer(const VulkanContext& context, const VulkanBufferCreateIn
 bool CreateVulkanHostBuffer(const VulkanContext& context, VkDeviceSize size,
                             VkBufferUsageFlags usage, VulkanBuffer& buffer);
 
+/** Creates a host-visible buffer and optionally assigns a device address. */
+bool CreateVulkanHostBuffer(const VulkanContext& context, VkDeviceSize size,
+                            VkBufferUsageFlags usage, VulkanBuffer& buffer,
+                            bool deviceAddress);
+
 /** Copies bytes into a persistently mapped buffer and flushes non-coherent memory. */
 bool UploadVulkanBuffer(VulkanBuffer& buffer, std::span<const std::byte> bytes) noexcept;
 

@@ -9,6 +9,7 @@
 #include "engine/render/vulkan/VulkanContext.h"
 #include "engine/render/vulkan/VulkanModelAsset.h"
 #include "engine/render/vulkan/VulkanModelAssetCache.h"
+#include "engine/render/vulkan/VulkanTextureCache.h"
 
 #include <vulkan/vulkan.h>
 
@@ -20,6 +21,7 @@ struct VulkanModelPipeline {
     VkPipeline depth = VK_NULL_HANDLE;
     VkPipeline color = VK_NULL_HANDLE;
     VkDescriptorSetLayout frameDataLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout textureLayout = VK_NULL_HANDLE;
 
     /** Whether the model depth pre-pass is available. */
     [[nodiscard]] bool HasDepth() const noexcept { return depth != VK_NULL_HANDLE; }
@@ -34,6 +36,7 @@ struct VulkanModelPipeline {
 /** Creates static model pipelines for the supplied swapchain formats. */
 bool CreateVulkanModelPipeline(const VulkanContext& context, VkFormat colorFormat,
                                VkFormat depthFormat, VkDescriptorSetLayout frameDataLayout,
+                               VkDescriptorSetLayout textureLayout,
                                VulkanModelPipeline& pipeline);
 
 /** Releases model pipeline objects. */
@@ -45,6 +48,7 @@ void RecordVulkanModelDepthPass(VkCommandBuffer commandBuffer, VkExtent2D extent
                                 VkImageView depthView, const VulkanModelPipeline& pipeline,
                                 const RenderSceneSnapshot& snapshot,
                                 VkDescriptorSet frameDataSet, const VulkanModelAssetCache& cache,
+                                const VulkanTextureCache& textureCache,
                                 bool clearDepth = false);
 
 /** Records indexed model color draws, optionally clearing the color target. */
@@ -53,6 +57,7 @@ void RecordVulkanModelColorPass(VkCommandBuffer commandBuffer, VkExtent2D extent
                                 const VulkanModelPipeline& pipeline,
                                 const RenderSceneSnapshot& snapshot,
                                 VkDescriptorSet frameDataSet, const VulkanModelAssetCache& cache,
+                                const VulkanTextureCache& textureCache,
                                 Vec3 clearColor = {}, bool clearColorTarget = false);
 
 } // namespace Concord

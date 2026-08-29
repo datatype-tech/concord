@@ -48,12 +48,13 @@ void VulkanRenderBackend::Shutdown()
         DestroyVulkanBoxPipeline(impl.context, impl.boxPipeline);
         DestroyVulkanModelPipeline(impl.context, impl.modelPipeline);
         DestroyVulkanSkinnedPipeline(impl.context, impl.skinnedPipeline);
+        DestroyVulkanShadowPipeline(impl.context, impl.shadowPipeline);
         DestroyVulkanSkinningResources(impl.context, impl.skinningResources);
-        impl.modelAssets.Clear(impl.context);
+        impl.textureCache.Clear(impl.context);
         DestroyVulkanRayTracingOutputRing(impl.context, impl.rayTracingOutput);
         DestroyVulkanRayTracingPipeline(impl.context, impl.rayTracingPipeline);
         DestroyVulkanRayTracingSceneRing(impl.context, impl.rayTracing);
-        DestroyVulkanShadowPipeline(impl.context, impl.shadowPipeline);
+        impl.modelAssets.Clear(impl.context);
         for (VulkanShadowMap& map : impl.shadowMaps) {
             DestroyVulkanShadowMap(impl.context, map);
         }

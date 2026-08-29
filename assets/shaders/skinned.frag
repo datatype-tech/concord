@@ -3,7 +3,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #version 450
-
 struct FrameCameraData { mat4 view; mat4 projection; };
 struct FrameLightData {
     vec4 positionType;
@@ -17,23 +16,22 @@ layout(std140, set = 0, binding = 0) uniform FrameDataBlock {
     vec4 ambientColorIntensity;
     FrameLightData lights[64];
 } frame;
-
 struct TileHeader { uint offset; uint count; uint overflow; uint reserved; };
 layout(std430, set = 0, binding = 1) readonly buffer TileLightList {
     TileHeader tiles[16384];
     uint indices[1048576];
 } tile;
-
+layout(set = 2, binding = 0) uniform sampler2D baseColorTexture;
 layout(push_constant) uniform SkinningObjectPushConstants {
     mat4 model;
     vec4 albedo;
     vec4 material;
     uvec4 paletteRange;
 } object;
-
 layout(location = 0) out vec4 outColor;
 layout(location = 0) in vec3 worldNormal;
 layout(location = 1) in vec3 worldPosition;
+layout(location = 2) in vec2 texcoord;
 
 /** Normalizes a vector while keeping degenerate light directions finite. */
 vec3 NormalizeOrUp(vec3 value)
@@ -102,7 +100,9 @@ vec3 ToneMap(vec3 color)
 
 void main()
 {
-    vec3 baseColor = object.albedo.rgb;
+    vec4 sampledBaseColor = texture(baseColorTexture, texcoord);
+    vec3 baseColor = object.albedo.rgb * sampledBaseColor.rgb;
+    float baseAlpha = object.albedo.a * sampledBaseColor.a;
     float metallic = clamp(object.material.x, 0.0, 1.0);
     float roughness = clamp(object.material.y, 0.04, 1.0);
     float emissive = max(object.material.z, 0.0);
@@ -145,5 +145,5 @@ void main()
     }
     float paletteGuard = object.paletteRange.y == 0u ? 0.0 : 1.0;
     color *= paletteGuard;
-    outColor = vec4(ToneMap(color + baseColor * emissive), object.albedo.a);
+    outColor = vec4(ToneMap(color + baseColor * emissive), baseAlpha);
 }

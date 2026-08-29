@@ -43,6 +43,12 @@ bool ReadBinary(const std::filesystem::path& path, std::vector<std::byte>& bytes
     return size == 0 || static_cast<bool>(file.read(reinterpret_cast<char*>(bytes.data()), size));
 }
 
+ModelLoadResult WithSourcePath(ModelLoadResult result, const std::filesystem::path& sourcePath)
+{
+    result.asset.sourcePath = sourcePath.lexically_normal();
+    return result;
+}
+
 } // namespace
 
 ModelLoadResult ModelLoader::Load(const std::filesystem::path& path,
@@ -53,17 +59,17 @@ ModelLoadResult ModelLoader::Load(const std::filesystem::path& path,
     if (extension == ".obj") {
         std::string text;
         if (!ReadFile(path, text)) { ModelLoadResult result; result.error.message = "unable to read OBJ file"; return result; }
-        return AssetObj::DecodeObj(text, options, path.parent_path());
+        return WithSourcePath(AssetObj::DecodeObj(text, options, path.parent_path()), path);
     }
     if (extension == ".gltf") {
         std::string text;
         if (!ReadFile(path, text)) { ModelLoadResult result; result.error.message = "unable to read glTF file"; return result; }
-        return AssetGltf::DecodeDocument(text, path.parent_path(), {}, options);
+        return WithSourcePath(AssetGltf::DecodeDocument(text, path.parent_path(), {}, options), path);
     }
     if (extension == ".glb") {
         std::vector<std::byte> bytes;
         if (!ReadBinary(path, bytes)) { ModelLoadResult result; result.error.message = "unable to read GLB file"; return result; }
-        return AssetGltf::DecodeGlb(bytes, path.parent_path(), options);
+        return WithSourcePath(AssetGltf::DecodeGlb(bytes, path.parent_path(), options), path);
     }
     ModelLoadResult result; result.error.message = "unsupported model file extension"; return result;
 }
@@ -79,6 +85,7 @@ ModelLoadResult ModelLoader::LoadObj(std::string_view text,
                                      const ModelLoadOptions& options)
 {
     ModelLoadResult result = AssetObj::DecodeObj(text, options, baseDirectory);
+    result.asset.sourcePath = baseDirectory.lexically_normal();
     if (result.error.message.empty() && !result.asset.IsValid()) result.error.message = "OBJ contains no valid geometry";
     return result;
 }
@@ -87,14 +94,18 @@ ModelLoadResult ModelLoader::LoadGlb(std::span<const std::byte> bytes,
                                      const std::filesystem::path& baseDirectory,
                                      const ModelLoadOptions& options)
 {
-    return AssetGltf::DecodeGlb(bytes, baseDirectory, options);
+    ModelLoadResult result = AssetGltf::DecodeGlb(bytes, baseDirectory, options);
+    result.asset.sourcePath = baseDirectory.lexically_normal();
+    return result;
 }
 
 ModelLoadResult ModelLoader::LoadGltf(std::string_view text,
                                       const std::filesystem::path& baseDirectory,
                                       const ModelLoadOptions& options)
 {
-    return AssetGltf::DecodeDocument(text, baseDirectory, {}, options);
+    ModelLoadResult result = AssetGltf::DecodeDocument(text, baseDirectory, {}, options);
+    result.asset.sourcePath = baseDirectory.lexically_normal();
+    return result;
 }
 
 } // namespace Concord

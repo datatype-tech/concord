@@ -11,6 +11,7 @@
 #include "engine/render/vulkan/VulkanRayTracingOutput.h"
 #include "engine/render/vulkan/VulkanRayTracingPipeline.h"
 #include "engine/render/vulkan/VulkanRayTracingScene.h"
+#include "engine/render/vulkan/VulkanModelAssetCache.h"
 
 namespace Concord {
 
@@ -22,7 +23,8 @@ bool RecordVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer c
                                  VulkanRayTracingOutputRing& outputRing,
                                  const VulkanBoxPipeline& boxPipeline,
                                  VkDescriptorSet frameDataSet, u32 frameIndex,
-                                 bool& sceneBuilt) noexcept;
+                                 bool& sceneBuilt,
+                                 const VulkanModelAssetCache* modelAssets = nullptr) noexcept;
 
 /** Blits a completed RT output into the acquired swapchain image. */
 bool CompositeVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer commandBuffer,

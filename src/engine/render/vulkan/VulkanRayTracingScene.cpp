@@ -117,7 +117,6 @@ bool CreateVulkanRayTracingScene(const VulkanContext& context,
     }
     return true;
 }
-
 void DestroyVulkanRayTracingScene(const VulkanContext& context,
                                   VulkanRayTracingScene& scene) noexcept
 {
@@ -130,6 +129,7 @@ void DestroyVulkanRayTracingScene(const VulkanContext& context,
             scene.dispatch.destroyAccelerationStructure(device, scene.bottomLevel, nullptr);
         }
     }
+    DestroyVulkanRayTracingModelPrimitives(context, scene);
     DestroyVulkanRayTracingSceneDescriptor(context, scene);
     DestroyVulkanBuffer(context, scene.scratchBuffer);
     DestroyVulkanBuffer(context, scene.topLevelBuffer);
@@ -139,12 +139,10 @@ void DestroyVulkanRayTracingScene(const VulkanContext& context,
     DestroyVulkanBuffer(context, scene.vertexBuffer);
     scene = {};
 }
-
 bool RecordVulkanRayTracingSceneBuild(VkCommandBuffer commandBuffer,
                                       VulkanRayTracingScene& scene,
                                       const RenderSceneSnapshot* snapshot) noexcept
 {
     return RecordVulkanRayTracingSceneBuildInternal(commandBuffer, scene, snapshot);
 }
-
 } // namespace Concord

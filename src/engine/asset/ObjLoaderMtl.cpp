@@ -46,7 +46,9 @@ bool ParseMtlFile(Builder& builder, const std::filesystem::path& path)
             f32 shininess = 0.0f;
             if (stream >> shininess) current->roughness = std::sqrt(2.0f / (shininess + 2.0f));
         } else if (current && keyword == "map_Kd") {
-            std::string texture; stream >> texture; current->baseColorTexture = texture;
+            std::string texture;
+            stream >> texture;
+            if (!texture.empty()) current->baseColorTexture = texture;
         }
     }
     return true;

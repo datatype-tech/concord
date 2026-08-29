@@ -12,12 +12,13 @@ namespace Concord {
 bool CreateVulkanSkinnedPipeline(const VulkanContext& context, VkFormat colorFormat,
                                  VkFormat depthFormat, VkDescriptorSetLayout frameDataLayout,
                                  VkDescriptorSetLayout skinningLayout,
+                                 VkDescriptorSetLayout textureLayout,
                                  VulkanSkinnedPipeline& pipeline)
 {
     DestroyVulkanSkinnedPipeline(context, pipeline);
     if (context.device == VK_NULL_HANDLE || colorFormat == VK_FORMAT_UNDEFINED ||
         depthFormat == VK_FORMAT_UNDEFINED || frameDataLayout == VK_NULL_HANDLE ||
-        skinningLayout == VK_NULL_HANDLE) return false;
+        skinningLayout == VK_NULL_HANDLE || textureLayout == VK_NULL_HANDLE) return false;
     const std::vector<u32> vertexCode = ReadVulkanShaderCode("skinned.vert.spv");
     const std::vector<u32> fragmentCode = ReadVulkanShaderCode("skinned.frag.spv");
     const VkShaderModule vertex = CreateVulkanShaderModule(context, vertexCode);
@@ -27,7 +28,8 @@ bool CreateVulkanSkinnedPipeline(const VulkanContext& context, VkFormat colorFor
         if (fragment != VK_NULL_HANDLE) vkDestroyShaderModule(context.device, fragment, nullptr);
         return false;
     }
-    pipeline.layout = CreateVulkanSkinnedPipelineLayout(context, frameDataLayout, skinningLayout);
+    pipeline.layout = CreateVulkanSkinnedPipelineLayout(context, frameDataLayout, skinningLayout,
+                                                        textureLayout);
     if (pipeline.layout != VK_NULL_HANDLE) {
         pipeline.depth = CreateVulkanSkinnedGraphicsPipeline(context, colorFormat, depthFormat,
                                                               pipeline.layout, vertex,
@@ -43,6 +45,7 @@ bool CreateVulkanSkinnedPipeline(const VulkanContext& context, VkFormat colorFor
     }
     pipeline.frameDataLayout = frameDataLayout;
     pipeline.skinningLayout = skinningLayout;
+    pipeline.textureLayout = textureLayout;
     return true;
 }
 

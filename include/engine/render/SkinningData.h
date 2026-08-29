@@ -17,6 +17,7 @@ namespace Concord {
 /** Descriptor coordinates shared by the skinned graphics pipeline. */
 inline constexpr u32 kSkinningPaletteDescriptorSet = 1;
 inline constexpr u32 kSkinningPaletteBinding = 0;
+inline constexpr u32 kSkinningTextureDescriptorSet = 2;
 
 /** Vertex attribute locations used by ModelVertex in the skinned shader. */
 inline constexpr u32 kSkinningPositionLocation = 0;

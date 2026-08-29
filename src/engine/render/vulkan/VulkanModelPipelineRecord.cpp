@@ -32,7 +32,8 @@ void RecordVulkanModelDepthPass(VkCommandBuffer commandBuffer, VkExtent2D extent
                                 VkImageView depthView, const VulkanModelPipeline& pipeline,
                                 const RenderSceneSnapshot& snapshot,
                                 VkDescriptorSet frameDataSet,
-                                const VulkanModelAssetCache& cache, bool clearDepth)
+                                const VulkanModelAssetCache& cache,
+                                const VulkanTextureCache& textureCache, bool clearDepth)
 {
     if (!pipeline.HasDepth() || commandBuffer == VK_NULL_HANDLE || depthView == VK_NULL_HANDLE ||
         frameDataSet == VK_NULL_HANDLE) return;
@@ -43,7 +44,7 @@ void RecordVulkanModelDepthPass(VkCommandBuffer commandBuffer, VkExtent2D extent
     vkCmdBeginRendering(commandBuffer, &rendering);
     SetVulkanModelViewport(commandBuffer, extent);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.depth);
-    RecordVulkanModelDraws(commandBuffer, pipeline, snapshot, frameDataSet, cache);
+    RecordVulkanModelDraws(commandBuffer, pipeline, snapshot, frameDataSet, cache, textureCache);
     vkCmdEndRendering(commandBuffer);
 }
 
@@ -52,7 +53,8 @@ void RecordVulkanModelColorPass(VkCommandBuffer commandBuffer, VkExtent2D extent
                                 const VulkanModelPipeline& pipeline,
                                 const RenderSceneSnapshot& snapshot,
                                 VkDescriptorSet frameDataSet,
-                                const VulkanModelAssetCache& cache, Vec3 clearColor,
+                                const VulkanModelAssetCache& cache,
+                                const VulkanTextureCache& textureCache, Vec3 clearColor,
                                 bool clearColorTarget)
 {
     if (!pipeline.HasColor() || commandBuffer == VK_NULL_HANDLE || colorView == VK_NULL_HANDLE ||
@@ -80,7 +82,7 @@ void RecordVulkanModelColorPass(VkCommandBuffer commandBuffer, VkExtent2D extent
     vkCmdBeginRendering(commandBuffer, &rendering);
     SetVulkanModelViewport(commandBuffer, extent);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.color);
-    RecordVulkanModelDraws(commandBuffer, pipeline, snapshot, frameDataSet, cache);
+    RecordVulkanModelDraws(commandBuffer, pipeline, snapshot, frameDataSet, cache, textureCache);
     vkCmdEndRendering(commandBuffer);
 }
 

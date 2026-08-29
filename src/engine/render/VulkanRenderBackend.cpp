@@ -66,6 +66,10 @@ bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
     if (!CreateVulkanFrameDataResources(impl.context, impl.frameData)) {
         std::fprintf(stderr, "[Concord] frame data buffer unavailable; using clear-only fallback\n");
     } else {
+        if (!impl.textureCache.Initialize(impl.context)) {
+            std::fprintf(stderr,
+                         "[Concord] texture resources unavailable; imported models disabled\n");
+        }
         if (rayPipelineShaderAvailable && impl.rayTracing.IsReady() &&
             CreateVulkanRayTracingPipeline(impl.context, impl.frameData.layout,
                                            impl.rayTracing.scenes[0].descriptorLayout,

@@ -18,8 +18,10 @@ layout(push_constant) uniform ObjectPushConstants {
 
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec3 vertexNormal;
+layout(location = 2) in vec2 vertexTexcoord;
 layout(location = 0) out vec3 worldNormal;
 layout(location = 1) out vec3 worldPosition;
+layout(location = 2) out vec2 texcoord;
 
 void main()
 {
@@ -30,5 +32,6 @@ void main()
                       ? normalize(transpose(inverse(linear)) * vertexNormal)
                       : vec3(0.0, 1.0, 0.0);
     worldPosition = world.xyz;
+    texcoord = vertexTexcoord;
     gl_Position = frame.camera.projection * frame.camera.view * world;
 }

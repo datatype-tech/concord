@@ -64,6 +64,16 @@ struct VulkanModelAsset {
                materialBuffer.IsReady() && !primitives.empty() &&
                vertexCount != 0 && indexCount != 0;
     }
+
+    /** Whether the geometry buffers expose the Vulkan AS build-input contract. */
+    [[nodiscard]] bool HasRayTracingGeometry() const noexcept
+    {
+        constexpr VkBufferUsageFlags required =
+            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        return IsReady() && vertexBuffer.HasDeviceAddress() && indexBuffer.HasDeviceAddress() &&
+               (vertexBuffer.usage & required) == required &&
+               (indexBuffer.usage & required) == required;
+    }
 };
 
 /** Creates host-visible vertex, index and material buffers for an asset. */

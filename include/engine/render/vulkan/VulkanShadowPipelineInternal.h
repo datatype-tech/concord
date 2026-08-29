@@ -8,6 +8,7 @@
 #include "engine/render/vulkan/VulkanShadowPipeline.h"
 
 #include "engine/core/Mat4.h"
+#include "engine/render/SkinningData.h"
 
 #include <cstddef>
 
@@ -31,6 +32,15 @@ struct VulkanModelShadowPushConstants {
 static_assert(sizeof(VulkanModelShadowPushConstants) == 128);
 static_assert(offsetof(VulkanModelShadowPushConstants, model) == 64);
 
+/** Push values for a skinned shadow draw; model already includes light projection. */
+struct alignas(16) VulkanSkinnedShadowPushConstants {
+    Mat4 model{};
+    SkinningPaletteRange palette{};
+};
+
+static_assert(sizeof(VulkanSkinnedShadowPushConstants) == 80);
+static_assert(offsetof(VulkanSkinnedShadowPushConstants, palette) == 64);
+
 /** Creates the optional indexed model shadow pipeline. */
 VkPipelineLayout CreateVulkanModelShadowPipelineLayout(const VulkanContext& context);
 
@@ -49,6 +59,28 @@ void RecordVulkanModelShadowCasters(
 /** Makes imported model uploads visible before the shadow rendering scope begins. */
 void InsertVulkanModelShadowInputBarrier(
     VkCommandBuffer commandBuffer, const RenderSceneSnapshot& snapshot,
+    const VulkanModelAssetCache& modelAssets) noexcept;
+
+/** Creates the optional GPU-skinned model shadow pipeline. */
+VkPipelineLayout CreateVulkanSkinnedShadowPipelineLayout(
+    const VulkanContext& context, VkDescriptorSetLayout skinningLayout);
+
+/** Creates a depth-only pipeline for GPU-skinned model vertices. */
+VkPipeline CreateVulkanSkinnedShadowDepthPipeline(const VulkanContext& context,
+                                                  VkFormat depthFormat,
+                                                  VkPipelineLayout layout,
+                                                  VkShaderModule vertex);
+
+/** Loads and installs the optional GPU-skinned shadow pipeline. */
+bool CreateVulkanSkinnedShadowPipeline(const VulkanContext& context, VkFormat depthFormat,
+                                       VkDescriptorSetLayout skinningLayout,
+                                       VulkanShadowPipeline& pipeline);
+
+/** Records skinned model casters using the current frame's joint palette. */
+void RecordVulkanSkinnedShadowCasters(
+    VkCommandBuffer commandBuffer, const VulkanShadowPipeline& pipeline,
+    const RenderSceneSnapshot& snapshot, const Mat4& lightViewProjection,
+    const VulkanSkinningResources& skinningResources, u32 frameIndex,
     const VulkanModelAssetCache& modelAssets) noexcept;
 
 } // namespace Concord

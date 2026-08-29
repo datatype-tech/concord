@@ -8,17 +8,18 @@ namespace Concord {
 
 VkPipelineLayout CreateVulkanSkinnedPipelineLayout(const VulkanContext& context,
                                                    VkDescriptorSetLayout frameDataLayout,
-                                                   VkDescriptorSetLayout skinningLayout)
+                                                   VkDescriptorSetLayout skinningLayout,
+                                                   VkDescriptorSetLayout textureLayout)
 {
     if (context.device == VK_NULL_HANDLE || frameDataLayout == VK_NULL_HANDLE ||
-        skinningLayout == VK_NULL_HANDLE) return VK_NULL_HANDLE;
-    VkDescriptorSetLayout layouts[] = {frameDataLayout, skinningLayout};
+        skinningLayout == VK_NULL_HANDLE || textureLayout == VK_NULL_HANDLE) return VK_NULL_HANDLE;
+    VkDescriptorSetLayout layouts[] = {frameDataLayout, skinningLayout, textureLayout};
     VkPushConstantRange pushRange{};
     pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushRange.size = sizeof(SkinningObjectPushConstants);
     VkPipelineLayoutCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    info.setLayoutCount = 2;
+    info.setLayoutCount = 3;
     info.pSetLayouts = layouts;
     info.pushConstantRangeCount = 1;
     info.pPushConstantRanges = &pushRange;

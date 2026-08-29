@@ -27,7 +27,8 @@ static_assert(offsetof(VulkanModelPushConstants, material) == 80);
 
 /** Creates the descriptor and push-constant layout for model pipelines. */
 VkPipelineLayout CreateVulkanModelPipelineLayout(const VulkanContext& context,
-                                                VkDescriptorSetLayout frameDataLayout);
+                                                VkDescriptorSetLayout frameDataLayout,
+                                                VkDescriptorSetLayout textureLayout);
 
 /** Creates one dynamic-rendering model graphics pipeline. */
 VkPipeline CreateVulkanModelGraphicsPipeline(const VulkanContext& context,
@@ -40,7 +41,8 @@ void RecordVulkanModelDraws(VkCommandBuffer commandBuffer,
                             const VulkanModelPipeline& pipeline,
                             const RenderSceneSnapshot& snapshot,
                             VkDescriptorSet frameDataSet,
-                            const VulkanModelAssetCache& cache);
+                            const VulkanModelAssetCache& cache,
+                            const VulkanTextureCache& textureCache);
 
 /** Makes host uploads visible to indexed vertex input and material reads. */
 void InsertVulkanModelInputBarrier(VkCommandBuffer commandBuffer,

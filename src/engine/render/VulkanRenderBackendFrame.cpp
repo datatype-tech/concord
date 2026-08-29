@@ -114,6 +114,7 @@ void VulkanRenderBackend::EndFrame()
         impl.HandleFrameFailure(impl.frames.Current());
         return;
     }
+    impl.textureCache.CommitUploads();
     impl.imageAcquirePending = false;
     if (impl.imageIndex < impl.swapchain.imagesInFlight.size()) {
         impl.swapchain.imagesInFlight[impl.imageIndex] = impl.frames.Current().inFlight;
@@ -146,5 +147,4 @@ void VulkanRenderBackend::WaitIdle()
         m_impl->frameSyncReady = false;
     }
 }
-
 } // namespace Concord

@@ -8,8 +8,11 @@
 #include "engine/core/Types.h"
 #include "engine/render/RenderSceneSnapshot.h"
 #include "engine/render/vulkan/VulkanBuffer.h"
+#include "engine/render/vulkan/VulkanRayTracingModel.h"
 
 #include <vulkan/vulkan.h>
+
+#include <vector>
 
 namespace Concord {
 
@@ -38,7 +41,7 @@ inline constexpr u32 kVulkanRayTracingDescriptorSet = 2;
 inline constexpr VkDeviceSize kVulkanRayTracingVertexAddressAlignment = 4;
 inline constexpr VkDeviceSize kVulkanRayTracingInstanceAddressAlignment = 16;
 
-/** Optional hardware ray-tracing acceleration structures for one static unit Box. */
+/** Optional hardware ray-tracing structures for Box and static model geometry. */
 struct VulkanRayTracingScene {
     VkDevice device = VK_NULL_HANDLE;
     VulkanRayTracingDispatch dispatch{};
@@ -58,6 +61,8 @@ struct VulkanRayTracingScene {
     VkDescriptorSetLayout descriptorLayout = VK_NULL_HANDLE;
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    /** BLAS resources lazily created for static imported-model primitives. */
+    std::vector<VulkanRayTracingModelPrimitive> modelPrimitives;
     /** Includes non-shadow-casting meshes when this scene feeds primary RT rays. */
     bool includeNonShadowCasters = false;
 
@@ -79,7 +84,7 @@ struct VulkanRayTracingScene {
     }
 };
 
-/** Allocates static Box geometry, BLAS/TLAS storage, and one TLAS instance. */
+/** Allocates static Box geometry and BLAS/TLAS storage; model BLAS are lazy. */
 bool CreateVulkanRayTracingScene(const VulkanContext& context,
                                  VulkanRayTracingScene& scene);
 

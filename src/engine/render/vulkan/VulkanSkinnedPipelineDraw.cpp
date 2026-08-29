@@ -4,11 +4,13 @@
 
 #include "engine/render/vulkan/VulkanSkinnedPipelineInternal.h"
 #include "engine/render/vulkan/VulkanModelPipelineInternal.h"
+#include "engine/render/vulkan/VulkanTextureCache.h"
 
 #include "engine/core/Color.h"
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 
 namespace Concord {
 namespace {
@@ -39,8 +41,24 @@ SkinningObjectPushConstants MakePush(const RenderObjectSnapshot& object,
     return push;
 }
 
+std::filesystem::path AssetDirectory(const ModelAsset& asset)
+{
+    if (asset.sourcePath.empty()) return {};
+    return asset.sourcePath.has_extension() ? asset.sourcePath.parent_path() : asset.sourcePath;
+}
+
+const VulkanTexture* ResolveTexture(const VulkanTextureCache& textureCache,
+                                   const VulkanModelAsset& asset,
+                                   const ModelAsset& source,
+                                   const VulkanModelPrimitiveRange& range)
+{
+    if (range.materialIndex >= asset.baseColorTextures.size()) return textureCache.Fallback();
+    return textureCache.Find(asset.baseColorTextures[range.materialIndex], AssetDirectory(source));
+}
+
 void DrawObject(VkCommandBuffer commandBuffer, const VulkanSkinnedPipeline& pipeline,
-                const RenderObjectSnapshot& object, const VulkanModelAssetCache& cache)
+                const RenderObjectSnapshot& object, const VulkanModelAssetCache& cache,
+                const VulkanTextureCache& textureCache)
 {
     if (object.shape != PrimitiveShape::Model || !object.modelAsset ||
         object.skinningRange.jointCount == 0) return;
@@ -55,6 +73,14 @@ void DrawObject(VkCommandBuffer commandBuffer, const VulkanSkinnedPipeline& pipe
         const VulkanModelMaterial* material = range.materialIndex < asset->materials.size()
                                                   ? &asset->materials[range.materialIndex]
                                                   : nullptr;
+        const VulkanTexture* texture = ResolveTexture(textureCache, *asset, *object.modelAsset,
+                                                      range);
+        if (pipeline.textureLayout != VK_NULL_HANDLE &&
+            (texture == nullptr || texture->descriptorSet == VK_NULL_HANDLE)) continue;
+        if (pipeline.textureLayout != VK_NULL_HANDLE) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    pipeline.layout, 2, 1, &texture->descriptorSet, 0, nullptr);
+        }
         const SkinningObjectPushConstants push = MakePush(object, material);
         vkCmdPushConstants(commandBuffer, pipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
@@ -82,7 +108,8 @@ void RecordVulkanSkinnedDraws(VkCommandBuffer commandBuffer,
                               const RenderSceneSnapshot& snapshot,
                               VkDescriptorSet frameDataSet,
                               const VulkanSkinningResources& resources, u32 frameIndex,
-                              const VulkanModelAssetCache& cache)
+                              const VulkanModelAssetCache& cache,
+                              const VulkanTextureCache& textureCache)
 {
     if (pipeline.layout == VK_NULL_HANDLE || !snapshot.hasCamera ||
         frameDataSet == VK_NULL_HANDLE || !BindVulkanSkinningPalette(
@@ -90,7 +117,7 @@ void RecordVulkanSkinnedDraws(VkCommandBuffer commandBuffer,
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0,
                             1, &frameDataSet, 0, nullptr);
     for (const RenderObjectSnapshot& object : snapshot.objects) {
-        DrawObject(commandBuffer, pipeline, object, cache);
+        DrawObject(commandBuffer, pipeline, object, cache, textureCache);
     }
 }
 

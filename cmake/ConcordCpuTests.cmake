@@ -13,8 +13,18 @@ add_executable(concord_asset_tests
     tests/AssetTests.cpp
     ${CONCORD_ASSET_SOURCES})
 target_compile_features(concord_asset_tests PRIVATE cxx_std_23)
-target_include_directories(concord_asset_tests PRIVATE ${CONCORD_TEST_INCLUDE})
+target_include_directories(concord_asset_tests PRIVATE
+    ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/stb)
 add_test(NAME concord_asset_tests COMMAND concord_asset_tests)
+
+add_executable(concord_image_tests
+    tests/ImageAssetTests.cpp
+    src/engine/asset/ImageAsset.cpp src/engine/asset/ImageAssetCache.cpp
+    src/engine/asset/ImageAssetUri.cpp src/engine/asset/StbImage.cpp)
+target_compile_features(concord_image_tests PRIVATE cxx_std_23)
+target_include_directories(concord_image_tests PRIVATE
+    ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/stb)
+add_test(NAME concord_image_tests COMMAND concord_image_tests)
 
 add_executable(concord_render_snapshot_tests
     tests/RenderSceneSnapshotTests.cpp src/engine/render/RenderSceneSnapshot.cpp

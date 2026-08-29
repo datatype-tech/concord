@@ -30,14 +30,17 @@ void RecordVulkanDirectionalShadowPass(VkCommandBuffer commandBuffer, VulkanShad
                                        const VulkanShadowPipeline& pipeline,
                                        const RenderSceneSnapshot& snapshot,
                                        const Mat4& lightViewProjection,
-                                       const VulkanModelAssetCache* modelAssets) noexcept
+                                       const VulkanModelAssetCache* modelAssets,
+                                       const VulkanSkinningResources* skinningResources,
+                                       u32 skinningFrameIndex) noexcept
 {
     if (!shadowMap.IsReady() || !pipeline.IsReady() || snapshot.objects.empty()) {
         return;
     }
     TransitionVulkanShadowMapToDepth(commandBuffer, shadowMap);
     RecordVulkanShadowPass(commandBuffer, shadowMap.extent, shadowMap.view, pipeline, snapshot,
-                            lightViewProjection, modelAssets);
+                            lightViewProjection, modelAssets, skinningResources,
+                            skinningFrameIndex);
     TransitionVulkanShadowMapToRead(commandBuffer, shadowMap);
 }
 

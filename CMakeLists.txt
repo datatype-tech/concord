@@ -91,7 +91,10 @@ target_include_directories(concord_runtime PUBLIC
 
 # SDL3 is a runtime implementation detail: PRIVATE keeps it off the
 # consumer's include path, enforcing the no-leak rule in AGENTS.md §5.
-target_include_directories(concord_runtime PRIVATE ${CONCORD_3RD_DIR}/SDL3)
+target_include_directories(concord_runtime PRIVATE
+    ${CONCORD_3RD_DIR}/SDL3
+    ${CONCORD_3RD_DIR}/stb
+)
 target_link_libraries(concord_runtime PRIVATE SDL3::SDL3)
 
 # ---------------------------------------------------------------------------

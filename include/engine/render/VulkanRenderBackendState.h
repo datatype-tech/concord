@@ -6,6 +6,7 @@
 #include "engine/render/VulkanRenderBackend.h"
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
 #include "engine/render/vulkan/VulkanModelPipeline.h"
+#include "engine/render/vulkan/VulkanTextureCache.h"
 #include "engine/render/vulkan/VulkanSkinningResources.h"
 #include "engine/render/vulkan/VulkanSkinnedPipeline.h"
 #include "engine/render/vulkan/VulkanDepthBuffer.h"
@@ -34,6 +35,7 @@ struct VulkanRenderBackend::Impl {
     VulkanBoxPipeline boxPipeline{};
     VulkanModelPipeline modelPipeline{};
     VulkanModelAssetCache modelAssets{};
+    VulkanTextureCache textureCache{};
     VulkanSkinningResources skinningResources{};
     VulkanSkinnedPipeline skinnedPipeline{};
     VulkanFrameDataResources frameData{};
@@ -74,6 +76,7 @@ struct VulkanRenderBackend::Impl {
         }
         imageAcquirePending = false;
         acquiredImageFence = VK_NULL_HANDLE;
+        textureCache.InvalidateUploads();
         frameSyncReady = true;
         return true;
     }

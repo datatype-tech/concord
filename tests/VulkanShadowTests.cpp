@@ -18,13 +18,16 @@ int main()
         sizeof(VulkanShadowPushConstants) != 128 ||
         offsetof(VulkanShadowPushConstants, model) != 64 ||
         sizeof(VulkanModelShadowPushConstants) != 128 ||
-        offsetof(VulkanModelShadowPushConstants, model) != 64) {
+        offsetof(VulkanModelShadowPushConstants, model) != 64 ||
+        sizeof(VulkanSkinnedShadowPushConstants) != 80 ||
+        offsetof(VulkanSkinnedShadowPushConstants, palette) != 64) {
         return 1;
     }
 
     VulkanShadowMap shadowMap{};
     VulkanShadowPipeline pipeline{};
     if (shadowMap.IsReady() || pipeline.IsReady() || pipeline.HasModel() ||
+        pipeline.HasSkinned() ||
         shadowMap.extent.width != 0 ||
         shadowMap.layout != VK_IMAGE_LAYOUT_UNDEFINED) {
         return 1;

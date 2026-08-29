@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 
 namespace Concord {
 namespace {
@@ -17,7 +18,6 @@ f32 SafeEmissive(Vec4 value) noexcept
     const f32 luminance = value.x * 0.2126f + value.y * 0.7152f + value.z * 0.0722f;
     return std::isfinite(luminance) ? std::max(luminance, 0.0f) : 0.0f;
 }
-
 VulkanModelPushConstants MakePush(const RenderObjectSnapshot& object,
                                   const VulkanModelMaterial* material) noexcept
 {
@@ -36,9 +36,25 @@ VulkanModelPushConstants MakePush(const RenderObjectSnapshot& object,
     }
     return push;
 }
+std::filesystem::path AssetDirectory(const ModelAsset& asset)
+{
+    if (asset.sourcePath.empty()) return {};
+    return asset.sourcePath.has_extension() ? asset.sourcePath.parent_path() : asset.sourcePath;
+}
+const VulkanTexture* ResolveTexture(const VulkanTextureCache& textureCache,
+                                   const VulkanModelAsset& asset,
+                                   const ModelAsset& source,
+                                   const VulkanModelPrimitiveRange& range)
+{
+    if (range.materialIndex >= asset.baseColorTextures.size()) {
+        return textureCache.Fallback();
+    }
+    return textureCache.Find(asset.baseColorTextures[range.materialIndex], AssetDirectory(source));
+}
 
 void DrawObject(VkCommandBuffer commandBuffer, const VulkanModelPipeline& pipeline,
-                const RenderObjectSnapshot& object, const VulkanModelAssetCache& cache)
+                const RenderObjectSnapshot& object, const VulkanModelAssetCache& cache,
+                const VulkanTextureCache& textureCache)
 {
     if (!object.modelAsset || object.shape != PrimitiveShape::Model ||
         object.skinningRange.jointCount != 0) return;
@@ -53,6 +69,16 @@ void DrawObject(VkCommandBuffer commandBuffer, const VulkanModelPipeline& pipeli
         const VulkanModelMaterial* material = range.materialIndex < asset->materials.size()
                                                   ? &asset->materials[range.materialIndex]
                                                   : nullptr;
+        const VulkanTexture* texture = ResolveTexture(textureCache, *asset, *object.modelAsset,
+                                                      range);
+        if (pipeline.textureLayout != VK_NULL_HANDLE &&
+            (texture == nullptr || texture->descriptorSet == VK_NULL_HANDLE)) {
+            continue;
+        }
+        if (pipeline.textureLayout != VK_NULL_HANDLE) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    pipeline.layout, 1, 1, &texture->descriptorSet, 0, nullptr);
+        }
         const VulkanModelPushConstants push = MakePush(object, material);
         vkCmdPushConstants(commandBuffer, pipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
@@ -64,7 +90,6 @@ void DrawObject(VkCommandBuffer commandBuffer, const VulkanModelPipeline& pipeli
 }
 
 } // namespace
-
 void SetVulkanModelViewport(VkCommandBuffer commandBuffer, VkExtent2D extent)
 {
     VkViewport viewport{};
@@ -75,22 +100,21 @@ void SetVulkanModelViewport(VkCommandBuffer commandBuffer, VkExtent2D extent)
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 }
-
 void RecordVulkanModelDraws(VkCommandBuffer commandBuffer,
                             const VulkanModelPipeline& pipeline,
                             const RenderSceneSnapshot& snapshot,
                             VkDescriptorSet frameDataSet,
-                            const VulkanModelAssetCache& cache)
+                            const VulkanModelAssetCache& cache,
+                            const VulkanTextureCache& textureCache)
 {
     if (pipeline.layout == VK_NULL_HANDLE || !snapshot.hasCamera ||
         frameDataSet == VK_NULL_HANDLE) return;
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0,
                             1, &frameDataSet, 0, nullptr);
     for (const RenderObjectSnapshot& object : snapshot.objects) {
-        DrawObject(commandBuffer, pipeline, object, cache);
+        DrawObject(commandBuffer, pipeline, object, cache, textureCache);
     }
 }
-
 void InsertVulkanModelInputBarrier(VkCommandBuffer commandBuffer,
                                    const RenderSceneSnapshot& snapshot,
                                    const VulkanModelAssetCache& cache)

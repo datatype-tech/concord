@@ -9,6 +9,50 @@
 
 namespace Concord {
 
+namespace {
+
+bool AppendInstance(std::array<VkAccelerationStructureInstanceKHR,
+                                kVulkanRayTracingMaxInstances>& instances,
+                    u32& count, const Mat4& model, VkDeviceAddress address,
+                    u32 customIndex) noexcept
+{
+    if (address == 0 || count >= kVulkanRayTracingMaxInstances) return false;
+    VkAccelerationStructureInstanceKHR& instance = instances[count];
+    for (u32 row = 0; row < 3; ++row) {
+        for (u32 column = 0; column < 4; ++column) {
+            instance.transform.matrix[row][column] = model.col[column][row];
+        }
+    }
+    instance.instanceCustomIndex = customIndex;
+    instance.mask = 0xff;
+    instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR |
+                     VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
+    instance.accelerationStructureReference = address;
+    ++count;
+    return true;
+}
+
+void AppendModelInstances(
+    const VulkanRayTracingScene& scene, const RenderObjectSnapshot& object,
+    std::array<VkAccelerationStructureInstanceKHR, kVulkanRayTracingMaxInstances>& instances,
+    u32& count) noexcept
+{
+    if (object.shape != PrimitiveShape::Model || !object.modelAsset || object.modelSkin >= 0 ||
+        object.skinningRange.jointCount != 0) return;
+    for (const VulkanRayTracingModelPrimitive& primitive : scene.modelPrimitives) {
+        if (primitive.source != object.modelAsset.get() || !primitive.IsReady() ||
+            (object.modelMesh != kAllModelMeshes && primitive.meshIndex != object.modelMesh)) {
+            continue;
+        }
+        if (!AppendInstance(instances, count, object.model, primitive.address,
+                            kVulkanRayTracingModelInstanceBit | primitive.materialIndex)) {
+            return;
+        }
+    }
+}
+
+} // namespace
+
 /** Converts a model list into bounded TLAS instances and uploads them. */
 u32 UploadVulkanRayTracingInstances(VulkanRayTracingScene& scene,
                                     const RenderSceneSnapshot* snapshot) noexcept
@@ -26,22 +70,12 @@ u32 UploadVulkanRayTracingInstances(VulkanRayTracingScene& scene,
         instances[0].accelerationStructureReference = scene.bottomLevelAddress;
     } else {
         for (const RenderObjectSnapshot& object : snapshot->objects) {
-            if (object.shape != PrimitiveShape::Box ||
-                (!scene.includeNonShadowCasters && !object.castShadow) ||
-                count >= kVulkanRayTracingMaxInstances) {
-                continue;
+            if (!scene.includeNonShadowCasters && !object.castShadow) continue;
+            if (object.shape == PrimitiveShape::Box) {
+                AppendInstance(instances, count, object.model, scene.bottomLevelAddress, count);
+            } else if (object.shape == PrimitiveShape::Model) {
+                AppendModelInstances(scene, object, instances, count);
             }
-            VkAccelerationStructureInstanceKHR& instance = instances[count];
-            for (u32 row = 0; row < 3; ++row) {
-                for (u32 column = 0; column < 4; ++column) {
-                    instance.transform.matrix[row][column] = object.model.col[column][row];
-                }
-            }
-            instance.instanceCustomIndex = count++;
-            instance.mask = 0xff;
-            instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR |
-                             VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
-            instance.accelerationStructureReference = scene.bottomLevelAddress;
         }
     }
     if (count == 0) {

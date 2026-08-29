@@ -49,6 +49,8 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const bool modelUploadsReady =
         impl.PrepareModelAssets(snapshot, hasModelObjects, hasBoxObjects,
                                 hasStaticModelObjects, hasSkinnedModelObjects);
+    const bool textureUploadsReady = !hasModelObjects ||
+                                     impl.textureCache.RecordUploads(commandBuffer);
     const bool skinningUploadReady =
         impl.UploadSkinningFrame(snapshot, impl.frames.currentFrame);
     impl.visibleObjectCount = snapshot.objects.size();
@@ -73,17 +75,19 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
                                              ? impl.frameData.sets[impl.frames.currentFrame]
                                              : VK_NULL_HANDLE;
     const bool modelRasterReady = hasStaticModelObjects && modelUploadsReady &&
+                                  textureUploadsReady && impl.textureCache.IsReady() &&
                                   impl.modelPipeline.IsReady() &&
                                   frameDataSet != VK_NULL_HANDLE;
     const bool skinnedRasterReady = hasSkinnedModelObjects && modelUploadsReady &&
+                                    textureUploadsReady && impl.textureCache.IsReady() &&
                                     skinningUploadReady && impl.skinnedPipeline.IsReady() &&
                                     impl.skinningResources.IsReady() &&
                                     frameDataSet != VK_NULL_HANDLE;
     bool rayTracingBuilt = false;
-    const bool rayTracingRendered = !hasModelObjects && RecordVulkanRayTracingFrame(
+    const bool rayTracingRendered = RecordVulkanRayTracingFrame(
         impl.context, commandBuffer, rayTracing, snapshot, impl.rayTracingPipeline,
         impl.rayTracingOutput, impl.boxPipeline, frameDataSet, impl.frames.currentFrame,
-        rayTracingBuilt);
+        rayTracingBuilt, hasModelObjects ? &impl.modelAssets : nullptr);
     TransitionToColorAttachment(commandBuffer, image,
                                 impl.swapchain.imageLayouts[impl.imageIndex]);
     impl.swapchain.imageLayouts[impl.imageIndex] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;

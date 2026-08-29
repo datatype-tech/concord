@@ -11,10 +11,11 @@
 
 namespace Concord {
 
-/** Creates the two-set layout and skinning push-constant range. */
+/** Creates the frame, palette and texture set layout with push constants. */
 VkPipelineLayout CreateVulkanSkinnedPipelineLayout(const VulkanContext& context,
                                                    VkDescriptorSetLayout frameDataLayout,
-                                                   VkDescriptorSetLayout skinningLayout);
+                                                   VkDescriptorSetLayout skinningLayout,
+                                                   VkDescriptorSetLayout textureLayout);
 
 /** Creates one dynamic-rendering skinned graphics pipeline. */
 VkPipeline CreateVulkanSkinnedGraphicsPipeline(const VulkanContext& context,
@@ -28,7 +29,8 @@ void RecordVulkanSkinnedDraws(VkCommandBuffer commandBuffer,
                               const RenderSceneSnapshot& snapshot,
                               VkDescriptorSet frameDataSet,
                               const VulkanSkinningResources& resources, u32 frameIndex,
-                              const VulkanModelAssetCache& cache);
+                              const VulkanModelAssetCache& cache,
+                              const VulkanTextureCache& textureCache);
 
 /** Makes imported vertex and palette uploads visible to shader stages. */
 void InsertVulkanSkinnedInputBarrier(VkCommandBuffer commandBuffer,

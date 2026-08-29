@@ -30,7 +30,8 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
             BeginVulkanDebugLabel(context, commandBuffer, "Concord.DirectionalShadow",
                                   {0.9f, 0.7f, 0.2f});
             RecordVulkanDirectionalShadowPass(commandBuffer, shadowMap, shadowPipeline,
-                                              snapshot, shadowState.viewProjection, &modelAssets);
+                                              snapshot, shadowState.viewProjection, &modelAssets,
+                                              &skinningResources, frames.currentFrame);
             EndVulkanDebugLabel(context, commandBuffer);
         } else if (shadowBindingReady) {
             TransitionVulkanShadowMapToRead(commandBuffer, shadowMap);
@@ -54,7 +55,7 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
             if (canDrawBoxes) InsertDepthWriteBarrier(commandBuffer, depthBuffer.image);
             RecordVulkanModelDepthPass(commandBuffer, swapchain.extent, depthBuffer.view,
                                        modelPipeline, snapshot, frameDataSet, modelAssets,
-                                       !canDrawBoxes);
+                                       textureCache, !canDrawBoxes);
         }
         if (canDrawSkinned) {
             if (canDrawBoxes || canDrawModels) {
@@ -63,6 +64,7 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
             RecordVulkanSkinnedDepthPass(commandBuffer, swapchain.extent, depthBuffer.view,
                                          skinnedPipeline, snapshot, frameDataSet,
                                          skinningResources, frames.currentFrame, modelAssets,
+                                         textureCache,
                                          !canDrawBoxes && !canDrawModels);
         }
         InsertVulkanBoxDepthBarrier(commandBuffer, depthBuffer.image);
@@ -84,7 +86,7 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
             RecordVulkanModelColorPass(commandBuffer, swapchain.extent,
                                        swapchain.views[imageIndex], depthBuffer.view,
                                        modelPipeline, snapshot, frameDataSet, modelAssets,
-                                       skyColor, !canDrawBoxes);
+                                       textureCache, skyColor, !canDrawBoxes);
         }
         if (canDrawSkinned) {
             if (canDrawBoxes || canDrawModels) {
@@ -94,6 +96,7 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
                                          swapchain.views[imageIndex], depthBuffer.view,
                                          skinnedPipeline, snapshot, frameDataSet,
                                          skinningResources, frames.currentFrame, modelAssets,
+                                         textureCache,
                                          skyColor, !canDrawBoxes && !canDrawModels);
         }
         EndVulkanDebugLabel(context, commandBuffer);

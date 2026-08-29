@@ -7,9 +7,11 @@
 namespace Concord {
 
 VkPipelineLayout CreateVulkanModelPipelineLayout(const VulkanContext& context,
-                                                 VkDescriptorSetLayout frameDataLayout)
+                                                 VkDescriptorSetLayout frameDataLayout,
+                                                 VkDescriptorSetLayout textureLayout)
 {
-    if (context.device == VK_NULL_HANDLE || frameDataLayout == VK_NULL_HANDLE) {
+    if (context.device == VK_NULL_HANDLE || frameDataLayout == VK_NULL_HANDLE ||
+        textureLayout == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
     }
     VkPushConstantRange pushRange{};
@@ -17,8 +19,9 @@ VkPipelineLayout CreateVulkanModelPipelineLayout(const VulkanContext& context,
     pushRange.size = sizeof(VulkanModelPushConstants);
     VkPipelineLayoutCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    info.setLayoutCount = 1;
-    info.pSetLayouts = &frameDataLayout;
+    VkDescriptorSetLayout layouts[] = {frameDataLayout, textureLayout};
+    info.setLayoutCount = 2;
+    info.pSetLayouts = layouts;
     info.pushConstantRangeCount = 1;
     info.pPushConstantRanges = &pushRange;
     VkPipelineLayout layout = VK_NULL_HANDLE;

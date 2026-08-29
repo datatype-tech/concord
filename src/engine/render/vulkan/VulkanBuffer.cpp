@@ -37,12 +37,20 @@ void ResetBuffer(VulkanBuffer& buffer) noexcept
 bool CreateVulkanHostBuffer(const VulkanContext& context, VkDeviceSize size,
                             VkBufferUsageFlags usage, VulkanBuffer& buffer)
 {
+    return CreateVulkanHostBuffer(context, size, usage, buffer, false);
+}
+
+bool CreateVulkanHostBuffer(const VulkanContext& context, VkDeviceSize size,
+                            VkBufferUsageFlags usage, VulkanBuffer& buffer,
+                            bool deviceAddress)
+{
     VulkanBufferCreateInfo info{};
     info.size = size;
     info.usage = usage;
     info.requiredMemoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     info.preferredMemoryProperties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     info.persistentMap = true;
+    info.deviceAddress = deviceAddress;
     return CreateVulkanBuffer(context, info, buffer);
 }
 

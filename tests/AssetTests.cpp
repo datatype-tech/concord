@@ -48,7 +48,7 @@ bool TestGltfAnimationMapping()
 "bufferViews":[{"buffer":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":6},{"buffer":0,"byteOffset":44,"byteLength":8},{"buffer":0,"byteOffset":52,"byteLength":24}],
 "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},{"bufferView":1,"componentType":5123,"count":3,"type":"SCALAR"},{"bufferView":2,"componentType":5126,"count":2,"type":"SCALAR"},{"bufferView":3,"componentType":5126,"count":2,"type":"VEC3"}],
 "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1}]}],
-"nodes":[{"mesh":0,"skin":0},{"name":"helper"},{"name":"root","children":[3]},{"name":"animated"}],
+"nodes":[{"mesh":0,"skin":0},{"name":"helper","translation":[3,0,0],"children":[2]},{"name":"root","children":[4]},{"name":"animated"},{"name":"joint-helper","translation":[0,2,0],"children":[3]}],
 "skins":[{"name":"rig-a","joints":[2,3],"skeleton":2},{"name":"rig-b","joints":[3,2],"skeleton":2}],
 "animations":[{"name":"walk","samplers":[{"input":2,"output":3}],"channels":[{"sampler":0,"target":{"node":3,"path":"translation"}}]}]})json";
     const auto result = Concord::ModelLoader::LoadGltf(json);
@@ -62,6 +62,11 @@ bool TestGltfAnimationMapping()
     clip.channels[0].joint = 0;
     auto firstPose = first.CreateBindPose();
     auto secondPose = second.CreateBindPose();
+    if (!Near(firstPose.jointMatrices[0].col[3].x, 3.0f) ||
+        !Near(firstPose.jointMatrices[1].col[3].x, 3.0f) ||
+        !Near(firstPose.jointMatrices[1].col[3].y, 2.0f) ||
+        !Near(secondPose.jointMatrices[1].col[3].x, 3.0f) ||
+        !Near(secondPose.jointMatrices[0].col[3].y, 2.0f)) return false;
     return Concord::SampleAnimation(first, clip, 0.5f, firstPose, false) &&
            Concord::SampleAnimation(second, clip, 0.5f, secondPose, false) &&
            Near(firstPose.local[1].translation.y, 1.0f) &&

@@ -14,6 +14,8 @@
 
 namespace Concord {
 
+struct VulkanTextureCache;
+
 /** Graphics pipelines for imported primitives driven by joint matrices. */
 struct VulkanSkinnedPipeline {
     VkPipelineLayout layout = VK_NULL_HANDLE;
@@ -21,6 +23,7 @@ struct VulkanSkinnedPipeline {
     VkPipeline color = VK_NULL_HANDLE;
     VkDescriptorSetLayout frameDataLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout skinningLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout textureLayout = VK_NULL_HANDLE;
 
     /** Whether the skinned depth pre-pass is available. */
     [[nodiscard]] bool HasDepth() const noexcept { return depth != VK_NULL_HANDLE; }
@@ -34,6 +37,7 @@ struct VulkanSkinnedPipeline {
 bool CreateVulkanSkinnedPipeline(const VulkanContext& context, VkFormat colorFormat,
                                  VkFormat depthFormat, VkDescriptorSetLayout frameDataLayout,
                                  VkDescriptorSetLayout skinningLayout,
+                                 VkDescriptorSetLayout textureLayout,
                                  VulkanSkinnedPipeline& pipeline);
 
 /** Releases skinned pipeline objects. */
@@ -47,6 +51,7 @@ void RecordVulkanSkinnedDepthPass(VkCommandBuffer commandBuffer, VkExtent2D exte
                                   VkDescriptorSet frameDataSet,
                                   const VulkanSkinningResources& skinningResources,
                                   u32 frameIndex, const VulkanModelAssetCache& cache,
+                                  const VulkanTextureCache& textureCache,
                                   bool clearDepth = false);
 
 /** Records a skinned color pass over valid snapshot ranges. */
@@ -57,6 +62,7 @@ void RecordVulkanSkinnedColorPass(VkCommandBuffer commandBuffer, VkExtent2D exte
                                   VkDescriptorSet frameDataSet,
                                   const VulkanSkinningResources& skinningResources,
                                   u32 frameIndex, const VulkanModelAssetCache& cache,
+                                  const VulkanTextureCache& textureCache,
                                   Vec3 clearColor = {}, bool clearColorTarget = false);
 
 } // namespace Concord

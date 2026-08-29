@@ -64,6 +64,7 @@ struct ModelNode {
 /** Fully decoded CPU-side model, including optional skins and animations. */
 struct CENGINE_API ModelAsset {
     std::string name;
+    /** Source file path, or the base directory for in-memory imports. */
     std::filesystem::path sourcePath;
     std::vector<ModelMesh> meshes;
     std::vector<ModelMaterial> materials;

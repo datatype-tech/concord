@@ -1,0 +1,105 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# ConcordFlashGameEngineRender.dll: the Vulkan backend. It links against the
+# runtime DLL for Window access, so the dependency between the two DLLs runs
+# one way only.
+set(CONCORD_RENDER_SOURCES
+    src/engine/render/RenderFrameData.cpp
+    src/engine/render/RenderModelSnapshot.cpp
+    src/engine/render/RenderSkinningSnapshot.cpp
+    src/engine/render/RenderSceneSnapshot.cpp
+    src/engine/render/RayTracingGeometry.cpp
+    src/engine/render/VulkanRenderBackend.cpp
+    src/engine/render/VulkanRenderBackendModels.cpp
+    src/engine/render/VulkanRenderBackendRaster.cpp
+    src/engine/render/VulkanRenderBackendShutdown.cpp
+    src/engine/render/VulkanRenderBackendDraw.cpp
+    src/engine/render/VulkanRenderBackendDebug.cpp
+    src/engine/render/VulkanRenderBackendExtensions.cpp
+    src/engine/render/VulkanRenderBackendFrame.cpp
+    src/engine/render/VulkanRenderBackendSwapchain.cpp
+    src/engine/render/VulkanRenderBackendRayTracing.cpp
+    src/engine/render/VulkanRenderBackendShadow.cpp
+    src/engine/render/vulkan/VulkanBackendRegistration.cpp
+    src/engine/render/vulkan/VulkanBoxPipeline.cpp
+    src/engine/render/vulkan/VulkanBoxPipelineColor.cpp
+    src/engine/render/vulkan/VulkanBoxPipelineLayout.cpp
+    src/engine/render/vulkan/VulkanBoxPipelineState.cpp
+    src/engine/render/vulkan/VulkanBoxPipelineRecord.cpp
+    src/engine/render/vulkan/VulkanBuffer.cpp
+    src/engine/render/vulkan/VulkanBufferCreate.cpp
+    src/engine/render/vulkan/VulkanBufferSync.cpp
+    src/engine/render/vulkan/VulkanModelAsset.cpp
+    src/engine/render/vulkan/VulkanModelAssetCache.cpp
+    src/engine/render/vulkan/VulkanModelAssetUpload.cpp
+    src/engine/render/vulkan/VulkanModelPipeline.cpp
+    src/engine/render/vulkan/VulkanModelPipelineDraw.cpp
+    src/engine/render/vulkan/VulkanModelPipelineLayout.cpp
+    src/engine/render/vulkan/VulkanModelPipelineRecord.cpp
+    src/engine/render/vulkan/VulkanModelPipelineState.cpp
+    src/engine/render/vulkan/VulkanSkinningResources.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipeline.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipelineLayout.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipelineDraw.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipelineRecord.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipelineState.cpp
+    src/engine/render/vulkan/VulkanClearPass.cpp
+    src/engine/render/vulkan/VulkanDepthBuffer.cpp
+    src/engine/render/vulkan/VulkanDevice.cpp
+    src/engine/render/vulkan/VulkanFrameSync.cpp
+    src/engine/render/vulkan/VulkanFrameDataResources.cpp
+    src/engine/render/vulkan/VulkanFrameDataResourcesCreate.cpp
+    src/engine/render/vulkan/VulkanFrameDataResourcesLifecycle.cpp
+    src/engine/render/vulkan/VulkanImageBarrier.cpp
+    src/engine/render/vulkan/VulkanInstance.cpp
+    src/engine/render/vulkan/VulkanPhysicalDevice.cpp
+    src/engine/render/vulkan/VulkanPresent.cpp
+    src/engine/render/vulkan/VulkanResult.cpp
+    src/engine/render/vulkan/VulkanRayTracingSupport.cpp
+    src/engine/render/vulkan/VulkanRayTracingPipeline.cpp
+    src/engine/render/vulkan/VulkanRayTracingPipelineCreate.cpp
+    src/engine/render/vulkan/VulkanRayTracingPipelineSbt.cpp
+    src/engine/render/vulkan/VulkanRayTracingPipelineDispatch.cpp
+    src/engine/render/vulkan/VulkanRayTracingPipelineLifecycle.cpp
+    src/engine/render/vulkan/VulkanRayTracingOutput.cpp
+    src/engine/render/vulkan/VulkanRayTracingOutputImage.cpp
+    src/engine/render/vulkan/VulkanRayTracingOutputComposite.cpp
+    src/engine/render/vulkan/VulkanRayTracingScene.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneRing.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneGeometry.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneBottomLevel.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneTopLevel.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneRecord.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneInstances.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneModels.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneModelCreate.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneModelBuild.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneModelBarrier.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneModelDestroy.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneDescriptor.cpp
+    src/engine/render/vulkan/VulkanSurface.cpp
+    src/engine/render/vulkan/VulkanSurfaceFormat.cpp
+    src/engine/render/vulkan/VulkanSwapchain.cpp
+    src/engine/render/vulkan/VulkanSwapchainResources.cpp
+    src/engine/render/vulkan/VulkanShaderModule.cpp
+    src/engine/render/vulkan/VulkanTileLightCulling.cpp
+    src/engine/render/vulkan/VulkanShadowMap.cpp
+    src/engine/render/vulkan/VulkanShadowMapDescriptors.cpp
+    src/engine/render/vulkan/VulkanShadowMapTransitions.cpp
+    src/engine/render/vulkan/VulkanShadowPipeline.cpp
+    src/engine/render/vulkan/VulkanShadowPipelineDestroy.cpp
+    src/engine/render/vulkan/VulkanShadowPipelineRecord.cpp
+    src/engine/render/vulkan/VulkanShadowPipelineModel.cpp
+    src/engine/render/vulkan/VulkanShadowPipelineState.cpp
+    src/engine/render/vulkan/VulkanShadowPipelineSkinning.cpp
+    src/engine/render/vulkan/VulkanShadowPipelineSkinningCreate.cpp
+    src/engine/render/vulkan/VulkanShadowPipelineSkinningRecord.cpp
+    src/engine/render/vulkan/VulkanShadowMath.cpp
+    src/engine/render/vulkan/VulkanTexture.cpp
+    src/engine/render/vulkan/VulkanTextureCache.cpp
+    src/engine/render/vulkan/VulkanTextureDescriptors.cpp
+    src/engine/render/vulkan/VulkanTextureImage.cpp
+    src/engine/render/vulkan/VulkanTextureUpload.cpp
+)

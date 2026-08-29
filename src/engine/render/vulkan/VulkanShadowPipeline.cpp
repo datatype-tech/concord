@@ -126,24 +126,4 @@ bool CreateVulkanShadowPipeline(const VulkanContext& context, VkFormat depthForm
     }
     return true;
 }
-void DestroyVulkanShadowPipeline(const VulkanContext& context,
-                                 VulkanShadowPipeline& pipeline) noexcept
-{
-    if (context.device != VK_NULL_HANDLE) {
-        if (pipeline.depth != VK_NULL_HANDLE) {
-            vkDestroyPipeline(context.device, pipeline.depth, nullptr);
-        }
-        if (pipeline.modelDepth != VK_NULL_HANDLE) {
-            vkDestroyPipeline(context.device, pipeline.modelDepth, nullptr);
-        }
-        if (pipeline.layout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(context.device, pipeline.layout, nullptr);
-        }
-        if (pipeline.modelLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(context.device, pipeline.modelLayout, nullptr);
-        }
-    }
-    pipeline = {};
-}
-
 } // namespace Concord

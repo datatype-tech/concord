@@ -12,7 +12,10 @@ namespace {
 /** Returns whether a flattened primitive range can be indexed safely. */
 bool ValidRange(const VulkanModelAsset& asset, const VulkanModelPrimitiveRange& range) noexcept
 {
-    return range.indexCount != 0 && range.firstIndex <= asset.indexCount &&
+    return range.vertexCount != 0 && range.firstVertex <= asset.vertexCount &&
+           range.vertexCount <= asset.vertexCount - range.firstVertex &&
+           range.indexCount >= 3 && (range.indexCount % 3) == 0 &&
+           range.firstIndex <= asset.indexCount &&
            range.indexCount <= asset.indexCount - range.firstIndex;
 }
 

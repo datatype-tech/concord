@@ -34,6 +34,7 @@ void RecordVulkanSkinnedDepthPass(VkCommandBuffer commandBuffer, VkExtent2D exte
                                   VkDescriptorSet frameDataSet,
                                   const VulkanSkinningResources& skinningResources,
                                   u32 frameIndex, const VulkanModelAssetCache& cache,
+                                  const VulkanTextureCache& textureCache,
                                   bool clearDepth)
 {
     if (!pipeline.HasDepth() || commandBuffer == VK_NULL_HANDLE || depthView == VK_NULL_HANDLE ||
@@ -46,7 +47,7 @@ void RecordVulkanSkinnedDepthPass(VkCommandBuffer commandBuffer, VkExtent2D exte
     SetVulkanSkinnedViewport(commandBuffer, extent);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.depth);
     RecordVulkanSkinnedDraws(commandBuffer, pipeline, snapshot, frameDataSet, skinningResources,
-                             frameIndex, cache);
+                             frameIndex, cache, textureCache);
     vkCmdEndRendering(commandBuffer);
 }
 
@@ -57,6 +58,7 @@ void RecordVulkanSkinnedColorPass(VkCommandBuffer commandBuffer, VkExtent2D exte
                                   VkDescriptorSet frameDataSet,
                                   const VulkanSkinningResources& skinningResources,
                                   u32 frameIndex, const VulkanModelAssetCache& cache,
+                                  const VulkanTextureCache& textureCache,
                                   Vec3 clearColor, bool clearColorTarget)
 {
     if (!pipeline.HasColor() || commandBuffer == VK_NULL_HANDLE || colorView == VK_NULL_HANDLE ||
@@ -86,7 +88,7 @@ void RecordVulkanSkinnedColorPass(VkCommandBuffer commandBuffer, VkExtent2D exte
     SetVulkanSkinnedViewport(commandBuffer, extent);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.color);
     RecordVulkanSkinnedDraws(commandBuffer, pipeline, snapshot, frameDataSet, skinningResources,
-                             frameIndex, cache);
+                             frameIndex, cache, textureCache);
     vkCmdEndRendering(commandBuffer);
 }
 

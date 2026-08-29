@@ -6,6 +6,7 @@
 #define CONCORD_VULKANRAYTRACINGSCENEINTERNAL_H
 
 #include "engine/render/vulkan/VulkanRayTracingScene.h"
+#include "engine/render/vulkan/VulkanModelAssetCache.h"
 
 namespace Concord {
 
@@ -25,6 +26,25 @@ bool CreateVulkanRayTracingSceneBottomLevel(const VulkanContext& context,
 bool CreateVulkanRayTracingSceneTopLevel(const VulkanContext& context,
                                         VulkanRayTracingScene& scene);
 
+/** Lazily creates BLAS resources for static imported-model primitives. */
+bool EnsureVulkanRayTracingModelPrimitives(
+    const VulkanContext& context, VulkanRayTracingScene& scene,
+    const RenderSceneSnapshot& snapshot, const VulkanModelAssetCache& modelAssets);
+
+/** Creates storage and metadata for one imported primitive BLAS. */
+bool CreateVulkanRayTracingModelPrimitive(
+    const VulkanContext& context, VulkanRayTracingScene& scene,
+    const ModelAsset* source, u32 primitiveIndex, const VulkanModelAsset& gpu,
+    const VulkanModelPrimitiveRange& range, VulkanRayTracingModelPrimitive& output);
+
+/** Records all imported-model BLAS builds before the TLAS build. */
+bool RecordVulkanRayTracingModelBuilds(VkCommandBuffer commandBuffer,
+                                       const VulkanRayTracingScene& scene) noexcept;
+
+/** Releases imported-model BLAS resources owned by one frame slot. */
+void DestroyVulkanRayTracingModelPrimitives(const VulkanContext& context,
+                                            VulkanRayTracingScene& scene) noexcept;
+
 /** Records both acceleration-structure builds into a command buffer. */
 bool RecordVulkanRayTracingSceneBuildInternal(
     VkCommandBuffer commandBuffer, VulkanRayTracingScene& scene,
@@ -37,6 +57,10 @@ u32 UploadVulkanRayTracingInstances(VulkanRayTracingScene& scene,
 /** Inserts host-to-acceleration-structure input visibility barriers. */
 void InsertVulkanRayTracingInputBarrier(VkCommandBuffer commandBuffer,
                                          const VulkanRayTracingScene& scene) noexcept;
+
+/** Inserts host-write visibility barriers for imported model geometry buffers. */
+bool InsertVulkanRayTracingModelInputBarrier(
+    VkCommandBuffer commandBuffer, const VulkanRayTracingScene& scene) noexcept;
 
 /** Inserts the BLAS-to-TLAS build ordering barrier. */
 void InsertVulkanRayTracingBuildBarrier(VkCommandBuffer commandBuffer) noexcept;

@@ -5,6 +5,7 @@
 #include "engine/render/vulkan/VulkanShadowPipeline.h"
 
 #include "engine/render/vulkan/VulkanShadowPipelineInternal.h"
+#include "engine/render/vulkan/VulkanSkinningResources.h"
 
 namespace Concord {
 namespace {
@@ -43,7 +44,9 @@ void RecordVulkanShadowPass(VkCommandBuffer commandBuffer, VkExtent2D extent,
                             VkImageView depthView, const VulkanShadowPipeline& pipeline,
                             const RenderSceneSnapshot& snapshot,
                             const Mat4& lightViewProjection,
-                            const VulkanModelAssetCache* modelAssets) noexcept
+                            const VulkanModelAssetCache* modelAssets,
+                            const VulkanSkinningResources* skinningResources,
+                            u32 skinningFrameIndex) noexcept
 {
     if (commandBuffer == VK_NULL_HANDLE || depthView == VK_NULL_HANDLE || !pipeline.IsReady() ||
         extent.width == 0 || extent.height == 0) {
@@ -51,6 +54,10 @@ void RecordVulkanShadowPass(VkCommandBuffer commandBuffer, VkExtent2D extent,
     }
     if (modelAssets != nullptr && pipeline.HasModel()) {
         InsertVulkanModelShadowInputBarrier(commandBuffer, snapshot, *modelAssets);
+    }
+    if (skinningResources != nullptr && pipeline.HasSkinned()) {
+        InsertVulkanSkinningPaletteBarrier(commandBuffer, *skinningResources,
+                                           skinningFrameIndex);
     }
     VkRenderingAttachmentInfo attachment{};
     attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -70,6 +77,11 @@ void RecordVulkanShadowPass(VkCommandBuffer commandBuffer, VkExtent2D extent,
     if (modelAssets != nullptr && pipeline.HasModel()) {
         RecordVulkanModelShadowCasters(commandBuffer, pipeline, snapshot,
                                         lightViewProjection, *modelAssets);
+    }
+    if (skinningResources != nullptr && modelAssets != nullptr && pipeline.HasSkinned()) {
+        RecordVulkanSkinnedShadowCasters(commandBuffer, pipeline, snapshot,
+                                          lightViewProjection, *skinningResources,
+                                          skinningFrameIndex, *modelAssets);
     }
     vkCmdEndRendering(commandBuffer);
 }

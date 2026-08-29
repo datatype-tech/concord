@@ -11,15 +11,17 @@ namespace Concord {
 
 bool CreateVulkanModelPipeline(const VulkanContext& context, VkFormat colorFormat,
                                VkFormat depthFormat, VkDescriptorSetLayout frameDataLayout,
+                               VkDescriptorSetLayout textureLayout,
                                VulkanModelPipeline& pipeline)
 {
     DestroyVulkanModelPipeline(context, pipeline);
     if (context.device == VK_NULL_HANDLE || colorFormat == VK_FORMAT_UNDEFINED ||
-        depthFormat == VK_FORMAT_UNDEFINED || frameDataLayout == VK_NULL_HANDLE) {
+        depthFormat == VK_FORMAT_UNDEFINED || frameDataLayout == VK_NULL_HANDLE ||
+        textureLayout == VK_NULL_HANDLE) {
         return false;
     }
     const std::vector<u32> vertexCode = ReadVulkanShaderCode("model.vert.spv");
-    const std::vector<u32> fragmentCode = ReadVulkanShaderCode("solid.frag.spv");
+    const std::vector<u32> fragmentCode = ReadVulkanShaderCode("model.frag.spv");
     const VkShaderModule vertex = CreateVulkanShaderModule(context, vertexCode);
     const VkShaderModule fragment = CreateVulkanShaderModule(context, fragmentCode);
     if (vertex == VK_NULL_HANDLE || fragment == VK_NULL_HANDLE) {
@@ -27,7 +29,7 @@ bool CreateVulkanModelPipeline(const VulkanContext& context, VkFormat colorForma
         if (fragment != VK_NULL_HANDLE) vkDestroyShaderModule(context.device, fragment, nullptr);
         return false;
     }
-    pipeline.layout = CreateVulkanModelPipelineLayout(context, frameDataLayout);
+    pipeline.layout = CreateVulkanModelPipelineLayout(context, frameDataLayout, textureLayout);
     if (pipeline.layout != VK_NULL_HANDLE) {
         pipeline.depth = CreateVulkanModelGraphicsPipeline(context, colorFormat, depthFormat,
                                                             pipeline.layout, vertex,
@@ -42,6 +44,7 @@ bool CreateVulkanModelPipeline(const VulkanContext& context, VkFormat colorForma
         return false;
     }
     pipeline.frameDataLayout = frameDataLayout;
+    pipeline.textureLayout = textureLayout;
     return true;
 }
 

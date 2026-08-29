@@ -57,12 +57,14 @@ struct CENGINE_API Skeleton {
     /** Source glTF node index corresponding to each joint. */
     std::vector<u32> nodeIndices;
     i32 root = -1;
+    /** Bind-space transforms for node links not represented as joints. */
+    std::vector<Mat4> externalRootTransforms;
 
     /** Returns false when parent links or inverse-bind dimensions are invalid. */
     [[nodiscard]] bool IsValid() const noexcept;
     /** Resolves a source glTF node index to this skeleton's joint index. */
     [[nodiscard]] u32 FindJoint(u32 nodeIndex) const noexcept;
-    /** Computes global skin matrices from local pose values. */
+    /** Computes global skin matrices from local pose values and root ancestry. */
     void BuildJointMatrices(std::span<const BoneTransform> local,
                             std::span<Mat4> output) const noexcept;
     /** Initializes a pose and computes its bind skin matrices. */

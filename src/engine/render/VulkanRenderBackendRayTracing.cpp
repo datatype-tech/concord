@@ -5,6 +5,7 @@
 #include "engine/render/VulkanRenderBackendRayTracing.h"
 
 #include "engine/render/VulkanRenderBackendDebug.h"
+#include "engine/render/vulkan/VulkanRayTracingSceneInternal.h"
 
 namespace Concord {
 
@@ -15,14 +16,27 @@ bool RecordVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer c
                                  VulkanRayTracingOutputRing& outputRing,
                                  const VulkanBoxPipeline& boxPipeline,
                                  VkDescriptorSet frameDataSet, u32 frameIndex,
-                                 bool& sceneBuilt) noexcept
+                                 bool& sceneBuilt,
+                                 const VulkanModelAssetCache* modelAssets) noexcept
 {
     sceneBuilt = false;
-    const bool pipelineConsumer = pipeline.IsReady() && outputRing.IsReady();
+    bool hasImportedModels = false;
+    for (const RenderObjectSnapshot& object : snapshot.objects) {
+        hasImportedModels = hasImportedModels || object.shape == PrimitiveShape::Model;
+    }
+    // The built-in closest-hit shader currently owns the procedural Box ABI;
+    // model BLAS are therefore used by ray-query occlusion until model hit
+    // attributes/material buffers are wired into the full primary-ray path.
+    const bool pipelineConsumer = pipeline.IsReady() && outputRing.IsReady() &&
+                                  !hasImportedModels;
     const bool queryConsumer = context.rayTracing.IsRayQueryUsable() &&
                                boxPipeline.HasRayQuery();
     if (commandBuffer == VK_NULL_HANDLE || !scene.IsReady() || !snapshot.hasCamera ||
         snapshot.objects.empty() || (!pipelineConsumer && !queryConsumer)) {
+        return false;
+    }
+    if (modelAssets != nullptr &&
+        !EnsureVulkanRayTracingModelPrimitives(context, scene, snapshot, *modelAssets)) {
         return false;
     }
     scene.includeNonShadowCasters = pipelineConsumer;
@@ -39,7 +53,7 @@ bool RecordVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer c
         }
     }
     EndVulkanDebugLabel(context, commandBuffer);
-    if (!built || !pipeline.IsReady() || !outputRing.IsReady() ||
+    if (!built || !pipelineConsumer || !pipeline.IsReady() || !outputRing.IsReady() ||
         frameDataSet == VK_NULL_HANDLE) {
         return false;
     }

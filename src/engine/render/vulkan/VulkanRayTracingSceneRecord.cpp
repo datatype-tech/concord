@@ -71,7 +71,13 @@ bool RecordVulkanRayTracingSceneBuildInternal(
     bottomRange.primitiveCount = kVulkanRayTracingBoxPrimitiveCount;
     const VkAccelerationStructureBuildRangeInfoKHR* bottomRanges[] = {&bottomRange};
     InsertVulkanRayTracingInputBarrier(commandBuffer, scene);
+    if (!InsertVulkanRayTracingModelInputBarrier(commandBuffer, scene)) {
+        return false;
+    }
     scene.dispatch.cmdBuildAccelerationStructures(commandBuffer, 1, &bottom, bottomRanges);
+    if (!RecordVulkanRayTracingModelBuilds(commandBuffer, scene)) {
+        return false;
+    }
     InsertVulkanRayTracingBuildBarrier(commandBuffer);
 
     const VkAccelerationStructureGeometryKHR instances = MakeInstances(scene);

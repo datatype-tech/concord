@@ -76,6 +76,16 @@ bool Skeleton::IsValid() const noexcept
             }
         }
     }
+    if (!externalRootTransforms.empty() && externalRootTransforms.size() != joints.size()) {
+        return false;
+    }
+    for (const Mat4& matrix : externalRootTransforms) {
+        for (const Vec4& column : matrix.col) {
+            for (u32 component = 0; component < 4; ++component) {
+                if (!std::isfinite(column[component])) return false;
+            }
+        }
+    }
     for (usize start = 0; start < joints.size(); ++start) {
         std::vector<u8> seen(joints.size(), 0);
         i32 current = static_cast<i32>(start);
@@ -110,8 +120,12 @@ void Skeleton::BuildJointMatrices(std::span<const BoneTransform> local,
         state[index] = 1;
         const i32 parent = joints[index].parent;
         if (parent >= 0 && static_cast<usize>(parent) < count) self(self, static_cast<usize>(parent));
+        const Mat4 between = index < externalRootTransforms.size()
+                                 ? externalRootTransforms[index]
+                                 : Mat4::Identity();
         const Mat4 parentMatrix = parent >= 0 && static_cast<usize>(parent) < count
-                                      ? globals[static_cast<usize>(parent)] : Mat4::Identity();
+                                      ? globals[static_cast<usize>(parent)] * between
+                                      : between;
         globals[index] = parentMatrix * local[index].ToMatrix();
         output[index] = globals[index] * joints[index].inverseBind;
         state[index] = 2;

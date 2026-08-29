@@ -29,7 +29,8 @@ std::shared_ptr<Concord::ModelAsset> MakeAsset()
     skeleton.nodeIndices = {0};
     skeleton.root = 0;
     asset->skeletons.push_back(skeleton);
-    asset->nodes.push_back(Concord::ModelNode{.name = "root", .mesh = 0, .skin = 0});
+    asset->nodes.push_back(Concord::ModelNode{
+        .name = "root", .local = {.translation = {2.0f, 0.0f, 0.0f}}, .mesh = 0, .skin = 0});
     return asset;
 }
 
@@ -53,6 +54,7 @@ int main()
     const auto& object = snapshot.objects.front();
     const auto& matrix = snapshot.skinningPalette.jointMatrices.front();
     const bool validPose = object.entity == entity && object.modelSkin == 0 &&
+                           std::fabs(object.model.col[3].x) < 0.0001f &&
                            object.skinningRange.firstJoint == 0 &&
                    object.skinningRange.jointCount == 1 && object.skinningRange.flags == 0 &&
                    std::fabs(matrix.col[3].x - 2.0f) < 0.0001f &&
