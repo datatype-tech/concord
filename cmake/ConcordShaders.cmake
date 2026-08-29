@@ -9,7 +9,7 @@
 option(CONCORD_BUILD_SHADERS
     "Compile bundled Vulkan GLSL shaders when a compiler is available" OFF)
 set(CONCORD_SHADER_COMPILER "" CACHE FILEPATH
-    "Path to glslc or glslangValidator (auto-detected when empty)")
+    "Path to glslc, glslangValidator, or dxc (auto-detected when empty)")
 set(CONCORD_SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders" CACHE PATH
     "Deterministic output directory for compiled SPIR-V shaders")
 
@@ -34,30 +34,23 @@ function(concord_configure_shaders)
         return()
     endif()
 
-    set(compiler "${CONCORD_SHADER_COMPILER}")
-    if(compiler AND NOT EXISTS "${compiler}")
-        message(WARNING "Concord shader compiler not found: ${compiler}; skipping")
-        set(compiler "")
-    endif()
-    if(NOT compiler)
-        find_program(compiler NAMES glslc glslangValidator NO_CACHE)
-    endif()
+    concord_resolve_shader_compiler(compiler compiler_kind glsl)
     if(NOT compiler)
         add_custom_target(concord_shaders)
         message(WARNING
-            "Concord shaders requested, but glslc/glslangValidator was not found; "
+            "Concord shaders requested, but no supported shader compiler was found; "
             "skipping compilation")
         set(CONCORD_SHADERS_AVAILABLE FALSE CACHE INTERNAL "" FORCE)
         set(CONCORD_SHADER_OUTPUTS "" CACHE INTERNAL "" FORCE)
         return()
     endif()
-
-    get_filename_component(compiler_name "${compiler}" NAME)
-    string(TOLOWER "${compiler_name}" compiler_name)
-    if(compiler_name MATCHES "glslangvalidator")
-        set(compiler_kind "glslang")
-    else()
-        set(compiler_kind "glslc")
+    if(compiler_kind STREQUAL dxc)
+        add_custom_target(concord_shaders)
+        message(WARNING
+            "Concord bundled shaders are GLSL; dxc only supports HLSL, skipping")
+        set(CONCORD_SHADERS_AVAILABLE FALSE CACHE INTERNAL "" FORCE)
+        set(CONCORD_SHADER_OUTPUTS "" CACHE INTERNAL "" FORCE)
+        return()
     endif()
 
     set(outputs)
@@ -67,17 +60,15 @@ function(concord_configure_shaders)
         endif()
         get_filename_component(stage_ext "${source}" EXT)
         string(REGEX REPLACE "^\\." "" stage "${stage_ext}")
+        concord_normalize_shader_stage("${stage}" stage)
         get_filename_component(stem "${source}" NAME)
         set(output "${CONCORD_SHADER_OUTPUT_DIR}/${stem}.spv")
-        if(compiler_kind STREQUAL "glslang")
-            set(arguments -V --target-env vulkan1.3 -S "${stage}")
-        else()
-            set(arguments --target-env=vulkan1.3)
-        endif()
+        concord_shader_arguments(
+            "${compiler_kind}" "${stage}" main glsl arguments output_flag)
         add_custom_command(
             OUTPUT "${output}"
             COMMAND ${CMAKE_COMMAND} -E make_directory "${CONCORD_SHADER_OUTPUT_DIR}"
-            COMMAND "${compiler}" ${arguments} -o "${output}" "${source}"
+            COMMAND "${compiler}" ${arguments} "${output_flag}" "${output}" "${source}"
             DEPENDS "${source}"
             COMMENT "Compile Vulkan shader ${stem}"
             VERBATIM)
@@ -111,3 +102,5 @@ function(concord_attach_shaders target)
         add_dependencies(${target} concord_shaders)
     endif()
 endfunction()
+
+include("${CMAKE_CURRENT_LIST_DIR}/ConcordShaderSources.cmake")

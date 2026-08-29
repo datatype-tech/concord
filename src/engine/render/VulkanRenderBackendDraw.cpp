@@ -10,6 +10,7 @@
 #include "engine/render/RenderFrameData.h"
 #include "engine/render/VulkanRenderBackendShadow.h"
 #include "engine/render/VulkanRenderBackendDebug.h"
+#include "engine/render/VulkanRenderBackendExtensions.h"
 #include "engine/render/VulkanRenderBackendState.h"
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
 #include "engine/render/vulkan/VulkanClearPass.h"
@@ -77,6 +78,13 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     impl.swapchain.imageLayouts[impl.imageIndex] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     TransitionToDepthAttachment(commandBuffer, depth.image, depth.layout);
     depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    RunVulkanRenderExtensions(impl.context, impl.swapchain, depth, frame,
+                              impl.frames.currentFrame, impl.imageIndex,
+                              frameDataSet,
+                              shadowBindingReady ? shadowMap.descriptorSet : VK_NULL_HANDLE,
+                              rayTracingBuilt && rayTracing.IsReady() ? &rayTracing : nullptr,
+                              impl.swapchainGeneration,
+                              VulkanPassPhase::BeforeScene);
     const Vec3 skyColor = ToLinear(snapshot.environment.skyColor);
     impl.hasCamera = frame.renderData.header.cameraValid != 0;
     impl.lightCount = frame.renderData.header.lightCount;
@@ -122,6 +130,13 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
                         skyColor, depth.view);
         EndVulkanDebugLabel(impl.context, commandBuffer);
     }
+    RunVulkanRenderExtensions(impl.context, impl.swapchain, depth, frame,
+                              impl.frames.currentFrame, impl.imageIndex,
+                              frameDataSet,
+                              shadowBindingReady ? shadowMap.descriptorSet : VK_NULL_HANDLE,
+                              rayTracingBuilt && rayTracing.IsReady() ? &rayTracing : nullptr,
+                              impl.swapchainGeneration,
+                              VulkanPassPhase::AfterScene);
     TransitionToPresent(commandBuffer, image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     impl.swapchain.imageLayouts[impl.imageIndex] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 }

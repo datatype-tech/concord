@@ -14,6 +14,7 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/ecs/SystemSchedule.cpp
 
     src/engine/render/RenderBackendFactory.cpp
+    src/engine/render/VulkanPassRegistry.cpp
 
     src/engine/window/SdlWindowFlags.cpp
     src/engine/window/WindowAccess.cpp
@@ -32,6 +33,7 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/VulkanRenderBackendShutdown.cpp
     src/engine/render/VulkanRenderBackendDraw.cpp
     src/engine/render/VulkanRenderBackendDebug.cpp
+    src/engine/render/VulkanRenderBackendExtensions.cpp
     src/engine/render/VulkanRenderBackendFrame.cpp
     src/engine/render/VulkanRenderBackendShadow.cpp
     src/engine/render/vulkan/VulkanBackendRegistration.cpp

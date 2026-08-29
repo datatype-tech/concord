@@ -1,10 +1,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 #ifndef CONCORD_VULKANRENDERBACKENDSTATE_H
 #define CONCORD_VULKANRENDERBACKENDSTATE_H
-
 #include "engine/render/VulkanRenderBackend.h"
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
 #include "engine/render/vulkan/VulkanDepthBuffer.h"
@@ -37,7 +35,8 @@ struct VulkanRenderBackend::Impl {
     bool frameActive = false;
     bool swapchainDirty = false;
     bool frameSyncReady = false;
-    bool imageAcquirePending = false;
+    bool imageAcquirePending = false, lifecycleInitialized = false;
+    u64 swapchainGeneration = 0;
     usize visibleObjectCount = 0;
     usize lightCount = 0;
     bool hasCamera = false;
@@ -142,6 +141,7 @@ struct VulkanRenderBackend::Impl {
             depth[i] = std::move(depthReplacement[i]);
         }
         acquiredImageFence = VK_NULL_HANDLE;
+        ++swapchainGeneration;
         swapchainDirty = false;
         return true;
     }

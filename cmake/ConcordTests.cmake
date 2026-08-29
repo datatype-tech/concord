@@ -113,37 +113,21 @@ target_link_libraries(concord_window_desc_tests PRIVATE concord::runtime)
 concord_stage_runtime(concord_window_desc_tests)
 add_test(NAME concord_window_desc_tests COMMAND concord_window_desc_tests)
 
-if(CONCORD_BUILD_GPU_TESTS)
-    add_executable(concord_ray_tracing_scene_gpu_tests tests/VulkanRayTracingSceneGpuTests.cpp
-        tests/VulkanRayTracingSceneGpuSupport.cpp
-        src/engine/render/vulkan/VulkanRayTracingSupport.cpp
-        src/engine/render/vulkan/VulkanRayTracingScene.cpp
-        src/engine/render/vulkan/VulkanRayTracingSceneGeometry.cpp
-        src/engine/render/vulkan/VulkanRayTracingSceneBottomLevel.cpp
-        src/engine/render/vulkan/VulkanRayTracingSceneTopLevel.cpp
-        src/engine/render/vulkan/VulkanRayTracingSceneRecord.cpp
-        src/engine/render/vulkan/VulkanRayTracingSceneInstances.cpp
-        src/engine/render/vulkan/VulkanRayTracingSceneDescriptor.cpp
-        src/engine/render/vulkan/VulkanBuffer.cpp
-        src/engine/render/vulkan/VulkanBufferCreate.cpp
-        src/engine/render/vulkan/VulkanBufferSync.cpp
-        src/engine/render/vulkan/VulkanResult.cpp)
-    target_compile_features(concord_ray_tracing_scene_gpu_tests PRIVATE cxx_std_23)
-    target_include_directories(concord_ray_tracing_scene_gpu_tests PRIVATE
-        ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/Vulkan)
-    target_link_libraries(concord_ray_tracing_scene_gpu_tests PRIVATE Vulkan::Vulkan)
-    add_test(NAME concord_ray_tracing_scene_gpu_tests COMMAND concord_ray_tracing_scene_gpu_tests)
-    set_tests_properties(concord_ray_tracing_scene_gpu_tests PROPERTIES
-        SKIP_RETURN_CODE 77 TIMEOUT 30)
+add_executable(concord_vulkan_pass_registry_tests tests/VulkanPassRegistryTests.cpp)
+target_compile_features(concord_vulkan_pass_registry_tests PRIVATE cxx_std_23)
+target_link_libraries(concord_vulkan_pass_registry_tests PRIVATE concord::runtime)
+concord_stage_runtime(concord_vulkan_pass_registry_tests)
+add_test(NAME concord_vulkan_pass_registry_tests COMMAND concord_vulkan_pass_registry_tests)
 
-    add_executable(concord_vulkan_smoke_tests tests/VulkanSmokeTests.cpp)
-    target_compile_features(concord_vulkan_smoke_tests PRIVATE cxx_std_23)
-    target_include_directories(concord_vulkan_smoke_tests PRIVATE
-        ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/Vulkan)
-    target_link_libraries(concord_vulkan_smoke_tests PRIVATE concord::concord Vulkan::Vulkan)
-    concord_stage_runtime(concord_vulkan_smoke_tests)
-    add_test(NAME concord_vulkan_smoke_tests COMMAND concord_vulkan_smoke_tests)
-    set_tests_properties(concord_vulkan_smoke_tests PROPERTIES
-        SKIP_RETURN_CODE 77 TIMEOUT 30
-        FAIL_REGULAR_EXPRESSION "\\[Concord\\]\\[Vulkan\\]\\[(warning|error)\\]")
+add_executable(concord_vulkan_pass_context_tests
+    tests/VulkanPassContextAdapterTests.cpp
+    src/engine/render/VulkanRenderBackendExtensions.cpp
+    src/engine/render/VulkanPassRegistry.cpp)
+target_compile_features(concord_vulkan_pass_context_tests PRIVATE cxx_std_23)
+target_include_directories(concord_vulkan_pass_context_tests PRIVATE
+    ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/Vulkan)
+add_test(NAME concord_vulkan_pass_context_tests COMMAND concord_vulkan_pass_context_tests)
+
+if(CONCORD_BUILD_GPU_TESTS)
+    include("${CMAKE_CURRENT_LIST_DIR}/ConcordGpuTests.cmake")
 endif()

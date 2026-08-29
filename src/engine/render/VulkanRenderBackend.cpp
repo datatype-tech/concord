@@ -5,6 +5,7 @@
 #include "engine/render/VulkanRenderBackend.h"
 
 #include "engine/render/VulkanRenderBackendState.h"
+#include "engine/render/VulkanRenderBackendExtensions.h"
 #include "engine/render/vulkan/VulkanDepthBuffer.h"
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
 #include "engine/render/vulkan/VulkanDevice.h"
@@ -48,6 +49,7 @@ bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
         return false;
     }
     impl.frameSyncReady = true;
+    impl.swapchainGeneration = 1;
     const bool rayQueryShaderAvailable =
         !ReadVulkanShaderCode("solid_rayquery.frag.spv").empty();
     if (rayQueryShaderAvailable && impl.context.rayTracing.IsRayQueryUsable() &&
@@ -106,6 +108,18 @@ bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
             std::fprintf(stderr, "[Concord] tile shader unavailable; using all-light fallback\n");
         }
     }
+    const bool extensionsReady = RunVulkanRenderExtensions(
+        impl.context, impl.swapchain, impl.depth[0], impl.frames.Current(),
+        impl.frames.currentFrame, 0,
+        impl.frameData.IsReady() ? impl.frameData.sets[impl.frames.currentFrame]
+                                 : VK_NULL_HANDLE,
+        impl.shadowPipeline.IsReady() ? impl.shadowMaps[0].descriptorSet : VK_NULL_HANDLE,
+        impl.rayTracing.IsReady() ? &impl.rayTracing.At(0) : nullptr,
+        impl.swapchainGeneration, VulkanPassPhase::Initialize);
+    if (!extensionsReady) {
+        std::fprintf(stderr, "[Concord] one or more Vulkan initialize passes failed\n");
+    }
+    impl.lifecycleInitialized = true;
     return true;
 }
 } // namespace Concord

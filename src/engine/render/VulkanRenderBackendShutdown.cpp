@@ -5,6 +5,7 @@
 #include "engine/render/VulkanRenderBackend.h"
 
 #include "engine/render/VulkanRenderBackendState.h"
+#include "engine/render/VulkanRenderBackendExtensions.h"
 #include "engine/render/vulkan/VulkanDevice.h"
 #include "engine/render/vulkan/VulkanInstance.h"
 #include "engine/render/vulkan/VulkanSurface.h"
@@ -26,6 +27,19 @@ void VulkanRenderBackend::Shutdown()
         const VkResult idleResult = vkDeviceWaitIdle(impl.context.device);
         if (idleResult != VK_SUCCESS) {
             VulkanFailed("vkDeviceWaitIdle (shutdown)", idleResult);
+        }
+        if (impl.lifecycleInitialized) {
+            const bool extensionsReady = RunVulkanRenderExtensions(
+                impl.context, impl.swapchain, impl.depth[0], impl.frames.Current(),
+                impl.frames.currentFrame, 0,
+                impl.frameData.IsReady() ? impl.frameData.sets[impl.frames.currentFrame]
+                                         : VK_NULL_HANDLE,
+                impl.shadowPipeline.IsReady() ? impl.shadowMaps[0].descriptorSet : VK_NULL_HANDLE,
+                impl.rayTracing.IsReady() ? &impl.rayTracing.At(0) : nullptr,
+                impl.swapchainGeneration, VulkanPassPhase::Shutdown);
+            if (!extensionsReady) {
+                std::fprintf(stderr, "[Concord] one or more Vulkan shutdown passes failed\n");
+            }
         }
         DestroyVulkanTileLightCulling(impl.context, impl.tileCulling);
         DestroyVulkanBoxPipeline(impl.context, impl.boxPipeline);
@@ -53,6 +67,8 @@ void VulkanRenderBackend::Shutdown()
     impl.swapchainDirty = false;
     impl.frameSyncReady = false;
     impl.imageAcquirePending = false;
+    impl.lifecycleInitialized = false;
+    impl.swapchainGeneration = 0;
     impl.window = nullptr;
 }
 

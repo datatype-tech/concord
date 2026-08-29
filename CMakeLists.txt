@@ -58,6 +58,17 @@ include(cmake/ConcordShaders.cmake)
 
 concord_configure_shaders()
 
+# Opt-in native Vulkan surface for advanced application code (including
+# ConcordScript `@vulkan` blocks). The normal public API still hides Vulkan;
+# consumers only receive these headers and the loader import library when they
+# explicitly link concord::vulkan_sdk.
+add_library(concord_vulkan_sdk INTERFACE)
+add_library(concord::vulkan_sdk ALIAS concord_vulkan_sdk)
+target_include_directories(concord_vulkan_sdk INTERFACE
+    $<BUILD_INTERFACE:${CONCORD_3RD_DIR}/Vulkan>
+)
+target_link_libraries(concord_vulkan_sdk INTERFACE Vulkan::Vulkan)
+
 # ---------------------------------------------------------------------------
 # ConcordFlashGameEngineRuntime.dll
 # ---------------------------------------------------------------------------

@@ -29,6 +29,17 @@ Concord Flash 是 [Concord](https://github.com/lattice-tech/concord) 引擎的�
 > ray-generation/SBT 渲染仍在后续计划中。API、文件
 > 格式和运行时行为都可能在没有兼容性保证的情况下变化。
 
+### 自定义 Vulkan Pass
+
+`<Concord/CRender.h>` 提供不传递 Vulkan 头文件的 pass ABI，ConcordScript 生成代码
+和手写 C++ 都可以使用。调用 `Concord::RegisterVulkanPass` 注册回调后，Render.dll
+会在命令缓冲录制期间按 `BeforeScene`/`AfterScene` 阶段和递增 `order` 调用。回调收到
+`VulkanPassContext`，其中包含 opaque 的 device、command buffer、交换链图像、描述符
+集以及可选加速结构句柄；在自己的、包含 Vulkan SDK 的翻译单元中使用
+`Concord::VulkanHandle<VkType>(value)` 转换。回调只能录制命令，不能提交或结束引擎
+拥有的 command buffer。`Initialize`/`Shutdown` 仅用于生命周期通知，此时
+`imageIndex` 为 `VulkanPassInvalidImageIndex`，所有帧附件、描述符和加速结构句柄均为零。
+
 ## 为什么要有第二代
 
 第一代 Concord 建立在 [bgfx](https://github.com/bkaradzic/bgfx) 之上，
