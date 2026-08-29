@@ -4,6 +4,7 @@
 
 #include "Concord/CAnimation.h"
 #include "Concord/CModel.h"
+#include "engine/asset/ImageAsset.h"
 
 #include <cmath>
 #include <limits>
@@ -38,6 +39,28 @@ bool TestGltf()
     const auto result = Concord::ModelLoader::LoadGltf(json);
     return result.Succeeded() && result.asset.meshes.size() == 1 &&
            result.asset.meshes[0].primitives[0].indices.size() == 3;
+}
+
+bool TestGltfEmbeddedImage()
+{
+    const std::string json = R"json({
+"asset":{"version":"2.0"},
+"buffers":[
+ {"byteLength":42,"uri":"data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAABAAIA"},
+ {"byteLength":74,"uri":"data:application/octet-stream;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGP4z8DQwPCf4T8ADn0Dfur2k8AAAAAASUVORK5CYII="}],
+"bufferViews":[{"buffer":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":6},{"buffer":1,"byteLength":74}],
+"accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},{"bufferView":1,"componentType":5123,"count":3,"type":"SCALAR"}],
+"images":[{"bufferView":2,"mimeType":"image/png"}],
+"textures":[{"source":0}],
+"materials":[{"pbrMetallicRoughness":{"baseColorTexture":{"index":0}}}],
+"meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1,"material":0}]}],
+"nodes":[{"mesh":0}]})json";
+    const auto result = Concord::ModelLoader::LoadGltf(json);
+    if (!result.Succeeded() || result.asset.materials.size() != 1) return false;
+    const std::string& uri = result.asset.materials[0].baseColorTexture;
+    if (uri.rfind("data:image/png;base64,", 0) != 0) return false;
+    const auto image = Concord::ImageLoader::LoadUri(uri);
+    return image.Succeeded() && image.image.width == 2 && image.image.height == 1;
 }
 
 bool TestGltfAnimationMapping()
@@ -111,6 +134,6 @@ bool TestRejectsMalformedNodeTransform()
 
 int main()
 {
-    return TestObj() && TestGltf() && TestGltfAnimationMapping() && TestSkeletonAndAnimation() &&
+    return TestObj() && TestGltf() && TestGltfEmbeddedImage() && TestGltfAnimationMapping() && TestSkeletonAndAnimation() &&
            TestRejectsMalformedNodeTransform() ? 0 : 1;
 }
