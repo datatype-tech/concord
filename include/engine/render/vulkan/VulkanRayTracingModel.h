@@ -15,6 +15,8 @@ struct ModelAsset;
 
 /** Marks a TLAS instance whose BLAS comes from an imported model. */
 inline constexpr u32 kVulkanRayTracingModelInstanceBit = 1u << 23;
+inline constexpr u32 kVulkanRayTracingModelInstanceMask =
+    kVulkanRayTracingModelInstanceBit - 1u;
 
 /** Device-side BLAS metadata for one static imported-model primitive. */
 struct VulkanRayTracingModelPrimitive {
