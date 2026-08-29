@@ -42,6 +42,9 @@ bool EnsureVulkanRayTracingModelPrimitives(
                 if (FindPrimitive(scene, object.modelAsset.get(), rangeIndex) != nullptr) {
                     continue;
                 }
+                if (scene.modelPrimitives.size() >= kVulkanRayTracingMaxInstances) {
+                    return false;
+                }
                 scene.modelPrimitives.emplace_back();
                 VulkanRayTracingModelPrimitive& primitive = scene.modelPrimitives.back();
                 if (!CreateVulkanRayTracingModelPrimitive(
