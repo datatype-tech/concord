@@ -36,6 +36,8 @@ bool RecordVulkanRayTracingModelBuilds(VkCommandBuffer commandBuffer,
     if (commandBuffer == VK_NULL_HANDLE || !scene.dispatch.IsReady()) return false;
     for (const VulkanRayTracingModelPrimitive& primitive : scene.modelPrimitives) {
         if (!primitive.IsReady() || scene.scratchAlignment == 0 ||
+            primitive.vertexAddress % kVulkanRayTracingModelAddressAlignment != 0 ||
+            primitive.indexAddress % kVulkanRayTracingModelAddressAlignment != 0 ||
             primitive.scratch.GetDeviceAddress() % scene.scratchAlignment != 0) {
             return false;
         }

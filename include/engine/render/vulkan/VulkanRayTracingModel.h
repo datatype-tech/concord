@@ -17,6 +17,7 @@ struct ModelAsset;
 inline constexpr u32 kVulkanRayTracingModelInstanceBit = 1u << 23;
 inline constexpr u32 kVulkanRayTracingModelInstanceMask =
     kVulkanRayTracingModelInstanceBit - 1u;
+inline constexpr VkDeviceSize kVulkanRayTracingModelAddressAlignment = 4;
 
 /** Device-side BLAS metadata for one static imported-model primitive. */
 struct VulkanRayTracingModelPrimitive {
@@ -43,6 +44,8 @@ struct VulkanRayTracingModelPrimitive {
     {
         return source != nullptr && vertexBuffer != VK_NULL_HANDLE &&
                indexBuffer != VK_NULL_HANDLE && vertexAddress != 0 && indexAddress != 0 &&
+               vertexAddress % kVulkanRayTracingModelAddressAlignment == 0 &&
+               indexAddress % kVulkanRayTracingModelAddressAlignment == 0 &&
                indexCount >= 3 && indexCount % 3 == 0 && vertexCount != 0 &&
                materialIndex < kVulkanRayTracingModelInstanceBit &&
                accelerationStructure != VK_NULL_HANDLE && storage.IsBound() &&

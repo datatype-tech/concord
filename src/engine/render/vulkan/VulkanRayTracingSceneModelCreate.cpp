@@ -10,7 +10,6 @@
 
 namespace Concord {
 namespace {
-
 bool AddAddress(VkDeviceAddress base, VkDeviceSize offset,
                 VkDeviceAddress& result) noexcept
 {
@@ -18,7 +17,6 @@ bool AddAddress(VkDeviceAddress base, VkDeviceSize offset,
     result = base + offset;
     return result != 0;
 }
-
 bool AlignSize(VkDeviceSize value, VkDeviceSize alignment,
                VkDeviceSize& result) noexcept
 {
@@ -59,6 +57,10 @@ bool CreateVulkanRayTracingModelPrimitive(
     }
     const VkDeviceAddress vertexAddress = gpu.vertexBuffer.GetDeviceAddress();
     const VkDeviceAddress indexBase = gpu.indexBuffer.GetDeviceAddress();
+    if (vertexAddress % kVulkanRayTracingModelAddressAlignment != 0 ||
+        indexBase % kVulkanRayTracingModelAddressAlignment != 0) {
+        return false;
+    }
     VkDeviceAddress indexAddress = 0;
     if (!AddAddress(indexBase, static_cast<VkDeviceSize>(range.firstIndex) * sizeof(u32),
                     indexAddress)) {
