@@ -23,13 +23,11 @@
 
 namespace Concord {
 VulkanRenderBackend::VulkanRenderBackend() : m_impl(std::make_unique<Impl>()) {}
-
 bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
 {
     Shutdown();
     Impl& impl = *m_impl;
     impl.window = &window;
-
     const bool initialized =
         CreateVulkanInstance(impl.context, enableValidation) &&
         CreateVulkanSurface(impl.context, window) && CreateVulkanDevice(impl.context) &&
@@ -127,6 +125,7 @@ bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
                                                   impl.tileCulling)) {
             std::fprintf(stderr, "[Concord] tile shader unavailable; using all-light fallback\n");
         }
+        impl.CreateModelPipelines();
     }
     const bool extensionsReady = RunVulkanRenderExtensions(
         impl.context, impl.swapchain, impl.depth[0], impl.frames.Current(),

@@ -24,17 +24,55 @@ target_include_directories(concord_asset_tests PRIVATE ${CONCORD_TEST_INCLUDE})
 add_test(NAME concord_asset_tests COMMAND concord_asset_tests)
 
 add_executable(concord_render_snapshot_tests
-    tests/RenderSceneSnapshotTests.cpp src/engine/render/RenderSceneSnapshot.cpp)
+    tests/RenderSceneSnapshotTests.cpp src/engine/render/RenderSceneSnapshot.cpp
+    src/engine/render/RenderModelSnapshot.cpp
+    src/engine/render/RenderSkinningSnapshot.cpp
+    src/engine/asset/ModelAsset.cpp src/engine/asset/Skeleton.cpp
+    src/engine/asset/SkinningPalette.cpp)
 target_compile_features(concord_render_snapshot_tests PRIVATE cxx_std_23)
 target_include_directories(concord_render_snapshot_tests PRIVATE ${CONCORD_TEST_INCLUDE})
 add_test(NAME concord_render_snapshot_tests COMMAND concord_render_snapshot_tests)
 
+add_executable(concord_render_skinning_snapshot_tests
+    tests/RenderSkinningSnapshotTests.cpp src/engine/render/RenderSceneSnapshot.cpp
+    src/engine/render/RenderModelSnapshot.cpp src/engine/render/RenderSkinningSnapshot.cpp
+    src/engine/asset/ModelAsset.cpp src/engine/asset/Skeleton.cpp
+    src/engine/asset/SkinningPalette.cpp)
+target_compile_features(concord_render_skinning_snapshot_tests PRIVATE cxx_std_23)
+target_include_directories(concord_render_skinning_snapshot_tests PRIVATE ${CONCORD_TEST_INCLUDE})
+add_test(NAME concord_render_skinning_snapshot_tests COMMAND concord_render_skinning_snapshot_tests)
+
 add_executable(concord_render_frame_data_tests
     tests/RenderFrameDataTests.cpp src/engine/render/RenderFrameData.cpp
-    src/engine/render/RenderSceneSnapshot.cpp)
+    src/engine/render/RenderSceneSnapshot.cpp src/engine/render/RenderModelSnapshot.cpp
+    src/engine/render/RenderSkinningSnapshot.cpp
+    src/engine/asset/ModelAsset.cpp src/engine/asset/Skeleton.cpp
+    src/engine/asset/SkinningPalette.cpp)
 target_compile_features(concord_render_frame_data_tests PRIVATE cxx_std_23)
 target_include_directories(concord_render_frame_data_tests PRIVATE ${CONCORD_TEST_INCLUDE})
 add_test(NAME concord_render_frame_data_tests COMMAND concord_render_frame_data_tests)
+
+add_executable(concord_ray_tracing_geometry_tests
+    tests/RayTracingGeometryTests.cpp
+    src/engine/render/RayTracingGeometry.cpp)
+target_compile_features(concord_ray_tracing_geometry_tests PRIVATE cxx_std_23)
+target_include_directories(concord_ray_tracing_geometry_tests PRIVATE ${CONCORD_TEST_INCLUDE})
+add_test(NAME concord_ray_tracing_geometry_tests COMMAND concord_ray_tracing_geometry_tests)
+
+add_executable(concord_skinning_palette_tests
+    tests/SkinningPaletteTests.cpp src/engine/asset/SkinningPalette.cpp)
+target_compile_features(concord_skinning_palette_tests PRIVATE cxx_std_23)
+target_include_directories(concord_skinning_palette_tests PRIVATE ${CONCORD_TEST_INCLUDE})
+add_test(NAME concord_skinning_palette_tests COMMAND concord_skinning_palette_tests)
+
+add_executable(concord_animation_system_tests
+    tests/AnimationSystemTests.cpp
+    src/engine/ecs/AnimationSystem.cpp
+    src/engine/asset/Animation.cpp src/engine/asset/Skeleton.cpp
+    src/engine/asset/ModelAsset.cpp)
+target_compile_features(concord_animation_system_tests PRIVATE cxx_std_23)
+target_include_directories(concord_animation_system_tests PRIVATE ${CONCORD_TEST_INCLUDE})
+add_test(NAME concord_animation_system_tests COMMAND concord_animation_system_tests)
 
 add_executable(concord_tile_light_tests tests/VulkanTileLightTests.cpp)
 target_compile_features(concord_tile_light_tests PRIVATE cxx_std_23)
@@ -107,6 +145,16 @@ target_compile_features(concord_vulkan_buffer_tests PRIVATE cxx_std_23)
 target_include_directories(concord_vulkan_buffer_tests PRIVATE
     ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/Vulkan)
 add_test(NAME concord_vulkan_buffer_tests COMMAND concord_vulkan_buffer_tests)
+
+add_executable(concord_vulkan_model_asset_tests
+    tests/VulkanModelAssetTests.cpp
+    src/engine/render/vulkan/VulkanModelAsset.cpp
+    src/engine/asset/ModelAsset.cpp
+    src/engine/asset/Skeleton.cpp)
+target_compile_features(concord_vulkan_model_asset_tests PRIVATE cxx_std_23)
+target_include_directories(concord_vulkan_model_asset_tests PRIVATE
+    ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/Vulkan)
+add_test(NAME concord_vulkan_model_asset_tests COMMAND concord_vulkan_model_asset_tests)
 
 add_executable(concord_system_tests tests/SystemScheduleTests.cpp)
 target_compile_features(concord_system_tests PRIVATE cxx_std_23)

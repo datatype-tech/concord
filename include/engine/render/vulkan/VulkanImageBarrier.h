@@ -20,6 +20,12 @@ void TransitionToColorAttachment(VkCommandBuffer commandBuffer, VkImage image,
 void TransitionToDepthAttachment(VkCommandBuffer commandBuffer, VkImage image,
                                  VkImageLayout oldLayout = VK_IMAGE_LAYOUT_UNDEFINED);
 
+/** Orders depth writes from adjacent dynamic-rendering passes. */
+void InsertDepthWriteBarrier(VkCommandBuffer commandBuffer, VkImage image);
+
+/** Orders color attachment writes before a following load/store pass. */
+void InsertColorWriteBarrier(VkCommandBuffer commandBuffer, VkImage image);
+
 /**
  * Transitions a swapchain image from colour attachment to the layout the
  * presentation engine requires.

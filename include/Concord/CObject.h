@@ -16,5 +16,6 @@
 #include "engine/core/Transform.h"
 #include "engine/scene/Box.h"
 #include "engine/scene/Material.h"
+#include "engine/scene/Model.h"
 
 #endif // CONCORD_COBJECT_H

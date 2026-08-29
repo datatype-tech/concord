@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <limits>
+#include <memory>
 
 namespace {
 
@@ -61,6 +62,33 @@ int main()
     if (Concord::ColorR(snapshot.environment.skyColor) != 12 ||
         Concord::ColorG(snapshot.environment.ambientColor) != 100 ||
         !Near(snapshot.environment.ambientIntensity, 0.75f)) {
+        return 1;
+    }
+
+    auto imported = std::make_shared<Concord::ModelAsset>();
+    imported->materials.push_back(Concord::ModelMaterial{});
+    Concord::ModelPrimitive triangle{};
+    triangle.vertices = {
+        Concord::ModelVertex{.position = {-1.0f, 0.0f, 0.0f}},
+        Concord::ModelVertex{.position = {1.0f, 0.0f, 0.0f}},
+        Concord::ModelVertex{.position = {0.0f, 1.0f, 0.0f}},
+    };
+    triangle.indices = {0, 1, 2};
+    imported->meshes.push_back(Concord::ModelMesh{.primitives = {triangle}});
+    imported->nodes.push_back(Concord::ModelNode{
+        .name = "triangle", .local = {.translation = {2.0f, 0.0f, 0.0f}}, .mesh = 0});
+    Concord::Scene importedScene;
+    importedScene.Spawn<Concord::Object::Camera>({});
+    importedScene.Spawn<Concord::Object::Model>({
+        .asset = imported, .transform = {.position = {3.0f, 0.0f, 0.0f}},
+    });
+    const Concord::RenderSceneSnapshot importedSnapshot =
+        Concord::ExtractRenderScene(importedScene, 1.0f);
+    if (importedSnapshot.objects.size() != 1 ||
+        importedSnapshot.objects[0].shape != Concord::PrimitiveShape::Model ||
+        importedSnapshot.objects[0].modelAsset.get() != imported.get() ||
+        !Near(importedSnapshot.objects[0].model.col[3].x, 5.0f) ||
+        importedSnapshot.objects[0].modelNode != 0) {
         return 1;
     }
     if (!Near(snapshot.camera.projection.col[0].x, 0.97427857f)) {

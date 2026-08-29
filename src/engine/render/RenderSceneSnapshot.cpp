@@ -6,6 +6,8 @@
 
 #include "Concord/CCamera.h"
 #include "Concord/CScene.h"
+#include "engine/render/RenderModelSnapshot.h"
+#include "engine/render/RenderSkinningSnapshot.h"
 
 #include <algorithm>
 #include <cmath>
@@ -117,6 +119,17 @@ RenderSceneSnapshot ExtractRenderScene(const Scene& scene, f32 aspect)
                 .castShadow = mesh.castShadow,
             });
         });
+
+    world.Query<ModelRenderer, Transform>(
+        [&](Entity entity, const ModelRenderer& model, const Transform& transform) {
+            if (!model.visible || !model.asset || !model.asset->IsValid()) {
+                return;
+            }
+            AppendModelSnapshots(snapshot, entity, model,
+                                 SafeModel(transform, {1.0f, 1.0f, 1.0f}));
+        });
+
+    AppendSkinningSnapshots(snapshot, world);
 
     world.Query<LightComponent>([&](Entity entity, const LightComponent& light) {
         RenderLightSnapshot result{};

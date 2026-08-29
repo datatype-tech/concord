@@ -18,7 +18,10 @@ set(CONCORD_SHADER_SOURCE_DIR
     "Bundled Concord GLSL source directory")
 set(CONCORD_SHADER_SOURCES
     "${CONCORD_SHADER_SOURCE_DIR}/mesh.vert"
+    "${CONCORD_SHADER_SOURCE_DIR}/model.vert"
+    "${CONCORD_SHADER_SOURCE_DIR}/skinned.vert"
     "${CONCORD_SHADER_SOURCE_DIR}/solid.frag"
+    "${CONCORD_SHADER_SOURCE_DIR}/skinned.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/solid_shadow.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/solid_rayquery.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/tile_cull.comp"

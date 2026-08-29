@@ -22,6 +22,7 @@ enum class PrimitiveShape {
     Box,
     Sphere,
     Plane,
+    Model,
 };
 
 /**

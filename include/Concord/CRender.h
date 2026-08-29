@@ -5,7 +5,8 @@
 #ifndef CONCORD_CRENDER_H
 #define CONCORD_CRENDER_H
 
-/** Public opt-in facade for custom render-pass registration. */
+/** Public opt-in facade for render-pass hooks and stable shader data ABI. */
 #include "engine/render/VulkanPass.h"
+#include "engine/render/SkinningData.h"
 
 #endif // CONCORD_CRENDER_H

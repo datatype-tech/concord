@@ -13,6 +13,7 @@
 #include "engine/scene/Camera.h"
 #include "engine/scene/EntityHandle.h"
 #include "engine/scene/EnvironmentSettings.h"
+#include "engine/scene/Model.h"
 #include "engine/scene/SunLight.h"
 
 #include <utility>

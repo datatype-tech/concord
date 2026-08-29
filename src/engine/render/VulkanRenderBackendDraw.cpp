@@ -14,6 +14,7 @@
 #include "engine/render/VulkanRenderBackendRayTracing.h"
 #include "engine/render/VulkanRenderBackendState.h"
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
+#include "engine/render/vulkan/VulkanModelPipeline.h"
 #include "engine/render/vulkan/VulkanClearPass.h"
 #include "engine/render/vulkan/VulkanFrameDataResources.h"
 #include "engine/render/vulkan/VulkanImageBarrier.h"
@@ -41,6 +42,15 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const f32 aspect = impl.swapchain.extent.height == 0 ? 1.0f : static_cast<f32>(impl.swapchain.extent.width) /
                                                                static_cast<f32>(impl.swapchain.extent.height);
     const RenderSceneSnapshot snapshot = ExtractRenderScene(scene, aspect);
+    bool hasModelObjects = false;
+    bool hasBoxObjects = false;
+    bool hasStaticModelObjects = false;
+    bool hasSkinnedModelObjects = false;
+    const bool modelUploadsReady =
+        impl.PrepareModelAssets(snapshot, hasModelObjects, hasBoxObjects,
+                                hasStaticModelObjects, hasSkinnedModelObjects);
+    const bool skinningUploadReady =
+        impl.UploadSkinningFrame(snapshot, impl.frames.currentFrame);
     impl.visibleObjectCount = snapshot.objects.size();
     frame.renderData = BuildRenderFrameData(snapshot);
     const bool tileInBounds = impl.swapchain.extent.width <= kMaxTileColumns * kTileSizePixels &&
@@ -62,8 +72,15 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const VkDescriptorSet frameDataSet = impl.frameData.IsReady()
                                              ? impl.frameData.sets[impl.frames.currentFrame]
                                              : VK_NULL_HANDLE;
+    const bool modelRasterReady = hasStaticModelObjects && modelUploadsReady &&
+                                  impl.modelPipeline.IsReady() &&
+                                  frameDataSet != VK_NULL_HANDLE;
+    const bool skinnedRasterReady = hasSkinnedModelObjects && modelUploadsReady &&
+                                    skinningUploadReady && impl.skinnedPipeline.IsReady() &&
+                                    impl.skinningResources.IsReady() &&
+                                    frameDataSet != VK_NULL_HANDLE;
     bool rayTracingBuilt = false;
-    const bool rayTracingRendered = RecordVulkanRayTracingFrame(
+    const bool rayTracingRendered = !hasModelObjects && RecordVulkanRayTracingFrame(
         impl.context, commandBuffer, rayTracing, snapshot, impl.rayTracingPipeline,
         impl.rayTracingOutput, impl.boxPipeline, frameDataSet, impl.frames.currentFrame,
         rayTracingBuilt);
@@ -88,48 +105,15 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const Vec3 skyColor = ToLinear(snapshot.environment.skyColor);
     impl.hasCamera = frame.renderData.header.cameraValid != 0;
     impl.lightCount = frame.renderData.header.lightCount;
-    const bool canDrawBoxes = !rayTracingComposited && snapshot.hasCamera && !snapshot.objects.empty() && impl.boxPipeline.HasDepth() &&
+    const bool canDrawBoxes = !rayTracingComposited && snapshot.hasCamera &&
+                              hasBoxObjects && impl.boxPipeline.HasDepth() &&
                               impl.boxPipeline.HasColor() && frameDataSet != VK_NULL_HANDLE;
-    if (canDrawBoxes) {
-        if (shadowState.enabled) {
-            BeginVulkanDebugLabel(impl.context, commandBuffer, "Concord.DirectionalShadow",
-                                  {0.9f, 0.7f, 0.2f});
-            RecordVulkanDirectionalShadowPass(commandBuffer, shadowMap, impl.shadowPipeline,
-                                              snapshot, shadowState.viewProjection);
-            EndVulkanDebugLabel(impl.context, commandBuffer);
-        } else if (shadowBindingReady) {
-            TransitionVulkanShadowMapToRead(commandBuffer, shadowMap);
-        }
-        if (tileEnabled) {
-            BeginVulkanDebugLabel(impl.context, commandBuffer, "Concord.TileLightCulling",
-                                  {0.8f, 0.3f, 0.9f});
-            RecordVulkanTileLightCulling(commandBuffer, impl.swapchain.extent, impl.tileCulling,
-                                         frameDataSet);
-            InsertVulkanTileLightBarrier(commandBuffer,
-                                         impl.frameData.tileBuffers[impl.frames.currentFrame].buffer);
-            EndVulkanDebugLabel(impl.context, commandBuffer);
-        }
-        BeginVulkanDebugLabel(impl.context, commandBuffer, "Concord.DepthPrepass", {0.2f, 0.5f, 1.0f});
-        RecordVulkanBoxDepthPass(commandBuffer, impl.swapchain.extent, depth.view,
-                                 impl.boxPipeline, snapshot, frameDataSet);
-        InsertVulkanBoxDepthBarrier(commandBuffer, depth.image);
-        EndVulkanDebugLabel(impl.context, commandBuffer);
-        BeginVulkanDebugLabel(impl.context, commandBuffer, "Concord.ForwardPass", {1.0f, 0.4f, 0.2f});
-        RecordVulkanBoxColorPass(commandBuffer, impl.swapchain.extent,
-                                 impl.swapchain.views[impl.imageIndex], depth.view,
-                                 impl.boxPipeline, snapshot, frameDataSet, skyColor,
-                                 shadowBindingReady ? shadowMap.descriptorSet : VK_NULL_HANDLE,
-                                 rayTracingBuilt && impl.boxPipeline.HasRayQuery() &&
-                                      rayTracing.IsReady()
-                                      ? rayTracing.descriptorSet
-                                     : VK_NULL_HANDLE);
-        EndVulkanDebugLabel(impl.context, commandBuffer);
-    } else if (!rayTracingComposited) {
-        BeginVulkanDebugLabel(impl.context, commandBuffer, "Concord.ClearPass", {0.2f, 0.8f, 0.4f});
-        RecordClearPass(commandBuffer, impl.swapchain.views[impl.imageIndex], impl.swapchain.extent,
-                        skyColor, depth.view);
-        EndVulkanDebugLabel(impl.context, commandBuffer);
-    }
+    const bool canDrawModels = !rayTracingComposited && snapshot.hasCamera && modelRasterReady;
+    const bool canDrawSkinned = !rayTracingComposited && snapshot.hasCamera &&
+                                skinnedRasterReady;
+    impl.RecordRasterPasses(snapshot, shadowState, frameDataSet, skyColor, tileEnabled,
+                            shadowBindingReady, rayTracingBuilt, rayTracingComposited,
+                            canDrawBoxes, canDrawModels, canDrawSkinned);
     RunVulkanRenderExtensions(impl.context, impl.swapchain, depth, frame,
                               impl.frames.currentFrame, impl.imageIndex,
                               frameDataSet,

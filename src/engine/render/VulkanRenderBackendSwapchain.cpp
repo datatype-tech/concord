@@ -7,6 +7,8 @@
 #include "engine/render/VulkanRenderBackendState.h"
 
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
+#include "engine/render/vulkan/VulkanModelPipeline.h"
+#include "engine/render/vulkan/VulkanSkinnedPipeline.h"
 #include "engine/render/vulkan/VulkanDepthBuffer.h"
 #include "engine/render/vulkan/VulkanRayTracingOutput.h"
 #include "engine/render/vulkan/VulkanSwapchain.h"
@@ -28,6 +30,8 @@ bool VulkanRenderBackend::Impl::RecreateSwapchain()
     VulkanSwapchain replacement{};
     VulkanDepthBuffer depthReplacement[kMaxFramesInFlight]{};
     VulkanBoxPipeline boxReplacement{};
+    VulkanModelPipeline modelReplacement{};
+    VulkanSkinnedPipeline skinnedReplacement{};
     VulkanRayTracingOutputRing outputReplacement{};
     if (!CreateVulkanSwapchain(context, replacement, window->Width(), window->Height(),
                                window->Vsync(), swapchain.handle)) {
@@ -49,14 +53,20 @@ bool VulkanRenderBackend::Impl::RecreateSwapchain()
         DestroyVulkanRayTracingOutputRing(context, outputReplacement);
     }
     CreateReplacementBoxPipeline(replacement, depthReplacement, boxReplacement);
+    CreateReplacementModelPipeline(replacement, depthReplacement, modelReplacement);
+    CreateReplacementSkinnedPipeline(replacement, depthReplacement, skinnedReplacement);
     for (VulkanDepthBuffer& buffer : depth) {
         DestroyVulkanDepthBuffer(context, buffer);
     }
     DestroyVulkanSwapchain(context, swapchain);
     DestroyVulkanBoxPipeline(context, boxPipeline);
+    DestroyVulkanModelPipeline(context, modelPipeline);
+    DestroyVulkanSkinnedPipeline(context, skinnedPipeline);
     DestroyVulkanRayTracingOutputRing(context, rayTracingOutput);
     swapchain = std::move(replacement);
     boxPipeline = std::move(boxReplacement);
+    modelPipeline = std::move(modelReplacement);
+    skinnedPipeline = std::move(skinnedReplacement);
     rayTracingOutput = std::move(outputReplacement);
     for (u32 index = 0; index < kMaxFramesInFlight; ++index) {
         depth[index] = std::move(depthReplacement[index]);
@@ -65,6 +75,30 @@ bool VulkanRenderBackend::Impl::RecreateSwapchain()
     ++swapchainGeneration;
     swapchainDirty = false;
     return true;
+}
+
+void VulkanRenderBackend::Impl::CreateReplacementSkinnedPipeline(
+    const VulkanSwapchain& replacement, const VulkanDepthBuffer* depthReplacement,
+    VulkanSkinnedPipeline& skinnedReplacement)
+{
+    if (!frameData.IsReady() || skinningResources.layout == VK_NULL_HANDLE ||
+        depthReplacement == nullptr) {
+        return;
+    }
+    CreateVulkanSkinnedPipeline(context, replacement.format, depthReplacement[0].format,
+                                frameData.layout, skinningResources.layout,
+                                skinnedReplacement);
+}
+
+void VulkanRenderBackend::Impl::CreateReplacementModelPipeline(
+    const VulkanSwapchain& replacement, const VulkanDepthBuffer* depthReplacement,
+    VulkanModelPipeline& modelReplacement)
+{
+    if (!frameData.IsReady() || depthReplacement == nullptr) {
+        return;
+    }
+    CreateVulkanModelPipeline(context, replacement.format, depthReplacement[0].format,
+                              frameData.layout, modelReplacement);
 }
 
 void VulkanRenderBackend::Impl::CreateReplacementBoxPipeline(

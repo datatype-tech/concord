@@ -6,6 +6,9 @@
 #define CONCORD_CANIMATION_H
 
 #include "engine/asset/Animation.h"
+#include "engine/asset/SkinningPalette.h"
 #include "engine/asset/Skeleton.h"
+#include "engine/ecs/AnimationComponents.h"
+#include "engine/ecs/AnimationSystem.h"
 
 #endif // CONCORD_CANIMATION_H

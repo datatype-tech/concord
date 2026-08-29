@@ -8,6 +8,7 @@
 set(CONCORD_ASSET_SOURCES
     src/engine/asset/Animation.cpp
     src/engine/asset/AnimationPlayer.cpp
+    src/engine/asset/SkinningPalette.cpp
     src/engine/asset/GltfAccessors.cpp
     src/engine/asset/GltfBuffers.cpp
     src/engine/asset/GltfGeometryMaterials.cpp
@@ -39,6 +40,7 @@ set(CONCORD_RUNTIME_SOURCES
     ${CONCORD_ASSET_SOURCES}
 
     src/engine/ecs/WorldId.cpp
+    src/engine/ecs/AnimationSystem.cpp
     src/engine/ecs/SystemSchedule.cpp
 
     src/engine/render/RenderBackendFactory.cpp
@@ -56,8 +58,13 @@ set(CONCORD_RUNTIME_SOURCES
 # one way only.
 set(CONCORD_RENDER_SOURCES
     src/engine/render/RenderFrameData.cpp
+    src/engine/render/RenderModelSnapshot.cpp
+    src/engine/render/RenderSkinningSnapshot.cpp
     src/engine/render/RenderSceneSnapshot.cpp
+    src/engine/render/RayTracingGeometry.cpp
     src/engine/render/VulkanRenderBackend.cpp
+    src/engine/render/VulkanRenderBackendModels.cpp
+    src/engine/render/VulkanRenderBackendRaster.cpp
     src/engine/render/VulkanRenderBackendShutdown.cpp
     src/engine/render/VulkanRenderBackendDraw.cpp
     src/engine/render/VulkanRenderBackendDebug.cpp
@@ -75,6 +82,20 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanBuffer.cpp
     src/engine/render/vulkan/VulkanBufferCreate.cpp
     src/engine/render/vulkan/VulkanBufferSync.cpp
+    src/engine/render/vulkan/VulkanModelAsset.cpp
+    src/engine/render/vulkan/VulkanModelAssetCache.cpp
+    src/engine/render/vulkan/VulkanModelAssetUpload.cpp
+    src/engine/render/vulkan/VulkanModelPipeline.cpp
+    src/engine/render/vulkan/VulkanModelPipelineDraw.cpp
+    src/engine/render/vulkan/VulkanModelPipelineLayout.cpp
+    src/engine/render/vulkan/VulkanModelPipelineRecord.cpp
+    src/engine/render/vulkan/VulkanModelPipelineState.cpp
+    src/engine/render/vulkan/VulkanSkinningResources.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipeline.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipelineLayout.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipelineDraw.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipelineRecord.cpp
+    src/engine/render/vulkan/VulkanSkinnedPipelineState.cpp
     src/engine/render/vulkan/VulkanClearPass.cpp
     src/engine/render/vulkan/VulkanDepthBuffer.cpp
     src/engine/render/vulkan/VulkanDevice.cpp

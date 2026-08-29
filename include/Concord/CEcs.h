@@ -14,6 +14,8 @@
  */
 
 #include "engine/ecs/Components.h"
+#include "engine/ecs/AnimationComponents.h"
+#include "engine/ecs/AnimationSystem.h"
 #include "engine/ecs/Entity.h"
 #include "engine/ecs/System.h"
 #include "engine/ecs/SystemSchedule.h"

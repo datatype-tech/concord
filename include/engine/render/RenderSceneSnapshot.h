@@ -7,14 +7,19 @@
 
 #include "engine/core/Mat4.h"
 #include "engine/core/Transform.h"
+#include "engine/asset/SkinningPalette.h"
 #include "engine/ecs/Components.h"
 #include "engine/ecs/Entity.h"
 #include "engine/scene/EnvironmentSettings.h"
 #include "engine/scene/Material.h"
+#include "engine/scene/ModelRenderer.h"
 
+#include <memory>
 #include <vector>
 
 namespace Concord {
+
+inline constexpr u32 kInvalidRenderNode = 0xFFFFFFFFu;
 
 class Scene;
 
@@ -35,6 +40,16 @@ struct RenderObjectSnapshot {
     Vec3 size{1.0f, 1.0f, 1.0f};
     Material material{};
     bool castShadow = true;
+    /** Imported asset retained for this snapshot's lifetime. */
+    std::shared_ptr<const ModelAsset> modelAsset{};
+    /** Selected mesh, or kAllModelMeshes for the whole asset. */
+    u32 modelMesh = kAllModelMeshes;
+    /** Source node that contributed this draw, or kInvalidRenderNode. */
+    u32 modelNode = kInvalidRenderNode;
+    /** Skin index attached to the source node, or -1 for static geometry. */
+    i32 modelSkin = -1;
+    /** Palette range for a skinned model, or an empty range for static data. */
+    SkinningPaletteRange skinningRange{};
 };
 
 /** One light and its placement copied from the scene store. */
@@ -51,6 +66,8 @@ struct RenderSceneSnapshot {
     EnvironmentSettings environment{};
     std::vector<RenderObjectSnapshot> objects;
     std::vector<RenderLightSnapshot> lights;
+    /** Concatenated joint matrices referenced by `RenderObjectSnapshot`s. */
+    SkinningPaletteUpload skinningPalette{};
 };
 
 /** Builds a render snapshot using the supplied viewport aspect ratio. */

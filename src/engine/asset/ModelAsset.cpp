@@ -21,6 +21,12 @@ bool Finite(Quat value) noexcept
            std::isfinite(value.z) && std::isfinite(value.w);
 }
 
+bool Finite(const BoneTransform& transform) noexcept
+{
+    return Finite(transform.translation) && Finite(transform.scale) &&
+           Finite(transform.rotation);
+}
+
 } // namespace
 
 bool ModelAsset::IsValid() const noexcept
@@ -54,7 +60,8 @@ bool ModelAsset::IsValid() const noexcept
         if (!skeleton.IsValid() || (!skeleton.nodeIndices.empty() && skeleton.nodeIndices.size() != skeleton.joints.size())) return false;
     }
     for (const ModelNode& node : nodes) {
-        if (node.parent < -1 || (node.parent >= 0 && static_cast<usize>(node.parent) >= nodes.size()) ||
+        if (!Finite(node.local) || node.parent < -1 ||
+            (node.parent >= 0 && static_cast<usize>(node.parent) >= nodes.size()) ||
             (node.mesh >= 0 && static_cast<usize>(node.mesh) >= meshes.size()) ||
             (node.skin >= 0 && static_cast<usize>(node.skin) >= skeletons.size())) return false;
         for (u32 child : node.children) if (child >= nodes.size()) return false;

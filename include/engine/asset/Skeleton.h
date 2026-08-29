@@ -26,11 +26,11 @@ struct BoneTransform {
     Vec3 scale{1.0f, 1.0f, 1.0f};
 
     /** Converts local TRS to the matrix used by skinning and node traversal. */
-    [[nodiscard]] Mat4 ToMatrix() const noexcept;
+    [[nodiscard]] CENGINE_API Mat4 ToMatrix() const noexcept;
     /** Interpolates two local transforms while preserving quaternion winding. */
-    [[nodiscard]] static BoneTransform Interpolate(const BoneTransform& a,
-                                                   const BoneTransform& b,
-                                                   f32 amount) noexcept;
+    [[nodiscard]] CENGINE_API static BoneTransform Interpolate(const BoneTransform& a,
+                                                               const BoneTransform& b,
+                                                               f32 amount) noexcept;
 };
 
 /** One named joint in a glTF-compatible bind hierarchy. */
@@ -47,7 +47,7 @@ struct SkeletonPose {
     std::vector<Mat4> jointMatrices;
 
     /** Resizes and initializes a pose from the skeleton's bind transforms. */
-    void Reset(const struct Skeleton& skeleton);
+    CENGINE_API void Reset(const struct Skeleton& skeleton);
 };
 
 /** A validated hierarchy and inverse-bind matrices used by skinned meshes. */

@@ -6,6 +6,7 @@
 #include "Concord/CModel.h"
 
 #include <cmath>
+#include <limits>
 #include <string>
 
 namespace {
@@ -86,9 +87,25 @@ bool TestSkeletonAndAnimation()
     return true;
 }
 
+bool TestRejectsMalformedNodeTransform()
+{
+    Concord::ModelAsset asset{};
+    asset.materials.push_back(Concord::ModelMaterial{});
+    Concord::ModelPrimitive primitive{};
+    primitive.vertices = {Concord::ModelVertex{.position = {0.0f, 0.0f, 0.0f}},
+                          Concord::ModelVertex{.position = {1.0f, 0.0f, 0.0f}},
+                          Concord::ModelVertex{.position = {0.0f, 1.0f, 0.0f}}};
+    primitive.indices = {0, 1, 2};
+    asset.meshes.push_back(Concord::ModelMesh{.primitives = {primitive}});
+    asset.nodes.push_back(Concord::ModelNode{.mesh = 0});
+    asset.nodes[0].local.translation.x = std::numeric_limits<float>::quiet_NaN();
+    return !asset.IsValid();
+}
+
 } // namespace
 
 int main()
 {
-    return TestObj() && TestGltf() && TestGltfAnimationMapping() && TestSkeletonAndAnimation() ? 0 : 1;
+    return TestObj() && TestGltf() && TestGltfAnimationMapping() && TestSkeletonAndAnimation() &&
+           TestRejectsMalformedNodeTransform() ? 0 : 1;
 }

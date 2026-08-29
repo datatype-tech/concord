@@ -5,6 +5,9 @@
 #define CONCORD_VULKANRENDERBACKENDSTATE_H
 #include "engine/render/VulkanRenderBackend.h"
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
+#include "engine/render/vulkan/VulkanModelPipeline.h"
+#include "engine/render/vulkan/VulkanSkinningResources.h"
+#include "engine/render/vulkan/VulkanSkinnedPipeline.h"
 #include "engine/render/vulkan/VulkanDepthBuffer.h"
 #include "engine/render/vulkan/VulkanFrameSync.h"
 #include "engine/render/vulkan/VulkanFrameDataResources.h"
@@ -20,6 +23,8 @@
 
 namespace Concord {
 
+struct VulkanDirectionalShadowState;
+
 /** Groups the native objects owned by the Vulkan backend implementation. */
 struct VulkanRenderBackend::Impl {
     Window* window = nullptr;
@@ -27,6 +32,10 @@ struct VulkanRenderBackend::Impl {
     VulkanSwapchain swapchain{};
     VulkanDepthBuffer depth[kMaxFramesInFlight]{};
     VulkanBoxPipeline boxPipeline{};
+    VulkanModelPipeline modelPipeline{};
+    VulkanModelAssetCache modelAssets{};
+    VulkanSkinningResources skinningResources{};
+    VulkanSkinnedPipeline skinnedPipeline{};
     VulkanFrameDataResources frameData{};
     VulkanTileLightCulling tileCulling{};
     VulkanShadowMap shadowMaps[kMaxFramesInFlight]{};
@@ -86,6 +95,23 @@ struct VulkanRenderBackend::Impl {
     void CreateReplacementBoxPipeline(const VulkanSwapchain& replacement,
                                       const VulkanDepthBuffer* depthReplacement,
                                       VulkanBoxPipeline& boxReplacement);
+    void CreateReplacementModelPipeline(const VulkanSwapchain& replacement,
+                                        const VulkanDepthBuffer* depthReplacement,
+                                        VulkanModelPipeline& modelReplacement);
+    void CreateReplacementSkinnedPipeline(const VulkanSwapchain& replacement,
+                                          const VulkanDepthBuffer* depthReplacement,
+                                          VulkanSkinnedPipeline& skinnedReplacement);
+    void CreateModelPipelines();
+    bool PrepareModelAssets(const RenderSceneSnapshot& snapshot,
+                            bool& hasModelObjects, bool& hasBoxObjects,
+                            bool& hasStaticModelObjects, bool& hasSkinnedModelObjects);
+    bool UploadSkinningFrame(const RenderSceneSnapshot& snapshot, u32 frameIndex) noexcept;
+    void RecordRasterPasses(const RenderSceneSnapshot& snapshot,
+                            const VulkanDirectionalShadowState& shadowState,
+                            VkDescriptorSet frameDataSet, Vec3 skyColor, bool tileEnabled,
+                            bool shadowBindingReady, bool rayTracingBuilt,
+                            bool rayTracingComposited, bool canDrawBoxes,
+                            bool canDrawModels, bool canDrawSkinned);
 };
 
 } // namespace Concord

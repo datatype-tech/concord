@@ -8,6 +8,9 @@
 #include "engine/render/VulkanRenderBackendExtensions.h"
 #include "engine/render/vulkan/VulkanDevice.h"
 #include "engine/render/vulkan/VulkanInstance.h"
+#include "engine/render/vulkan/VulkanModelPipeline.h"
+#include "engine/render/vulkan/VulkanSkinningResources.h"
+#include "engine/render/vulkan/VulkanSkinnedPipeline.h"
 #include "engine/render/vulkan/VulkanSurface.h"
 
 namespace Concord {
@@ -43,6 +46,10 @@ void VulkanRenderBackend::Shutdown()
         }
         DestroyVulkanTileLightCulling(impl.context, impl.tileCulling);
         DestroyVulkanBoxPipeline(impl.context, impl.boxPipeline);
+        DestroyVulkanModelPipeline(impl.context, impl.modelPipeline);
+        DestroyVulkanSkinnedPipeline(impl.context, impl.skinnedPipeline);
+        DestroyVulkanSkinningResources(impl.context, impl.skinningResources);
+        impl.modelAssets.Clear(impl.context);
         DestroyVulkanRayTracingOutputRing(impl.context, impl.rayTracingOutput);
         DestroyVulkanRayTracingPipeline(impl.context, impl.rayTracingPipeline);
         DestroyVulkanRayTracingSceneRing(impl.context, impl.rayTracing);
