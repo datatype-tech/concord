@@ -15,7 +15,10 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/animation/AnimationController.cpp
     src/engine/animation/AnimationGraph.cpp
     src/engine/animation/AnimationLayer.cpp
+    src/engine/animation/AnimationRetarget.cpp
+    src/engine/animation/AnimationRetargetMath.cpp
     src/engine/animation/AnimationSampling.cpp
+    src/engine/animation/Humanoid.cpp
     src/engine/animation/AnimationStateMachine.cpp
     src/engine/animation/AnimationStateMachineTime.cpp
     src/engine/animation/JointMask.cpp

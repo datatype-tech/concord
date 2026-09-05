@@ -86,6 +86,25 @@ target_compile_features(concord_animation_system_tests PRIVATE cxx_std_23)
 target_include_directories(concord_animation_system_tests PRIVATE ${CONCORD_TEST_INCLUDE})
 add_test(NAME concord_animation_system_tests COMMAND concord_animation_system_tests)
 
+add_executable(concord_animation_retarget_tests
+    tests/AnimationRetargetTests.cpp
+    src/engine/animation/AnimationRetarget.cpp
+    src/engine/animation/AnimationRetargetMath.cpp
+    src/engine/animation/Humanoid.cpp
+    src/engine/asset/Skeleton.cpp)
+target_compile_features(concord_animation_retarget_tests PRIVATE cxx_std_23)
+target_include_directories(concord_animation_retarget_tests PRIVATE ${CONCORD_TEST_INCLUDE})
+add_test(NAME concord_animation_retarget_tests COMMAND concord_animation_retarget_tests)
+
+add_executable(concord_asset_hardening_tests
+    tests/AssetImportHardeningTests.cpp
+    ${CONCORD_ASSET_SOURCES}
+    src/engine/animation/AnimationSampling.cpp)
+target_compile_features(concord_asset_hardening_tests PRIVATE cxx_std_23)
+target_include_directories(concord_asset_hardening_tests PRIVATE
+    ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/stb)
+add_test(NAME concord_asset_hardening_tests COMMAND concord_asset_hardening_tests)
+
 add_executable(concord_animation_blend_tests
     tests/AnimationBlendTests.cpp
     src/engine/animation/AnimationBlend.cpp

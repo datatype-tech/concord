@@ -11,6 +11,8 @@
 #include "engine/animation/AnimationBlend.h"
 #include "engine/animation/AnimationController.h"
 #include "engine/animation/AnimationGraph.h"
+#include "engine/animation/AnimationRetarget.h"
+#include "engine/animation/Humanoid.h"
 #include "engine/animation/AnimationLayer.h"
 #include "engine/animation/AnimationSampling.h"
 #include "engine/animation/AnimationStateMachine.h"
