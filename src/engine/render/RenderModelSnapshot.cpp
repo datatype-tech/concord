@@ -63,9 +63,7 @@ void AppendModelSnapshots(RenderSceneSnapshot& snapshot, Entity entity,
             (model.meshIndex != kAllModelMeshes && model.meshIndex != static_cast<u32>(node.mesh))) {
             continue;
         }
-        const Mat4 nodeModel = node.skin >= 0
-                                   ? instanceModel
-                                   : instanceModel * NodeModel(asset, nodeIndex, cache, state);
+        const Mat4 nodeModel = instanceModel * NodeModel(asset, nodeIndex, cache, state);
         AppendOne(snapshot, entity, model, nodeModel,
                   static_cast<u32>(node.mesh), nodeIndex, node.skin);
         appended = true;

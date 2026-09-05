@@ -94,7 +94,7 @@ bool RecordVulkanRayTracingSceneBuildInternal(
     topRange.primitiveCount = instanceCount;
     const VkAccelerationStructureBuildRangeInfoKHR* topRanges[] = {&topRange};
     scene.dispatch.cmdBuildAccelerationStructures(commandBuffer, 1, &top, topRanges);
-    return true;
+    return InsertVulkanRayTracingModelShaderBarrier(commandBuffer, scene);
 }
 
 void InsertVulkanRayTracingSceneReadBarrier(VkCommandBuffer commandBuffer,

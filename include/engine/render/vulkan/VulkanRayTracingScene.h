@@ -51,6 +51,9 @@ struct VulkanRayTracingScene {
     VulkanBuffer bottomLevelBuffer{};
     VulkanBuffer topLevelBuffer{};
     VulkanBuffer scratchBuffer{};
+    VulkanBuffer modelVertexBuffer{};
+    VulkanBuffer modelIndexBuffer{};
+    VulkanBuffer modelPrimitiveBuffer{};
     VkAccelerationStructureKHR bottomLevel = VK_NULL_HANDLE;
     VkAccelerationStructureKHR topLevel = VK_NULL_HANDLE;
     VkDeviceAddress bottomLevelAddress = 0;
@@ -63,6 +66,11 @@ struct VulkanRayTracingScene {
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
     /** BLAS resources lazily created for static imported-model primitives. */
     std::vector<VulkanRayTracingModelPrimitive> modelPrimitives;
+    /** CPU mirror used to populate the model hit-shader metadata SSBO. */
+    std::vector<VulkanRayTracingModelPrimitiveInfo> modelPrimitiveInfos;
+    /** Packed CPU geometry consumed by the model hit-shader SSBOs. */
+    std::vector<VulkanRayTracingModelVertex> modelVertices;
+    std::vector<u32> modelIndices;
     /** Includes non-shadow-casting meshes when this scene feeds primary RT rays. */
     bool includeNonShadowCasters = false;
 
@@ -77,6 +85,7 @@ struct VulkanRayTracingScene {
                instanceBuffer.GetDeviceAddress() % kVulkanRayTracingInstanceAddressAlignment == 0 &&
                bottomLevelBuffer.HasDeviceAddress() &&
                topLevelBuffer.HasDeviceAddress() && scratchBuffer.HasDeviceAddress() &&
+               modelPrimitiveBuffer.IsReady() &&
                bottomLevel != VK_NULL_HANDLE && topLevel != VK_NULL_HANDLE &&
                bottomLevelAddress != 0 && topLevelAddress != 0 && scratchAlignment != 0 &&
                descriptorLayout != VK_NULL_HANDLE && descriptorPool != VK_NULL_HANDLE &&

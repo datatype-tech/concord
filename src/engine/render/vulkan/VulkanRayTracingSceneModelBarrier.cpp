@@ -51,4 +51,32 @@ bool InsertVulkanRayTracingModelInputBarrier(
     return true;
 }
 
+bool InsertVulkanRayTracingModelShaderBarrier(
+    VkCommandBuffer commandBuffer, const VulkanRayTracingScene& scene) noexcept
+{
+    if (commandBuffer == VK_NULL_HANDLE) return false;
+    VkBufferMemoryBarrier barriers[3]{};
+    const VulkanBuffer* buffers[] = {&scene.modelVertexBuffer, &scene.modelIndexBuffer,
+                                     &scene.modelPrimitiveBuffer};
+    u32 count = 0;
+    for (const VulkanBuffer* buffer : buffers) {
+        if (buffer->buffer == VK_NULL_HANDLE) continue;
+        VkBufferMemoryBarrier& barrier = barriers[count++];
+        barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.buffer = buffer->buffer;
+        barrier.size = VK_WHOLE_SIZE;
+    }
+    if (count != 0) {
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_HOST_BIT,
+                             VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR |
+                                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             0, 0, nullptr, count, barriers, 0, nullptr);
+    }
+    return true;
+}
+
 } // namespace Concord

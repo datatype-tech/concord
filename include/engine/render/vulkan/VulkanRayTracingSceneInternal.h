@@ -37,6 +37,16 @@ bool CreateVulkanRayTracingModelPrimitive(
     const ModelAsset* source, u32 primitiveIndex, const VulkanModelAsset& gpu,
     const VulkanModelPrimitiveRange& range, VulkanRayTracingModelPrimitive& output);
 
+/** Appends one imported primitive to the model hit-shader CPU payload. */
+bool AppendVulkanRayTracingModelData(
+    VulkanRayTracingScene& scene, const ModelAsset* source, u32 primitiveIndex,
+    const VulkanModelAsset& gpu, const VulkanModelPrimitiveRange& range,
+    VulkanRayTracingModelPrimitive& output);
+
+/** Recreates packed model SSBOs and refreshes the scene descriptor set. */
+bool RebuildVulkanRayTracingModelBuffers(const VulkanContext& context,
+                                         VulkanRayTracingScene& scene);
+
 /** Records all imported-model BLAS builds before the TLAS build. */
 bool RecordVulkanRayTracingModelBuilds(VkCommandBuffer commandBuffer,
                                        const VulkanRayTracingScene& scene) noexcept;
@@ -62,12 +72,20 @@ void InsertVulkanRayTracingInputBarrier(VkCommandBuffer commandBuffer,
 bool InsertVulkanRayTracingModelInputBarrier(
     VkCommandBuffer commandBuffer, const VulkanRayTracingScene& scene) noexcept;
 
+/** Makes packed model SSBO host writes visible to RT and fragment shaders. */
+bool InsertVulkanRayTracingModelShaderBarrier(
+    VkCommandBuffer commandBuffer, const VulkanRayTracingScene& scene) noexcept;
+
 /** Inserts the BLAS-to-TLAS build ordering barrier. */
 void InsertVulkanRayTracingBuildBarrier(VkCommandBuffer commandBuffer) noexcept;
 
 /** Creates and updates the single acceleration-structure descriptor set. */
 bool CreateVulkanRayTracingSceneDescriptor(const VulkanContext& context,
                                           VulkanRayTracingScene& scene);
+
+/** Refreshes only the model storage-buffer bindings in an existing descriptor set. */
+bool UpdateVulkanRayTracingSceneModelDescriptors(const VulkanContext& context,
+                                                 VulkanRayTracingScene& scene);
 
 /** Releases the acceleration-structure descriptor objects. */
 void DestroyVulkanRayTracingSceneDescriptor(const VulkanContext& context,

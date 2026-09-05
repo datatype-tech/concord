@@ -20,15 +20,14 @@ bool RecordVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer c
                                  const VulkanModelAssetCache* modelAssets) noexcept
 {
     sceneBuilt = false;
-    bool hasImportedModels = false;
+    bool hasSkinnedModels = false;
     for (const RenderObjectSnapshot& object : snapshot.objects) {
-        hasImportedModels = hasImportedModels || object.shape == PrimitiveShape::Model;
+        hasSkinnedModels = hasSkinnedModels ||
+                           (object.shape == PrimitiveShape::Model &&
+                            (object.modelSkin >= 0 || object.skinningRange.jointCount != 0));
     }
-    // The built-in closest-hit shader currently owns the procedural Box ABI;
-    // model BLAS are therefore used by ray-query occlusion until model hit
-    // attributes/material buffers are wired into the full primary-ray path.
     const bool pipelineConsumer = pipeline.IsReady() && outputRing.IsReady() &&
-                                  !hasImportedModels;
+                                  !hasSkinnedModels;
     const bool queryConsumer = context.rayTracing.IsRayQueryUsable() &&
                                boxPipeline.HasRayQuery();
     if (commandBuffer == VK_NULL_HANDLE || !scene.IsReady() || !snapshot.hasCamera ||

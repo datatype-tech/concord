@@ -6,8 +6,12 @@
 #define CONCORD_VULKANRAYTRACINGMODEL_H
 
 #include "engine/render/vulkan/VulkanBuffer.h"
+#include "engine/core/Vec4.h"
 
 #include <vulkan/vulkan.h>
+
+#include <cstddef>
+#include <type_traits>
 
 namespace Concord {
 
@@ -18,6 +22,44 @@ inline constexpr u32 kVulkanRayTracingModelInstanceBit = 1u << 23;
 inline constexpr u32 kVulkanRayTracingModelInstanceMask =
     kVulkanRayTracingModelInstanceBit - 1u;
 inline constexpr VkDeviceSize kVulkanRayTracingModelAddressAlignment = 4;
+inline constexpr u32 kVulkanRayTracingModelMetadataCapacity = 256;
+
+/** std430-compatible vertex payload consumed by the model closest-hit shader. */
+struct alignas(16) VulkanRayTracingModelVertex {
+    Vec4 position{};
+    Vec4 normal{};
+    Vec4 texcoord{};
+};
+
+/** std430-compatible range and material payload for one model primitive. */
+struct alignas(16) VulkanRayTracingModelPrimitiveInfo {
+    u32 firstVertex = 0;
+    u32 firstIndex = 0;
+    u32 indexCount = 0;
+    u32 materialIndex = 0;
+    Vec4 baseColor{};
+    Vec4 emissive{};
+    Vec4 surface{};
+};
+
+static_assert(sizeof(VulkanRayTracingModelVertex) == sizeof(Vec4) * 3);
+static_assert(alignof(VulkanRayTracingModelVertex) == 16);
+static_assert(std::is_standard_layout_v<VulkanRayTracingModelVertex> &&
+              std::is_trivially_copyable_v<VulkanRayTracingModelVertex>);
+static_assert(offsetof(VulkanRayTracingModelVertex, position) == 0);
+static_assert(offsetof(VulkanRayTracingModelVertex, normal) == sizeof(Vec4));
+static_assert(offsetof(VulkanRayTracingModelVertex, texcoord) == sizeof(Vec4) * 2);
+static_assert(sizeof(VulkanRayTracingModelPrimitiveInfo) == sizeof(Vec4) * 4);
+static_assert(alignof(VulkanRayTracingModelPrimitiveInfo) == 16);
+static_assert(std::is_standard_layout_v<VulkanRayTracingModelPrimitiveInfo> &&
+              std::is_trivially_copyable_v<VulkanRayTracingModelPrimitiveInfo>);
+static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, firstVertex) == 0);
+static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, firstIndex) == sizeof(u32));
+static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, indexCount) == sizeof(u32) * 2);
+static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, materialIndex) == sizeof(u32) * 3);
+static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, baseColor) == sizeof(Vec4));
+static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, emissive) == sizeof(Vec4) * 2);
+static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, surface) == sizeof(Vec4) * 3);
 
 /** Device-side BLAS metadata for one static imported-model primitive. */
 struct VulkanRayTracingModelPrimitive {
@@ -29,6 +71,9 @@ struct VulkanRayTracingModelPrimitive {
     u32 firstIndex = 0;
     u32 indexCount = 0;
     u32 vertexCount = 0;
+    u32 metadataIndex = 0;
+    u32 metadataFirstVertex = 0;
+    u32 metadataFirstIndex = 0;
     VkBuffer vertexBuffer = VK_NULL_HANDLE;
     VkBuffer indexBuffer = VK_NULL_HANDLE;
     VkDeviceAddress vertexAddress = 0;
@@ -47,6 +92,9 @@ struct VulkanRayTracingModelPrimitive {
                vertexAddress % kVulkanRayTracingModelAddressAlignment == 0 &&
                indexAddress % kVulkanRayTracingModelAddressAlignment == 0 &&
                indexCount >= 3 && indexCount % 3 == 0 && vertexCount != 0 &&
+               metadataIndex < kVulkanRayTracingModelMetadataCapacity &&
+               metadataFirstVertex <= 0xffffffffu - vertexCount &&
+               metadataFirstIndex <= 0xffffffffu - indexCount &&
                materialIndex < kVulkanRayTracingModelInstanceBit &&
                accelerationStructure != VK_NULL_HANDLE && storage.IsBound() &&
                scratch.HasDeviceAddress() && address != 0 && scratchSize != 0;

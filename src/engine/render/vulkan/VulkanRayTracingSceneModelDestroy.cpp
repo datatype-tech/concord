@@ -21,6 +21,14 @@ void DestroyVulkanRayTracingModelPrimitives(const VulkanContext& context,
         primitive = {};
     }
     scene.modelPrimitives.clear();
+    DestroyVulkanBuffer(context, scene.modelVertexBuffer);
+    DestroyVulkanBuffer(context, scene.modelIndexBuffer);
+    scene.modelPrimitiveInfos.clear();
+    scene.modelVertices.clear();
+    scene.modelIndices.clear();
+    if (scene.descriptorSet != VK_NULL_HANDLE) {
+        UpdateVulkanRayTracingSceneModelDescriptors(context, scene);
+    }
 }
 
 } // namespace Concord

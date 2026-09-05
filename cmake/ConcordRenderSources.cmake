@@ -75,6 +75,8 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanRayTracingSceneInstances.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModels.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelCreate.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneModelData.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneModelBuffers.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBuild.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBarrier.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelDestroy.cpp

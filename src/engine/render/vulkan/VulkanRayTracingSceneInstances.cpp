@@ -45,8 +45,7 @@ void AppendModelInstances(
             continue;
         }
         if (!AppendInstance(instances, count, object.model, primitive.address,
-                            kVulkanRayTracingModelInstanceBit |
-                                (primitive.materialIndex & kVulkanRayTracingModelInstanceMask))) {
+                            kVulkanRayTracingModelInstanceBit | primitive.metadataIndex)) {
             return;
         }
     }

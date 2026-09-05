@@ -68,10 +68,10 @@ bool RunVulkanRenderExtensions(const VulkanContext& context,
                                rayTracingScene->IsReady();
     pass.commandBufferRecording = recording ? 1u : 0u;
     pass.featureFlags = 0;
-    if (context.rayTracing.IsRayQueryUsable()) {
+    if (framePhase && context.rayTracing.IsRayQueryUsable()) {
         pass.featureFlags |= VulkanPassFeatureRayQuery;
     }
-    if (context.rayTracing.IsUsable()) {
+    if (framePhase && context.rayTracing.IsUsable()) {
         pass.featureFlags |= VulkanPassFeatureRayTracingPipeline;
     }
     if (recording) {

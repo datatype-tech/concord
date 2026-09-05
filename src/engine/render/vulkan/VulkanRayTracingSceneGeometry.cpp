@@ -28,7 +28,8 @@ bool UploadArray(const VulkanContext& context, const std::array<T, N>& data,
 {
     VulkanBufferCreateInfo info{};
     info.size = sizeof(data);
-    info.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    info.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     info.requiredMemoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     info.preferredMemoryProperties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     info.persistentMap = true;
@@ -44,10 +45,17 @@ bool UploadArray(const VulkanContext& context, const std::array<T, N>& data,
 bool CreateVulkanRayTracingSceneGeometry(const VulkanContext& context,
                                          VulkanRayTracingScene& scene)
 {
+    std::array<VulkanRayTracingModelPrimitiveInfo,
+               kVulkanRayTracingModelMetadataCapacity> metadata{};
     if (!UploadArray(context, kBoxVertices, scene.vertexBuffer)) {
         return false;
     }
     if (!UploadArray(context, kBoxIndices, scene.indexBuffer)) {
+        DestroyVulkanBuffer(context, scene.vertexBuffer);
+        return false;
+    }
+    if (!UploadArray(context, metadata, scene.modelPrimitiveBuffer)) {
+        DestroyVulkanBuffer(context, scene.indexBuffer);
         DestroyVulkanBuffer(context, scene.vertexBuffer);
         return false;
     }

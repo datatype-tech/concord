@@ -95,13 +95,13 @@ struct VulkanRenderBackend::Impl {
         }
     }
     bool RecreateSwapchain();
-    void CreateReplacementBoxPipeline(const VulkanSwapchain& replacement,
+    bool CreateReplacementBoxPipeline(const VulkanSwapchain& replacement,
                                       const VulkanDepthBuffer* depthReplacement,
                                       VulkanBoxPipeline& boxReplacement);
-    void CreateReplacementModelPipeline(const VulkanSwapchain& replacement,
+    bool CreateReplacementModelPipeline(const VulkanSwapchain& replacement,
                                         const VulkanDepthBuffer* depthReplacement,
                                         VulkanModelPipeline& modelReplacement);
-    void CreateReplacementSkinnedPipeline(const VulkanSwapchain& replacement,
+    bool CreateReplacementSkinnedPipeline(const VulkanSwapchain& replacement,
                                           const VulkanDepthBuffer* depthReplacement,
                                           VulkanSkinnedPipeline& skinnedReplacement);
     void CreateModelPipelines();

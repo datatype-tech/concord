@@ -1,18 +1,18 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 #include "VulkanRayTracingSceneGpuSupport.h"
-
 #include "engine/asset/ModelAsset.h"
+#include "engine/render/RenderFrameData.h"
+#include "engine/render/vulkan/VulkanFrameDataResources.h"
 #include "engine/render/vulkan/VulkanModelAssetCache.h"
+#include "engine/render/vulkan/VulkanRayTracingOutput.h"
+#include "engine/render/vulkan/VulkanRayTracingPipeline.h"
 #include "engine/render/vulkan/VulkanRayTracingSceneInternal.h"
-
+#include "engine/render/vulkan/VulkanShaderModule.h"
 #include <memory>
 #include <vector>
-
 namespace {
-
 std::shared_ptr<Concord::ModelAsset> MakeTriangle()
 {
     auto asset = std::make_shared<Concord::ModelAsset>();
@@ -26,17 +26,14 @@ std::shared_ptr<Concord::ModelAsset> MakeTriangle()
         }}});
     return asset;
 }
-
 } // namespace
-
-int main()
-{
+int main() {
+    if (Concord::ReadVulkanShaderCode("raygen.rgen.spv").empty() || Concord::ReadVulkanShaderCode("raymiss.rmiss.spv").empty() || Concord::ReadVulkanShaderCode("rayhit.rchit.spv").empty()) return 77;
     VkInstance instance = VK_NULL_HANDLE;
     if (!ConcordTest::CreateInstance(instance)) return 77;
     Concord::u32 count = 0;
     if (vkEnumeratePhysicalDevices(instance, &count, nullptr) != VK_SUCCESS || count == 0) {
-        vkDestroyInstance(instance, nullptr);
-        return 77;
+        vkDestroyInstance(instance, nullptr); return 77;
     }
     std::vector<VkPhysicalDevice> devices(count);
     vkEnumeratePhysicalDevices(instance, &count, devices.data());
@@ -53,20 +50,18 @@ int main()
             break;
         }
     }
-    if (physical == VK_NULL_HANDLE) {
-        vkDestroyInstance(instance, nullptr);
-        return 77;
-    }
+    if (physical == VK_NULL_HANDLE) { vkDestroyInstance(instance, nullptr); return 77; }
     VkDevice device = VK_NULL_HANDLE;
     if (!ConcordTest::CreateRayTracingDevice(physical, family, device)) {
-        vkDestroyInstance(instance, nullptr);
-        return 77;
+        vkDestroyInstance(instance, nullptr); return 77;
     }
     Concord::VulkanContext context{.instance = instance, .physicalDevice = physical,
-                                   .device = device, .queueFamily = family,
-                                   .rayTracing = support};
+                                   .device = device, .queueFamily = family, .rayTracing = support};
     Concord::VulkanRayTracingScene scene{};
     Concord::VulkanModelAssetCache cache{};
+    Concord::VulkanFrameDataResources frameData{};
+    Concord::VulkanRayTracingPipeline pipeline{};
+    Concord::VulkanRayTracingOutputRing output{};
     const auto asset = MakeTriangle();
     int status = Concord::CreateVulkanRayTracingScene(context, scene) ? 0 : 1;
     if (status == 0) status = cache.Ensure(context, asset) ? 0 : 1;
@@ -81,7 +76,29 @@ int main()
                            context, scene, snapshot, cache)) {
         status = 1;
     }
-    if (status == 0 && scene.modelPrimitives.size() != 1) status = 1;
+    if (status == 0 && (scene.modelPrimitives.size() != 1 ||
+                        scene.modelPrimitiveInfos.size() != 1 ||
+                        !scene.modelVertexBuffer.IsReady() || !scene.modelIndexBuffer.IsReady() ||
+                        scene.modelPrimitiveBuffer.mapped == nullptr ||
+                        static_cast<const Concord::VulkanRayTracingModelPrimitiveInfo*>(
+                            scene.modelPrimitiveBuffer.mapped)->indexCount != 3)) {
+        status = 1;
+    }
+    if (status == 0 && (!Concord::CreateVulkanFrameDataResources(context, frameData) ||
+                        !Concord::UploadVulkanFrameData(frameData, 0, Concord::RenderFrameData{
+                            .header = {.cameraValid = 1},
+                            .camera = {.view = Concord::Mat4::Identity(),
+                                       .projection = Concord::Mat4::Identity()}}))) {
+        status = 1;
+    }
+    if (status == 0 && !Concord::CreateVulkanRayTracingPipeline(
+                           context, frameData.layout, scene.descriptorLayout, pipeline)) {
+        status = 1;
+    }
+    if (status == 0 && !Concord::CreateVulkanRayTracingOutputRing(
+                           context, pipeline.outputLayout, {16, 16}, output)) {
+        status = 1;
+    }
     VkCommandPool pool = VK_NULL_HANDLE;
     VkCommandBuffer command = VK_NULL_HANDLE;
     if (status == 0) {
@@ -102,6 +119,16 @@ int main()
         if (status == 0 && !Concord::RecordVulkanRayTracingSceneBuild(command, scene, &snapshot)) {
             status = 1;
         }
+        if (status == 0) {
+            Concord::InsertVulkanRayTracingSceneReadBarrier(
+                command, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+            Concord::PrepareVulkanRayTracingOutput(command, output.At(0));
+            if (!Concord::RecordVulkanRayTracingDispatch(
+                    command, pipeline, frameData.sets[0], output.At(0).descriptorSet,
+                    scene, output.At(0).extent)) {
+                status = 1;
+            }
+        }
         if (status == 0) status = vkEndCommandBuffer(command) == VK_SUCCESS ? 0 : 1;
     }
     if (status == 0) {
@@ -113,10 +140,11 @@ int main()
         status = vkQueueSubmit(queue, 1, &submit, VK_NULL_HANDLE) == VK_SUCCESS ? 0 : 1;
         if (status == 0) status = vkQueueWaitIdle(queue) == VK_SUCCESS ? 0 : 1;
     }
-    Concord::DestroyVulkanRayTracingScene(context, scene);
-    cache.Clear(context);
+    Concord::DestroyVulkanRayTracingOutputRing(context, output);
+    Concord::DestroyVulkanRayTracingPipeline(context, pipeline);
+    Concord::DestroyVulkanFrameDataResources(context, frameData);
+    Concord::DestroyVulkanRayTracingScene(context, scene); cache.Clear(context);
     if (pool != VK_NULL_HANDLE) vkDestroyCommandPool(device, pool, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroyInstance(instance, nullptr);
-    return status;
-}
+    return status; }

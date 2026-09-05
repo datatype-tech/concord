@@ -5,9 +5,27 @@
 #include "engine/render/vulkan/VulkanRayTracingSceneInternal.h"
 
 #include <array>
+#include <cstddef>
 #include <memory>
+#include <type_traits>
 
 namespace {
+
+bool TestModelAbi()
+{
+    return alignof(Concord::VulkanRayTracingModelVertex) == 16 &&
+           sizeof(Concord::VulkanRayTracingModelVertex) == 48 &&
+           offsetof(Concord::VulkanRayTracingModelVertex, position) == 0 &&
+           offsetof(Concord::VulkanRayTracingModelVertex, normal) == 16 &&
+           offsetof(Concord::VulkanRayTracingModelVertex, texcoord) == 32 &&
+           alignof(Concord::VulkanRayTracingModelPrimitiveInfo) == 16 &&
+           sizeof(Concord::VulkanRayTracingModelPrimitiveInfo) == 64 &&
+           offsetof(Concord::VulkanRayTracingModelPrimitiveInfo, baseColor) == 16 &&
+           offsetof(Concord::VulkanRayTracingModelPrimitiveInfo, emissive) == 32 &&
+           offsetof(Concord::VulkanRayTracingModelPrimitiveInfo, surface) == 48 &&
+           std::is_standard_layout_v<Concord::VulkanRayTracingModelVertex> &&
+           std::is_trivially_copyable_v<Concord::VulkanRayTracingModelVertex>;
+}
 
 bool TestImportedPrimitiveInstance()
 {
@@ -27,6 +45,7 @@ bool TestImportedPrimitiveInstance()
     primitive.primitiveIndex = 0;
     primitive.meshIndex = 3;
     primitive.materialIndex = 5;
+    primitive.metadataIndex = 9;
     primitive.vertexBuffer = reinterpret_cast<VkBuffer>(2);
     primitive.indexBuffer = reinterpret_cast<VkBuffer>(3);
     primitive.vertexAddress = 0x2000;
@@ -52,7 +71,7 @@ bool TestImportedPrimitiveInstance()
     const auto& instance = mapped[0];
     return instance.accelerationStructureReference == primitive.address &&
            instance.instanceCustomIndex ==
-               (Concord::kVulkanRayTracingModelInstanceBit | primitive.materialIndex) &&
+               (Concord::kVulkanRayTracingModelInstanceBit | primitive.metadataIndex) &&
            instance.transform.matrix[0][3] == 2.0f &&
            instance.transform.matrix[1][3] == 3.0f &&
            instance.transform.matrix[2][3] == 4.0f;
@@ -62,5 +81,5 @@ bool TestImportedPrimitiveInstance()
 
 int main()
 {
-    return TestImportedPrimitiveInstance() ? 0 : 1;
+    return TestModelAbi() && TestImportedPrimitiveInstance() ? 0 : 1;
 }

@@ -39,9 +39,7 @@ bool CreateStorage(const VulkanContext& context, VkDeviceSize size,
     info.deviceAddress = true;
     return CreateVulkanBuffer(context, info, buffer);
 }
-
 } // namespace
-
 bool CreateVulkanRayTracingModelPrimitive(
     const VulkanContext& context, VulkanRayTracingScene& scene,
     const ModelAsset* source, u32 primitiveIndex, const VulkanModelAsset& gpu,

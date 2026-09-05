@@ -26,6 +26,7 @@ bool EnsureVulkanRayTracingModelPrimitives(
     const RenderSceneSnapshot& snapshot, const VulkanModelAssetCache& modelAssets)
 {
     if (context.device == VK_NULL_HANDLE || !scene.dispatch.IsReady()) return false;
+    const usize primitiveStart = scene.modelPrimitives.size();
     try {
         for (const RenderObjectSnapshot& object : snapshot.objects) {
             if (object.shape != PrimitiveShape::Model || !object.modelAsset ||
@@ -47,15 +48,24 @@ bool EnsureVulkanRayTracingModelPrimitives(
                 }
                 scene.modelPrimitives.emplace_back();
                 VulkanRayTracingModelPrimitive& primitive = scene.modelPrimitives.back();
-                if (!CreateVulkanRayTracingModelPrimitive(
+                if (!AppendVulkanRayTracingModelData(
+                        scene, object.modelAsset.get(), rangeIndex, *gpu, range, primitive) ||
+                    !CreateVulkanRayTracingModelPrimitive(
                         context, scene, object.modelAsset.get(), rangeIndex, *gpu, range,
                         primitive)) {
                     scene.modelPrimitives.pop_back();
+                    DestroyVulkanRayTracingModelPrimitives(context, scene);
                     return false;
                 }
             }
         }
+        if (scene.modelPrimitives.size() != primitiveStart &&
+            !RebuildVulkanRayTracingModelBuffers(context, scene)) {
+            DestroyVulkanRayTracingModelPrimitives(context, scene);
+            return false;
+        }
     } catch (...) {
+        DestroyVulkanRayTracingModelPrimitives(context, scene);
         return false;
     }
     return true;

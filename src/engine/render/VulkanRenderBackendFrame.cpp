@@ -50,7 +50,9 @@ bool VulkanRenderBackend::BeginFrame()
         frame.imageAvailable, VK_NULL_HANDLE, &impl.imageIndex);
     if (acquire == VK_ERROR_OUT_OF_DATE_KHR) {
         impl.swapchainDirty = true;
-        impl.RecreateSwapchain();
+        if (!impl.RecreateSwapchain()) {
+            impl.swapchainDirty = true;
+        }
         return false;
     }
     if (acquire != VK_SUCCESS && acquire != VK_SUBOPTIMAL_KHR) {
@@ -126,8 +128,8 @@ void VulkanRenderBackend::EndFrame()
     if (PresentFrame(impl.context, impl.swapchain, impl.imageIndex)) {
         impl.swapchainDirty = true;
     }
-    if (impl.swapchainDirty) {
-        impl.RecreateSwapchain();
+    if (impl.swapchainDirty && !impl.RecreateSwapchain()) {
+        impl.swapchainDirty = true;
     }
     impl.frames.Advance();
 }
