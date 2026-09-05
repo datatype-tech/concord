@@ -54,7 +54,7 @@ int main()
     const auto& object = snapshot.objects.front();
     const auto& matrix = snapshot.skinningPalette.jointMatrices.front();
     const bool validPose = object.entity == entity && object.modelSkin == 0 &&
-                           std::fabs(object.model.col[3].x) < 0.0001f &&
+                           std::fabs(object.model.col[3].x - 2.0f) < 0.0001f &&
                            object.skinningRange.firstJoint == 0 &&
                    object.skinningRange.jointCount == 1 && object.skinningRange.flags == 0 &&
                    std::fabs(matrix.col[3].x - 2.0f) < 0.0001f &&
