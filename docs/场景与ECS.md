@@ -95,6 +95,7 @@ scene.SetEnvironment({.skyColor = COLOR_RGB(38, 48, 66)});
 ```
 
 场景不强制要求恰好一个摄像机；只有同时拥有 `CameraComponent` 和
-`Transform` 的实体才是完整摄像机。`MainCamera()` 选择其中 priority 最低者；
+`Transform` 的实体才是完整摄像机。`MainCamera()` 在 enabled 的摄像机中选
+择 priority 最低者（`enabled = false` 的摄像机会被跳过）；
 priority 相同时保留先出现在查询顺序中的实体。没有完整摄像机时返回
 `kInvalidEntity`，渲染器据此跳过几何绘制而保留清屏帧。

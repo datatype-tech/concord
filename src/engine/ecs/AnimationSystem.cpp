@@ -4,6 +4,7 @@
 
 #include "engine/ecs/AnimationSystem.h"
 
+#include "engine/animation/AnimationController.h"
 #include "engine/asset/Animation.h"
 #include "engine/asset/ModelAsset.h"
 #include "engine/ecs/AnimationComponents.h"
@@ -64,7 +65,9 @@ bool UpdateOne(AnimationComponent& animation, SkinningPoseComponent& pose,
         const Skeleton& skeleton = animation.asset->skeletons[animation.skeletonIndex];
         if (!PreparePose(*animation.asset, animation.skeletonIndex, pose)) return false;
         if (animation.clipIndex >= animation.asset->animations.size()) {
-            skeleton.BuildJointMatrices(pose.local, pose.jointMatrices);
+            SkeletonPose bind = skeleton.CreateBindPose();
+            pose.local = std::move(bind.local);
+            pose.jointMatrices = std::move(bind.jointMatrices);
             return false;
         }
         const AnimationClip& clip = animation.asset->animations[animation.clipIndex];
@@ -115,9 +118,13 @@ usize UpdateAnimationComponents(World& world, f32 deltaTime) noexcept
     try {
         usize updated = 0;
         world.Query<AnimationComponent, SkinningPoseComponent>(
-            [&](Entity, AnimationComponent& animation, SkinningPoseComponent& pose) {
+            [&](Entity entity, AnimationComponent& animation, SkinningPoseComponent& pose) {
+                if (world.Has<AnimationControllerComponent>(entity)) {
+                    return;
+                }
                 if (UpdateOne(animation, pose, deltaTime)) ++updated;
             });
+        updated += UpdateAnimationControllers(world, deltaTime);
         return updated;
     } catch (...) {
         return 0;

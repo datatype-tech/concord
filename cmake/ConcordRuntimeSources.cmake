@@ -11,9 +11,20 @@ set(CONCORD_RUNTIME_SOURCES
 
     ${CONCORD_ASSET_SOURCES}
 
+    src/engine/animation/AnimationBlend.cpp
+    src/engine/animation/AnimationController.cpp
+    src/engine/animation/AnimationGraph.cpp
+    src/engine/animation/AnimationLayer.cpp
+    src/engine/animation/AnimationSampling.cpp
+    src/engine/animation/AnimationStateMachine.cpp
+    src/engine/animation/AnimationStateMachineTime.cpp
+    src/engine/animation/JointMask.cpp
+
     src/engine/ecs/WorldId.cpp
     src/engine/ecs/AnimationSystem.cpp
     src/engine/ecs/SystemSchedule.cpp
+
+    src/engine/scene/FirstPersonController.cpp
 
     src/engine/render/RenderBackendFactory.cpp
     src/engine/render/VulkanPassRegistry.cpp

@@ -112,6 +112,18 @@ bool TestSkeletonAndAnimation()
     if (!player.Update(skeleton, 0.5f, pose) || !Near(pose.local[0].translation.y, 4.0f)) return false;
     player.Stop();
     if (!player.Update(skeleton, 0.5f, pose) || !Near(pose.local[0].translation.y, 4.0f)) return false;
+
+    player.Play(&clip, false);
+    if (!player.Update(skeleton, 0.75f, pose)) return false;
+    if (!player.Update(skeleton, -1.0f, pose) || player.Time() != 0.0f || player.IsPlaying()) return false;
+
+    player.Play(&clip, true);
+    const float largeDelta = std::numeric_limits<float>::max();
+    if (!player.Update(skeleton, largeDelta, pose) ||
+        !player.Update(skeleton, largeDelta, pose) ||
+        !std::isfinite(player.Time()) || player.Time() < 0.0f || player.Time() >= clip.duration) return false;
+    player.Play(&clip, true);
+    if (!player.Update(skeleton, 1.25f, pose) || !Near(player.Time(), 0.25f)) return false;
     return true;
 }
 

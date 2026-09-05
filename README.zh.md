@@ -25,7 +25,8 @@ Concord Flash 是 [Concord](https://github.com/lattice-tech/concord) 引擎的�
 > 并接入固定网格 tile light-list compute pass。方向光阴影和引擎内部 KHR
 > ray-generation 管线也已接入：每个 frame slot 拥有隔离的 device-address 几何、
 > BLAS/TLAS、SBT 和输出资源；设备或交换链能力不足时自动回退 Forward+ 光栅路径。
-> 导入模型的 GPU 上传和骨骼 skinning 是下一阶段。API、文件格式和运行时行为都可能
+> 导入模型的 GPU 上传、骨骼 skinning、方向光阴影蒙皮与可选光线追踪均已接入；
+> 动画混合、状态机与骨骼遮罩见 `docs/动画混合与状态机.md`。API、文件格式和运行时行为都可能
 > 在没有兼容性保证的情况下变化。
 
 ### 自定义 Vulkan Pass

@@ -77,6 +77,44 @@ bool TestReverseNonLoopStopsAtStart()
     return animation != nullptr && animation->time == 0.0f && !animation->playing;
 }
 
+bool TestInvalidClipResetsPoseWithinAsset()
+{
+    const auto asset = MakeAsset();
+    asset->skeletons[0].joints[0].local.translation.x = 7.0f;
+    Concord::Scene scene;
+    const Concord::Entity entity = scene.CreateEntity()
+        .Add<Concord::AnimationComponent>(Concord::AnimationComponent{
+            .asset = asset.get(), .skeletonIndex = 0, .clipIndex = 0})
+        .Add<Concord::SkinningPoseComponent>(Concord::SkinningPoseComponent{})
+        .Id();
+    if (Concord::UpdateAnimationComponents(scene.GetWorld(), 0.5f) != 1) return false;
+    auto* animation = scene.GetWorld().Get<Concord::AnimationComponent>(entity);
+    if (animation == nullptr) return false;
+    animation->clipIndex = Concord::kInvalidAnimationIndex;
+    if (Concord::UpdateAnimationComponents(scene.GetWorld(), 0.0f) != 0) return false;
+    const auto* pose = scene.GetWorld().Get<Concord::SkinningPoseComponent>(entity);
+    return pose != nullptr && pose->sourceAsset == asset.get() && pose->local.size() == 1 &&
+           std::fabs(pose->local[0].translation.x - 7.0f) < 0.001f;
+}
+
+bool TestNonFiniteInputsAreContained()
+{
+    const auto asset = MakeAsset();
+    Concord::Scene scene;
+    const Concord::Entity entity = scene.CreateEntity()
+        .Add<Concord::AnimationComponent>(Concord::AnimationComponent{
+            .asset = asset.get(), .skeletonIndex = 0, .clipIndex = 0,
+            .time = NAN, .speed = NAN})
+        .Add<Concord::SkinningPoseComponent>(Concord::SkinningPoseComponent{})
+        .Id();
+    if (Concord::UpdateAnimationComponents(scene.GetWorld(), NAN) != 1) return false;
+    const auto* animation = scene.GetWorld().Get<Concord::AnimationComponent>(entity);
+    const auto* pose = scene.GetWorld().Get<Concord::SkinningPoseComponent>(entity);
+    return animation != nullptr && pose != nullptr && std::isfinite(animation->time) &&
+           animation->time == 0.0f && pose->local.size() == 1 &&
+           std::fabs(pose->local[0].translation.x) < 0.001f;
+}
+
 bool TestAssetSwitchResetsPose()
 {
     const auto firstAsset = MakeAsset();
@@ -104,7 +142,8 @@ bool TestAssetSwitchResetsPose()
 int main()
 {
     return TestPlayback() && TestInvalidAssetIsSkipped() &&
-                   TestReverseNonLoopStopsAtStart() && TestAssetSwitchResetsPose()
+                   TestReverseNonLoopStopsAtStart() && TestInvalidClipResetsPoseWithinAsset() &&
+                   TestNonFiniteInputsAreContained() && TestAssetSwitchResetsPose()
                ? 0
                : 1;
 }

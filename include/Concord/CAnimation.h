@@ -8,6 +8,13 @@
 #include "engine/asset/Animation.h"
 #include "engine/asset/SkinningPalette.h"
 #include "engine/asset/Skeleton.h"
+#include "engine/animation/AnimationBlend.h"
+#include "engine/animation/AnimationController.h"
+#include "engine/animation/AnimationGraph.h"
+#include "engine/animation/AnimationLayer.h"
+#include "engine/animation/AnimationSampling.h"
+#include "engine/animation/AnimationStateMachine.h"
+#include "engine/animation/JointMask.h"
 #include "engine/ecs/AnimationComponents.h"
 #include "engine/ecs/AnimationSystem.h"
 

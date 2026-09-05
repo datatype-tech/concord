@@ -28,8 +28,10 @@ ECS model, and deliberately cuts complexity that never earned its keep.
 > mapping and an internal KHR ray-generation pipeline are also available: each
 > frame slot owns isolated device-address geometry, BLAS/TLAS, SBT, and output
 > resources. Devices or swapchains without the required capabilities fall back
-> to the Forward+ raster path automatically. Imported model data and GPU
-> skinning remain the next rendering slice.
+> to the Forward+ raster path automatically. Imported model data, GPU skinning, and skinned
+> shadow draws are available; CPU pose blending, state-machine transitions, joint
+> masks, and layered override/additive animation live in `engine/animation`
+> (see docs/动画混合与状态机.md).
 > APIs, file
 > formats, and runtime behavior
 > may change without any compatibility guarantee.

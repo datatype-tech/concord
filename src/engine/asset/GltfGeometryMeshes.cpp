@@ -105,7 +105,15 @@ bool ReadPrimitive(Context& context, const AssetJson::Value& record, ModelPrimit
     }
     if (AttributeIndex(attributes, "WEIGHTS_0", index)) {
         if (!ReadFloatAccessor(context, index, 4, values) || values.size() != count * 4) return context.Fail("invalid glTF WEIGHTS_0 accessor");
-        for (usize i = 0; i < count; ++i) { primitive.vertices[i].weights = {values[i * 4], values[i * 4 + 1], values[i * 4 + 2], values[i * 4 + 3]}; }
+        for (usize i = 0; i < count; ++i) {
+            const f32 x = values[i * 4], y = values[i * 4 + 1], z = values[i * 4 + 2], w = values[i * 4 + 3];
+            const f32 sum = x + y + z + w;
+            if (std::isfinite(sum) && sum > 0.000001f) {
+                primitive.vertices[i].weights = {x / sum, y / sum, z / sum, w / sum};
+            } else {
+                primitive.vertices[i].weights = {};
+            }
+        }
     }
     return true;
 }

@@ -130,6 +130,20 @@ bool ReadSkins(Context& context)
         if (skeleton.root < 0) for (usize i = 0; i < skeleton.joints.size(); ++i) if (skeleton.joints[i].parent < 0) { skeleton.root = static_cast<i32>(i); break; }
         FillExternalRoots(context.asset.nodes, skeleton);
         if (!skeleton.IsValid()) return context.Fail("glTF skin hierarchy is invalid");
+        const usize skinIndex = context.asset.skeletons.size();
+        for (const ModelNode& node : context.asset.nodes) {
+            if (node.skin < 0 || static_cast<usize>(node.skin) != skinIndex || node.mesh < 0) continue;
+            for (const ModelPrimitive& primitive : context.asset.meshes[node.mesh].primitives) {
+                for (const ModelVertex& vertex : primitive.vertices) {
+                    for (u32 influence = 0; influence < 4; ++influence) {
+                        if (vertex.weights[influence] > 0.0f &&
+                            vertex.joints[influence] >= skeleton.joints.size()) {
+                            return context.Fail("glTF joint index exceeds skin joint count");
+                        }
+                    }
+                }
+            }
+        }
         context.asset.skeletons.push_back(std::move(skeleton));
     }
     for (ModelNode& node : context.asset.nodes) if (node.skin >= 0 && static_cast<usize>(node.skin) >= context.asset.skeletons.size()) return context.Fail("glTF node skin index out of range");
