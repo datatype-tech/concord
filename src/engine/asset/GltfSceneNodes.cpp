@@ -41,7 +41,7 @@ Quat MatrixRotation(const f32* m, Vec3 scale) noexcept
     return q.Normalized();
 }
 
-bool ReadNodeTransform(const AssetJson::Value& record, BoneTransform& transform)
+bool ReadNodeTransform(Context& context, const AssetJson::Value& record, BoneTransform& transform)
 {
     f32 values[16]{};
     if (const auto* matrix = Member(record, "matrix")) {
@@ -49,6 +49,16 @@ bool ReadNodeTransform(const AssetJson::Value& record, BoneTransform& transform)
         transform.translation = {values[12], values[13], values[14]};
         transform.scale = {Length({values[0], values[1], values[2]}), Length({values[4], values[5], values[6]}), Length({values[8], values[9], values[10]})};
         if (transform.scale.x < 0.000001f || transform.scale.y < 0.000001f || transform.scale.z < 0.000001f) return false;
+        const f32 determinant = values[0] * (values[5] * values[10] - values[6] * values[9]) -
+                                values[4] * (values[1] * values[10] - values[2] * values[9]) +
+                                values[8] * (values[1] * values[6] - values[2] * values[5]);
+        if (determinant < 0.0f) {
+            // A mirrored matrix has no quaternion representation; decomposing one
+            // would silently produce a wrong rotation, so reject or strip it.
+            if (context.options.strict) return context.Fail("glTF node matrix has negative scale");
+            transform.rotation = Quat::Identity();
+            return true;
+        }
         transform.rotation = MatrixRotation(values, transform.scale);
         return true;
     }
@@ -78,7 +88,7 @@ bool ReadNodes(Context& context)
         if (!record.Is(AssetJson::Type::Object)) return context.Fail("invalid glTF node");
         ModelNode& node = context.asset.nodes[i];
         node.name = std::string(Member(record, "name") ? Member(record, "name")->String() : std::string_view{});
-        if (!ReadNodeTransform(record, node.local)) return context.Fail("invalid glTF node transform");
+        if (!ReadNodeTransform(context, record, node.local)) return context.Fail("invalid glTF node transform");
         node.local.translation *= context.options.scale;
         if (Member(record, "mesh") && (!SignedIndex(Member(record, "mesh"), node.mesh) || node.mesh < 0 || static_cast<usize>(node.mesh) >= context.asset.meshes.size())) return context.Fail("glTF node mesh index out of range");
         if (Member(record, "skin") && (!SignedIndex(Member(record, "skin"), node.skin) || node.skin < 0)) return context.Fail("invalid glTF node skin index");

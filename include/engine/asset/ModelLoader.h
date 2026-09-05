@@ -21,7 +21,18 @@ struct ModelLoadOptions {
     bool generateNormals = true;
     bool generateTangents = true;
     bool flipV = false;
+    /**
+     * Rejects structurally suspicious input: mirrored node matrices, skinned
+     * meshes carrying only one of JOINTS_0/WEIGHTS_0, and animations whose
+     * channels resolve to no imported skeleton. Non-strict mode degrades such
+     * input instead (stripped rotation, default weights, dropped clips).
+     */
     bool strict = true;
+    /**
+     * Uniform import scale applied to vertex positions, node translations,
+     * animation translation keys (and their tangents) and the inverse-bind
+     * translation column, so skinning and motion stay consistent at any unit.
+     */
     f32 scale = 1.0f;
 };
 

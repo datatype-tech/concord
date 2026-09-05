@@ -44,13 +44,32 @@ bool ReadVecChannel(const Context& context, const AnimationChannel& channel,
         } else {
             auto& key = result.vec3Keys[i]; key.time = times[i];
             const usize valueBase = base + (multiplier == 3 ? components : 0);
-            key.value = {values[valueBase], values[valueBase + 1], values[valueBase + 2]};
-            if (multiplier == 3) { key.inTangent = {values[base], values[base + 1], values[base + 2]}; key.outTangent = {values[base + 6], values[base + 7], values[base + 8]}; }
+            const f32 animationScale =
+                channel.path == AnimationPath::Translation ? context.options.scale : 1.0f;
+            key.value = {values[valueBase] * animationScale,
+                         values[valueBase + 1] * animationScale,
+                         values[valueBase + 2] * animationScale};
+            if (multiplier == 3) { key.inTangent = {values[base] * animationScale, values[base + 1] * animationScale, values[base + 2] * animationScale}; key.outTangent = {values[base + 6] * animationScale, values[base + 7] * animationScale, values[base + 8] * animationScale}; }
         }
         clip.duration = std::max(clip.duration, times[i]);
     }
     clip.channels.push_back(std::move(result));
     return true;
+}
+
+/** Whether at least one channel resolves to a joint of any imported skeleton. */
+bool ClipTargetsSkeleton(const ModelAsset& asset, const AnimationClip& clip) noexcept
+{
+    for (const AnimationChannel& channel : clip.channels) {
+        if (channel.sourceNode == kInvalidJoint && channel.joint == kInvalidJoint) continue;
+        for (const Skeleton& skeleton : asset.skeletons) {
+            const u32 joint = channel.sourceNode != kInvalidJoint
+                                  ? skeleton.FindJoint(channel.sourceNode)
+                                  : channel.joint;
+            if (joint != kInvalidJoint && joint < skeleton.joints.size()) return true;
+        }
+    }
+    return false;
 }
 
 } // namespace
@@ -80,6 +99,10 @@ bool ReadAnimations(Context& context)
             AnimationChannel descriptor{.path = animationPath, .interpolation = Interpolation(Member(sampler, "interpolation") ? Member(sampler, "interpolation")->String("LINEAR") : "LINEAR")};
             descriptor.sourceNode = static_cast<u32>(nodeIndex);
             if (!ReadVecChannel(context, descriptor, output, times, clip)) return context.Fail("invalid glTF animation values");
+        }
+        if (context.options.strict && !clip.channels.empty() &&
+            !ClipTargetsSkeleton(context.asset, clip)) {
+            return context.Fail("glTF animation targets no skeleton joints");
         }
         context.asset.animations.push_back(std::move(clip));
     }

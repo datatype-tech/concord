@@ -98,12 +98,14 @@ bool ReadPrimitive(Context& context, const AssetJson::Value& record, ModelPrimit
         if (!ReadFloatAccessor(context, index, 4, values) || values.size() != count * 4) return context.Fail("invalid glTF TANGENT accessor");
         for (usize i = 0; i < count; ++i) primitive.vertices[i].tangent = {values[i * 4], values[i * 4 + 1], values[i * 4 + 2], values[i * 4 + 3]};
     } else if (context.options.generateTangents) BuildTangents(primitive);
-    if (AttributeIndex(attributes, "JOINTS_0", index)) {
+    const bool hasJoints = AttributeIndex(attributes, "JOINTS_0", index);
+    if (hasJoints) {
         std::vector<std::array<u16, 4>> joints;
         if (!ReadJointAccessor(context, index, joints) || joints.size() != count) return context.Fail("invalid glTF JOINTS_0 accessor");
         for (usize i = 0; i < count; ++i) primitive.vertices[i].joints = joints[i];
     }
-    if (AttributeIndex(attributes, "WEIGHTS_0", index)) {
+    const bool hasWeights = AttributeIndex(attributes, "WEIGHTS_0", index);
+    if (hasWeights) {
         if (!ReadFloatAccessor(context, index, 4, values) || values.size() != count * 4) return context.Fail("invalid glTF WEIGHTS_0 accessor");
         for (usize i = 0; i < count; ++i) {
             const f32 x = values[i * 4], y = values[i * 4 + 1], z = values[i * 4 + 2], w = values[i * 4 + 3];
@@ -115,6 +117,9 @@ bool ReadPrimitive(Context& context, const AssetJson::Value& record, ModelPrimit
             }
         }
     }
+    if (hasJoints != hasWeights && context.options.strict) {
+        return context.Fail("glTF JOINTS_0 and WEIGHTS_0 must be present together");
+    }
     return true;
 }
 
@@ -123,7 +128,9 @@ bool ReadPrimitive(Context& context, const AssetJson::Value& record, ModelPrimit
 bool ReadMeshes(Context& context)
 {
     const AssetJson::Value* meshes = Member(*context.root, "meshes");
-    if (!meshes || !meshes->Is(AssetJson::Type::Array) || meshes->array.empty()) return context.Fail("glTF meshes array is missing or empty");
+    if (!meshes) return true;  // rig-only document: skeletons and animations without geometry
+    if (!meshes->Is(AssetJson::Type::Array)) return context.Fail("glTF meshes must be an array");
+    if (meshes->array.empty()) return true;
     context.asset.meshes.clear(); context.asset.meshes.reserve(meshes->array.size());
     for (const AssetJson::Value& record : meshes->array) {
         if (!record.Is(AssetJson::Type::Object)) return context.Fail("invalid glTF mesh");

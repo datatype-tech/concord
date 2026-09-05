@@ -31,7 +31,10 @@ bool Finite(const BoneTransform& transform) noexcept
 
 bool ModelAsset::IsValid() const noexcept
 {
-    if (meshes.empty() || materials.empty()) return false;
+    // A rig-only asset (skeletons and animations without geometry) is valid for
+    // animation sourcing; the renderer simply produces no draws from it.
+    if (meshes.empty()) return !skeletons.empty() || !animations.empty();
+    if (materials.empty()) return false;
     for (const ModelMaterial& material : materials) {
         if (!std::isfinite(material.metallic) || !std::isfinite(material.roughness) ||
             material.metallic < 0.0f || material.metallic > 1.0f || material.roughness <= 0.0f ||

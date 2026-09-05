@@ -58,7 +58,8 @@ bool ReadSize(const AssetJson::Value* value, usize& result)
 bool LoadBuffers(Context& context, std::span<const std::byte> glbBinary)
 {
     const AssetJson::Value* buffers = Member(*context.root, "buffers");
-    if (!buffers || !buffers->Is(AssetJson::Type::Array)) return context.Fail("glTF buffers array is missing");
+    if (!buffers) return true;  // rig-only documents legitimately carry no buffer data
+    if (!buffers->Is(AssetJson::Type::Array)) return context.Fail("glTF buffers must be an array");
     context.buffers.reserve(buffers->array.size());
     for (usize index = 0; index < buffers->array.size(); ++index) {
         const AssetJson::Value& record = buffers->array[index];
@@ -107,7 +108,8 @@ bool ReadAccessorMetadata(Context& context)
         }
     }
     const AssetJson::Value* accessors = Member(*context.root, "accessors");
-    if (!accessors || !accessors->Is(AssetJson::Type::Array)) return context.Fail("glTF accessors array is missing");
+    if (!accessors) return true;  // rig-only documents legitimately carry no accessors
+    if (!accessors->Is(AssetJson::Type::Array)) return context.Fail("glTF accessors must be an array");
     context.accessors.reserve(accessors->array.size());
     for (const AssetJson::Value& record : accessors->array) {
         if (!record.Is(AssetJson::Type::Object)) return context.Fail("invalid glTF accessor");

@@ -120,7 +120,17 @@ bool ReadSkins(Context& context)
             std::vector<f32> values;
             i32 inverseAccessor = -1;
             if (!SignedIndex(inverse, inverseAccessor) || !ReadFloatAccessor(context, inverseAccessor, 16, values) || values.size() != skeleton.joints.size() * 16) return context.Fail("invalid glTF inverse bind accessor");
-            for (usize i = 0; i < skeleton.joints.size(); ++i) skeleton.joints[i].inverseBind = MatrixAt(values, i);
+            // The asset scale applies to vertices, node translations, and animation
+            // translations alike; conjugating the inverse bind by that scale (S*IBM*S^-1)
+            // keeps its rotation untouched and moves only its translation column, so
+            // skinning stays consistent when the import scale is not 1.
+            for (usize i = 0; i < skeleton.joints.size(); ++i) {
+                Mat4 inverseBind = MatrixAt(values, i);
+                inverseBind.col[3].x *= context.options.scale;
+                inverseBind.col[3].y *= context.options.scale;
+                inverseBind.col[3].z *= context.options.scale;
+                skeleton.joints[i].inverseBind = inverseBind;
+            }
         }
         if (Member(record, "skeleton")) {
             usize rootNode = 0;
