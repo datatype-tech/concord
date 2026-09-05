@@ -33,6 +33,19 @@ struct Quat {
         return {x / length, y / length, z / length, w / length};
     }
 
+    /** Returns the conjugate of this quaternion. */
+    [[nodiscard]] Quat Conjugated() const noexcept { return {-x, -y, -z, w}; }
+
+    /** Multiplies two rotations and normalizes the result. */
+    [[nodiscard]] Quat operator*(const Quat& rhs) const noexcept
+    {
+        return Quat{w * rhs.x + x * rhs.w + y * rhs.z - z * rhs.y,
+                    w * rhs.y - x * rhs.z + y * rhs.w + z * rhs.x,
+                    w * rhs.z + x * rhs.y - y * rhs.x + z * rhs.w,
+                    w * rhs.w - x * rhs.x - y * rhs.y - z * rhs.z}
+            .Normalized();
+    }
+
     /** Converts the quaternion to a column-major affine matrix. */
     [[nodiscard]] Mat4 ToMatrix() const noexcept
     {

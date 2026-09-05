@@ -65,6 +65,60 @@ int main()
         return 1;
     }
 
+    Concord::Scene oriented;
+    oriented.Spawn<Concord::Object::Camera>({
+        .position = {0.0f, 0.0f, -5.0f}, .target = {0.0f, 0.0f, 0.0f}});
+    const Concord::RenderSceneSnapshot orientedSnapshot =
+        Concord::ExtractRenderScene(oriented, 1.0f);
+    if (!orientedSnapshot.hasCamera || !Near(orientedSnapshot.camera.forward.z, 1.0f) ||
+        !Near(orientedSnapshot.camera.target.z, -4.0f) ||
+        !Near(orientedSnapshot.camera.view.col[3].z, -5.0f)) {
+        return 1;
+    }
+
+    Concord::Scene rotated;
+    rotated.Spawn<Concord::Object::Camera>({
+        .position = {1.0f, 2.0f, 3.0f}, .rotation = {0.0f, 90.0f, 0.0f}});
+    const Concord::RenderSceneSnapshot rotatedSnapshot =
+        Concord::ExtractRenderScene(rotated, 1.0f);
+    if (!rotatedSnapshot.hasCamera || !Near(rotatedSnapshot.camera.forward.x, -1.0f) ||
+        !Near(rotatedSnapshot.camera.view.col[3].x, 3.0f) ||
+        !Near(rotatedSnapshot.camera.view.col[3].z, -1.0f)) {
+        return 1;
+    }
+
+    Concord::Scene orthographic;
+    orthographic.Spawn<Concord::Object::Camera>({
+        .projection = Concord::CameraProjection::Orthographic,
+        .orthographicSize = 2.0f, .aspectOverride = 2.0f});
+    const Concord::RenderSceneSnapshot orthographicSnapshot =
+        Concord::ExtractRenderScene(orthographic, 1.0f);
+    if (!orthographicSnapshot.hasCamera ||
+        !Near(orthographicSnapshot.camera.projection.col[3].w, 1.0f) ||
+        !Near(orthographicSnapshot.camera.projection.col[0].x, 0.25f) ||
+        !Near(orthographicSnapshot.camera.projection.col[1].y, -0.5f)) {
+        return 1;
+    }
+
+    Concord::Scene overridden;
+    overridden.Spawn<Concord::Object::Camera>({.aspectOverride = 2.0f});
+    const Concord::RenderSceneSnapshot overriddenSnapshot =
+        Concord::ExtractRenderScene(overridden, 1.0f);
+    if (!Near(overriddenSnapshot.camera.projection.col[0].x, 0.8660254f)) {
+        return 1;
+    }
+
+    Concord::Scene disabledCamera;
+    const auto enabledCamera = disabledCamera.Spawn<Concord::Object::Camera>({});
+    disabledCamera.Spawn<Concord::Object::Camera>(
+        {.priority = -10, .enabled = false});
+    const Concord::RenderSceneSnapshot disabledSnapshot =
+        Concord::ExtractRenderScene(disabledCamera, 1.0f);
+    if (!disabledSnapshot.hasCamera ||
+        disabledSnapshot.camera.entity != enabledCamera.Id()) {
+        return 1;
+    }
+
     auto imported = std::make_shared<Concord::ModelAsset>();
     imported->materials.push_back(Concord::ModelMaterial{});
     Concord::ModelPrimitive triangle{};
@@ -102,9 +156,30 @@ int main()
         .farPlane = 0.01f,
     });
     const Concord::RenderSceneSnapshot safe = Concord::ExtractRenderScene(malformed, 0.0f);
-    if (!safe.hasCamera || !std::isfinite(safe.camera.projection.col[0].x) ||
+    if (!safe.hasCamera || !std::isfinite(safe.camera.view.col[0].x) ||
+        !std::isfinite(safe.camera.view.col[3].z) ||
+        !std::isfinite(safe.camera.projection.col[0].x) ||
         !std::isfinite(safe.camera.projection.col[2].z)) {
         return 1;
+    }
+
+    Concord::Scene degenerateCamera;
+    degenerateCamera.Spawn<Concord::Object::Camera>({
+        .position = {0.0f, 0.0f, 0.0f}, .target = {0.0f, 0.0f, 0.0f},
+        .nearPlane = 1.0e20f, .farPlane = 2.0e20f,
+    });
+    const Concord::RenderSceneSnapshot degenerate =
+        Concord::ExtractRenderScene(degenerateCamera, 1.0f);
+    if (!degenerate.hasCamera) return 1;
+    for (const Concord::Vec4& column : degenerate.camera.view.col) {
+        for (Concord::u32 component = 0; component < 4; ++component) {
+            if (!std::isfinite(column[component])) return 1;
+        }
+    }
+    for (const Concord::Vec4& column : degenerate.camera.projection.col) {
+        for (Concord::u32 component = 0; component < 4; ++component) {
+            if (!std::isfinite(column[component])) return 1;
+        }
     }
 
     Concord::Scene malformedObject;

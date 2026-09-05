@@ -21,6 +21,12 @@ namespace Concord {
     return degrees * 0.017453292519943295f;
 }
 
+/** Converts radians back to degrees, the inverse of Radians(). */
+[[nodiscard]] constexpr f32 Degrees(f32 radians) noexcept
+{
+    return radians * 57.29577951308232f;
+}
+
 } // namespace Concord
 
 #endif // CONCORD_ANGLE_H

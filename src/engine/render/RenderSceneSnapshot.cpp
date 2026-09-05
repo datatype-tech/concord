@@ -91,12 +91,12 @@ RenderSceneSnapshot ExtractRenderScene(const Scene& scene, f32 aspect)
         snapshot.hasCamera = true;
         snapshot.camera.entity = cameraEntity;
         const Transform safeTransform = SafeTransform(*cameraTransform);
-        CameraComponent safeCamera = *camera;
-        safeCamera.target = SafeVector(camera->target, {});
-        safeCamera.up = SafeVector(camera->up, {0.0f, 1.0f, 0.0f});
+        const CameraComponent safeCamera = *camera;
         snapshot.camera.position = safeTransform.position;
-        snapshot.camera.target = safeCamera.target;
-        snapshot.camera.view = Object::ViewMatrix(safeTransform, safeCamera);
+        snapshot.camera.forward = SafeVector(Object::ForwardVector(safeTransform),
+                                              {0.0f, 0.0f, -1.0f});
+        snapshot.camera.target = snapshot.camera.position + snapshot.camera.forward;
+        snapshot.camera.view = Object::ViewMatrix(safeTransform);
         snapshot.camera.projection = Object::ProjectionMatrix(safeCamera, SafeAspect(aspect));
     }
 

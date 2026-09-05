@@ -27,7 +27,10 @@ class Scene;
 struct RenderCameraSnapshot {
     Entity entity{};
     Vec3 position{};
-    Vec3 target{};
+    /** Unit world-space direction from the camera's Transform orientation. */
+    Vec3 forward{0.0f, 0.0f, -1.0f};
+    /** Derived point one unit ahead, retained for shadow framing. */
+    Vec3 target{0.0f, 0.0f, -1.0f};
     Mat4 view{};
     Mat4 projection{};
 };

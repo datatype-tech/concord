@@ -85,6 +85,10 @@ bool TestHandlesAndCamera()
             .Id();
     scene.CreateEntity().Add<Concord::CameraComponent>(
         Concord::CameraComponent{.priority = -10});
+    scene.CreateEntity()
+        .Add<Concord::Transform>(Concord::Transform{})
+        .Add<Concord::CameraComponent>(
+            Concord::CameraComponent{.priority = -20, .enabled = false});
     return Check(scene.MainCamera() == mainCamera);
 }
 

@@ -1,4 +1,4 @@
-﻿// This Source Code Form is subject to the terms of the Mozilla Public
+// This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
@@ -7,12 +7,34 @@
 
 #include "Concord/CExport.h"
 #include "engine/core/Types.h"
+#include "engine/core/Vec2.h"
 #include "engine/window/WindowDesc.h"
 
 #include <memory>
 #include <string>
 
 namespace Concord {
+
+enum class Key : u8 {
+    W,
+    A,
+    S,
+    D,
+    Q,
+    E,
+    Space,
+    Shift,
+    Control,
+};
+
+inline constexpr u32 kKeyCount = static_cast<u32>(Key::Control) + 1;
+
+enum class MouseButton : u8 {
+    Left,
+    Right,
+};
+
+inline constexpr u32 kMouseButtonCount = static_cast<u32>(MouseButton::Right) + 1;
 
 class Game;
 struct WindowAccess;
@@ -76,6 +98,12 @@ public:
 
     /** Shows or hides the window. */
     void SetVisible(bool visible);
+
+    [[nodiscard]] bool IsKeyDown(Key key) const noexcept;
+    [[nodiscard]] bool WasMouseButtonPressed(MouseButton button) const noexcept;
+    [[nodiscard]] Vec2 MouseDelta() const noexcept;
+    void SetMouseCaptured(bool captured) noexcept;
+    [[nodiscard]] bool IsMouseCaptured() const noexcept;
 
 private:
     friend class Game;

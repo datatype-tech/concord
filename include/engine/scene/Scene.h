@@ -106,8 +106,8 @@ public:
     usize FlushDeferred() { return m_world.FlushDeferred(); }
 
     /**
-     * The entity the scene renders through: the camera with the lowest
-     * priority that also has a Transform, or an invalid handle when no
+     * The entity the scene renders through: the enabled camera with the
+     * lowest priority that also has a Transform, or an invalid handle when no
      * complete camera was spawned.
      */
     [[nodiscard]] Entity MainCamera() const noexcept
@@ -117,6 +117,9 @@ public:
 
         m_world.Query<CameraComponent, Transform>(
             [&](Entity entity, const CameraComponent& camera, const Transform&) {
+                if (!camera.enabled) {
+                    return;
+                }
                 if (!best.IsValid() || camera.priority < bestPriority) {
                     best = entity;
                     bestPriority = camera.priority;

@@ -1,4 +1,4 @@
-﻿// This Source Code Form is subject to the terms of the Mozilla Public
+// This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
@@ -104,15 +104,34 @@ struct Mat4 {
      */
     [[nodiscard]] static Mat4 LookAt(Vec3 eye, Vec3 target, Vec3 up) noexcept
     {
-        const Vec3 f = Normalize(target - eye);
-        const Vec3 s = Normalize(Cross(f, up));
-        const Vec3 u = Cross(s, f);
+        const auto finite = [](Vec3 value) noexcept {
+            return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
+        };
+        const auto validDirection = [&](Vec3 value) noexcept {
+            return finite(value) && Dot(value, value) > 1.0e-12f;
+        };
+
+        if (!finite(eye)) eye = {};
+        Vec3 forward = target - eye;
+        if (!validDirection(forward)) forward = {0.0f, 0.0f, -1.0f};
+        forward = Normalize(forward);
+        if (!validDirection(up)) up = {0.0f, 1.0f, 0.0f};
+        if (std::fabs(Dot(forward, Normalize(up))) > 0.999f) {
+            up = std::fabs(forward.y) < 0.9f ? Vec3{0.0f, 1.0f, 0.0f}
+                                            : Vec3{0.0f, 0.0f, 1.0f};
+        }
+        Vec3 side = Normalize(Cross(forward, up));
+        if (!validDirection(side)) side = {1.0f, 0.0f, 0.0f};
+        const Vec3 correctedUp = Cross(side, forward);
 
         Mat4 m = Identity();
-        m.col[0] = {s.x, u.x, -f.x, 0.0f};
-        m.col[1] = {s.y, u.y, -f.y, 0.0f};
-        m.col[2] = {s.z, u.z, -f.z, 0.0f};
-        m.col[3] = {-Dot(s, eye), -Dot(u, eye), Dot(f, eye), 1.0f};
+        m.col[0] = {side.x, correctedUp.x, -forward.x, 0.0f};
+        m.col[1] = {side.y, correctedUp.y, -forward.y, 0.0f};
+        m.col[2] = {side.z, correctedUp.z, -forward.z, 0.0f};
+        m.col[3] = {-Dot(side, eye), -Dot(correctedUp, eye), Dot(forward, eye), 1.0f};
+        for (const Vec4& column : m.col) {
+            if (!finite({column.x, column.y, column.z})) return Identity();
+        }
         return m;
     }
 
@@ -125,14 +144,80 @@ struct Mat4 {
      */
     [[nodiscard]] static Mat4 Perspective(f32 fovYRadians, f32 aspect, f32 nearPlane, f32 farPlane) noexcept
     {
-        const f32 t = 1.0f / std::tan(fovYRadians * 0.5f);
+        if (!std::isfinite(fovYRadians) || !std::isfinite(aspect) || !std::isfinite(nearPlane) ||
+            !std::isfinite(farPlane) || fovYRadians <= 0.0f || fovYRadians >= 3.1415927f ||
+            aspect <= 0.0f || nearPlane <= 0.0f || farPlane <= nearPlane) {
+            return Identity();
+        }
+        const f64 tangent = 1.0 / std::tan(static_cast<f64>(fovYRadians) * 0.5);
+        const f64 denominator = static_cast<f64>(nearPlane) - static_cast<f64>(farPlane);
+        const f64 values[4] = {
+            tangent / static_cast<f64>(aspect),
+            -tangent,
+            static_cast<f64>(farPlane) / denominator,
+            (static_cast<f64>(nearPlane) * static_cast<f64>(farPlane)) / denominator,
+        };
+        for (const f64 value : values) {
+            if (!std::isfinite(value) || !std::isfinite(static_cast<f32>(value))) return Identity();
+        }
         Mat4 m{};
-        m.col[0].x = t / aspect;
-        m.col[1].y = -t;
-        m.col[2].z = farPlane / (nearPlane - farPlane);
+        m.col[0].x = static_cast<f32>(values[0]);
+        m.col[1].y = static_cast<f32>(values[1]);
+        m.col[2].z = static_cast<f32>(values[2]);
         m.col[2].w = -1.0f;
-        m.col[3].z = (nearPlane * farPlane) / (nearPlane - farPlane);
+        m.col[3].z = static_cast<f32>(values[3]);
         return m;
+    }
+    /**
+     * Orthographic projection using the Vulkan clip convention.
+     *
+     * Depth maps to [0, 1] and the Y axis points down, matching Perspective,
+     * so both projection kinds share one shader path.
+     */
+    [[nodiscard]] static Mat4 Orthographic(f32 left, f32 right, f32 bottom, f32 top,
+                                           f32 nearPlane, f32 farPlane) noexcept
+    {
+        if (!std::isfinite(left) || !std::isfinite(right) || !std::isfinite(bottom) ||
+            !std::isfinite(top) || !std::isfinite(nearPlane) || !std::isfinite(farPlane) ||
+            left >= right || bottom >= top || nearPlane >= farPlane) {
+            return Identity();
+        }
+        Mat4 m{};
+        m.col[0].x = 2.0f / (right - left);
+        m.col[1].y = -2.0f / (top - bottom);
+        m.col[2].z = 1.0f / (nearPlane - farPlane);
+        m.col[3].x = -(right + left) / (right - left);
+        m.col[3].y = -(top + bottom) / (top - bottom);
+        m.col[3].z = nearPlane / (nearPlane - farPlane);
+        m.col[3].w = 1.0f;
+        return m;
+    }
+
+    /**
+     * Inverts a rigid transform (orthonormal rotation plus translation).
+     *
+     * Camera view matrices are built this way: transposing the rotation part
+     * is exact, so no general-purpose inverse is required. Returns Identity
+     * when any spatial component is not finite.
+     */
+    [[nodiscard]] Mat4 InvertRigid() const noexcept
+    {
+        for (const Vec4& column : col) {
+            if (!std::isfinite(column.x) || !std::isfinite(column.y) || !std::isfinite(column.z)) {
+                return Identity();
+            }
+        }
+        const f32 tx = col[3].x;
+        const f32 ty = col[3].y;
+        const f32 tz = col[3].z;
+        Mat4 inverse{};
+        inverse.col[0] = {col[0].x, col[1].x, col[2].x, 0.0f};
+        inverse.col[1] = {col[0].y, col[1].y, col[2].y, 0.0f};
+        inverse.col[2] = {col[0].z, col[1].z, col[2].z, 0.0f};
+        inverse.col[3] = {-(col[0].x * tx + col[0].y * ty + col[0].z * tz),
+                          -(col[1].x * tx + col[1].y * ty + col[1].z * tz),
+                          -(col[2].x * tx + col[2].y * ty + col[2].z * tz), 1.0f};
+        return inverse;
     }
 };
 

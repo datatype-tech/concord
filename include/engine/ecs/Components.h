@@ -45,16 +45,29 @@ struct MeshRenderer {
     bool castShadow = true;
 };
 
-/** Viewpoint parameters; pairs with a Transform for position. */
+/** Projection models a camera lens can use. */
+enum class CameraProjection {
+    Perspective,
+    Orthographic,
+};
+
+/**
+ * Lens parameters; pairs with a Transform for placement and orientation.
+ *
+ * A camera looks down its Transform's local -Z axis: the view direction is
+ * the Transform's rotation, so controllers aim a camera by rotating it. The
+ * component holds no look-at state — the legacy `target` spawn field is
+ * converted to a rotation by Object::Camera at build time.
+ */
 struct CameraComponent {
-    /** Point the camera looks at, in world space. */
-    Vec3 target{0.0f, 0.0f, 0.0f};
+    /** Which projection the lens uses. */
+    CameraProjection projection = CameraProjection::Perspective;
 
-    /** World up direction. */
-    Vec3 up{0.0f, 1.0f, 0.0f};
-
-    /** Vertical field of view in degrees. */
+    /** Vertical field of view in degrees, perspective projection only. */
     f32 fovYDegrees = 60.0f;
+
+    /** Vertical half-extent of the frustum in world units, orthographic only. */
+    f32 orthographicSize = 5.0f;
 
     /** Near clip distance; must be greater than zero. */
     f32 nearPlane = 0.1f;
@@ -62,8 +75,14 @@ struct CameraComponent {
     /** Far clip distance. */
     f32 farPlane = 1000.0f;
 
-    /** The scene renders through the camera with the lowest priority. */
+    /** Width-over-height ratio forced on the projection; 0 uses the window. */
+    f32 aspectOverride = 0.0f;
+
+    /** The scene renders through the enabled camera with the lowest priority. */
     i32 priority = 0;
+
+    /** Disabled cameras are skipped by MainCamera and by rendering. */
+    bool enabled = true;
 };
 
 /** Kinds of light the renderer supports. */

@@ -1,4 +1,4 @@
-﻿// This Source Code Form is subject to the terms of the Mozilla Public
+// This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
@@ -32,6 +32,32 @@ WindowMode Window::Mode() const noexcept { return m_impl->state.desc.mode; }
 bool Window::Vsync() const noexcept { return m_impl->state.desc.vsync; }
 bool Window::IsOpen() const noexcept { return m_impl->state.handle != nullptr; }
 bool Window::ShouldClose() const noexcept { return m_impl->state.shouldClose; }
+
+bool Window::IsKeyDown(Key key) const noexcept
+{
+    const u32 index = static_cast<u32>(key);
+    return index < kKeyCount && m_impl->state.keyDown[index];
+}
+
+bool Window::WasMouseButtonPressed(MouseButton button) const noexcept
+{
+    const u32 index = static_cast<u32>(button);
+    return index < kMouseButtonCount && m_impl->state.mouseButtonPressed[index];
+}
+
+Vec2 Window::MouseDelta() const noexcept { return m_impl->state.mouseDelta; }
+
+void Window::SetMouseCaptured(bool captured) noexcept
+{
+    WindowState& state = m_impl->state;
+    if (!state.handle) return;
+    if (SDL_SetWindowRelativeMouseMode(state.handle, captured)) {
+        state.mouseCaptured = captured;
+        state.mouseDelta = {};
+    }
+}
+
+bool Window::IsMouseCaptured() const noexcept { return m_impl->state.mouseCaptured; }
 
 u32 Window::Width() const noexcept
 {
@@ -80,6 +106,10 @@ void Window::Close()
 {
     WindowState& state = m_impl->state;
     if (state.handle) {
+        if (state.mouseCaptured) {
+            SDL_SetWindowRelativeMouseMode(state.handle, false);
+        }
+        state.mouseCaptured = false;
         SDL_DestroyWindow(state.handle);
         state.handle = nullptr;
     }
