@@ -134,6 +134,15 @@ target_include_directories(concord_animation_state_machine_tests PRIVATE ${CONCO
 add_test(NAME concord_animation_state_machine_tests
          COMMAND concord_animation_state_machine_tests)
 
+add_executable(concord_input_tests
+    tests/InputTests.cpp
+    src/engine/input/InputMap.cpp
+    src/engine/input/SdlInputCodes.cpp)
+target_compile_features(concord_input_tests PRIVATE cxx_std_23)
+target_include_directories(concord_input_tests PRIVATE
+    ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/SDL3)
+add_test(NAME concord_input_tests COMMAND concord_input_tests)
+
 add_executable(concord_system_tests tests/SystemScheduleTests.cpp)
 target_compile_features(concord_system_tests PRIVATE cxx_std_23)
 target_link_libraries(concord_system_tests PRIVATE concord::runtime)

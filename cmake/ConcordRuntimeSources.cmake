@@ -23,6 +23,9 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/animation/AnimationStateMachineTime.cpp
     src/engine/animation/JointMask.cpp
 
+    src/engine/input/InputMap.cpp
+    src/engine/input/SdlInputCodes.cpp
+
     src/engine/ecs/WorldId.cpp
     src/engine/ecs/AnimationSystem.cpp
     src/engine/ecs/SystemSchedule.cpp

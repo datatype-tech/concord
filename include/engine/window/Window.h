@@ -8,33 +8,13 @@
 #include "Concord/CExport.h"
 #include "engine/core/Types.h"
 #include "engine/core/Vec2.h"
+#include "engine/input/InputSnapshot.h"
 #include "engine/window/WindowDesc.h"
 
 #include <memory>
 #include <string>
 
 namespace Concord {
-
-enum class Key : u8 {
-    W,
-    A,
-    S,
-    D,
-    Q,
-    E,
-    Space,
-    Shift,
-    Control,
-};
-
-inline constexpr u32 kKeyCount = static_cast<u32>(Key::Control) + 1;
-
-enum class MouseButton : u8 {
-    Left,
-    Right,
-};
-
-inline constexpr u32 kMouseButtonCount = static_cast<u32>(MouseButton::Right) + 1;
 
 class Game;
 struct WindowAccess;
@@ -99,11 +79,19 @@ public:
     /** Shows or hides the window. */
     void SetVisible(bool visible);
 
-    [[nodiscard]] bool IsKeyDown(Key key) const noexcept;
+    [[nodiscard]] bool IsKeyDown(KeyCode key) const noexcept;
+    [[nodiscard]] bool WasKeyPressed(KeyCode key) const noexcept;
+    [[nodiscard]] bool WasKeyReleased(KeyCode key) const noexcept;
+    [[nodiscard]] bool IsMouseButtonDown(MouseButton button) const noexcept;
     [[nodiscard]] bool WasMouseButtonPressed(MouseButton button) const noexcept;
+    [[nodiscard]] bool WasMouseButtonReleased(MouseButton button) const noexcept;
+    [[nodiscard]] Vec2 MousePosition() const noexcept;
     [[nodiscard]] Vec2 MouseDelta() const noexcept;
+    [[nodiscard]] Vec2 MouseWheelDelta() const noexcept;
     void SetMouseCaptured(bool captured) noexcept;
     [[nodiscard]] bool IsMouseCaptured() const noexcept;
+    /** The raw per-pump keyboard and mouse state feeding all queries above. */
+    [[nodiscard]] const InputSnapshot& Input() const noexcept;
 
 private:
     friend class Game;

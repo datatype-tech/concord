@@ -4,6 +4,8 @@
 
 #include "engine/window/WindowState.h"
 
+#include "engine/input/SdlInputCodes.h"
+
 #include <SDL3/SDL.h>
 
 namespace Concord {
@@ -16,31 +18,11 @@ bool BelongsTo(const WindowState& state, SDL_WindowID id)
     return state.handle != nullptr && id == SDL_GetWindowID(state.handle);
 }
 
-/** Maps SDL scancodes to the stable public Key index. */
-bool* KeySlot(WindowState& state, SDL_Scancode scancode) noexcept
-{
-    switch (scancode) {
-    case SDL_SCANCODE_W: return &state.keyDown[static_cast<u32>(Key::W)];
-    case SDL_SCANCODE_A: return &state.keyDown[static_cast<u32>(Key::A)];
-    case SDL_SCANCODE_S: return &state.keyDown[static_cast<u32>(Key::S)];
-    case SDL_SCANCODE_D: return &state.keyDown[static_cast<u32>(Key::D)];
-    case SDL_SCANCODE_Q: return &state.keyDown[static_cast<u32>(Key::Q)];
-    case SDL_SCANCODE_E: return &state.keyDown[static_cast<u32>(Key::E)];
-    case SDL_SCANCODE_SPACE: return &state.keyDown[static_cast<u32>(Key::Space)];
-    case SDL_SCANCODE_LSHIFT: return &state.keyDown[static_cast<u32>(Key::Shift)];
-    case SDL_SCANCODE_LCTRL: return &state.keyDown[static_cast<u32>(Key::Control)];
-    default: return nullptr;
-    }
-}
-
 } // namespace
 
 void PumpWindowEvents(WindowState& state)
 {
-    state.mouseDelta = {};
-    for (bool& pressed : state.mouseButtonPressed) {
-        pressed = false;
-    }
+    BeginInputFrame(state.input);
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -64,9 +46,7 @@ void PumpWindowEvents(WindowState& state)
             break;
 
         case SDL_EVENT_KEY_DOWN:
-            if (!BelongsTo(state, event.key.windowID)) {
-                break;
-            }
+            if (!BelongsTo(state, event.key.windowID)) break;
             if (event.key.scancode == SDL_SCANCODE_ESCAPE) {
                 if (state.mouseCaptured) {
                     SDL_SetWindowRelativeMouseMode(state.handle, false);
@@ -74,34 +54,51 @@ void PumpWindowEvents(WindowState& state)
                 }
                 break;
             }
-            if (bool* key = KeySlot(state, event.key.scancode)) {
-                *key = true;
-            }
+            SetKeyState(state.input, KeyCodeFromSdlScanCode(event.key.scancode), true);
             break;
 
         case SDL_EVENT_KEY_UP:
-            if (!BelongsTo(state, event.key.windowID)) {
-                break;
-            }
-            if (bool* key = KeySlot(state, event.key.scancode)) {
-                *key = false;
+            if (BelongsTo(state, event.key.windowID)) {
+                SetKeyState(state.input, KeyCodeFromSdlScanCode(event.key.scancode), false);
             }
             break;
 
         case SDL_EVENT_MOUSE_MOTION:
-            if (BelongsTo(state, event.motion.windowID) && state.mouseCaptured) {
-                state.mouseDelta.x += event.motion.xrel;
-                state.mouseDelta.y += event.motion.yrel;
+            if (!BelongsTo(state, event.motion.windowID)) break;
+            if (state.mouseCaptured) {
+                state.input.mouseDelta.x += event.motion.xrel;
+                state.input.mouseDelta.y += event.motion.yrel;
             }
+            state.input.mousePosition = {event.motion.x, event.motion.y};
             break;
 
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             if (BelongsTo(state, event.button.windowID)) {
-                if (event.button.button == SDL_BUTTON_LEFT) {
-                    state.mouseButtonPressed[static_cast<u32>(MouseButton::Left)] = true;
-                } else if (event.button.button == SDL_BUTTON_RIGHT) {
-                    state.mouseButtonPressed[static_cast<u32>(MouseButton::Right)] = true;
+                MouseButton button{};
+                if (MouseButtonFromSdlButton(event.button.button, button)) {
+                    SetButtonState(state.input, button, true);
                 }
+            }
+            break;
+
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            if (BelongsTo(state, event.button.windowID)) {
+                MouseButton button{};
+                if (MouseButtonFromSdlButton(event.button.button, button)) {
+                    SetButtonState(state.input, button, false);
+                }
+            }
+            break;
+
+        case SDL_EVENT_MOUSE_WHEEL:
+            if (BelongsTo(state, event.wheel.windowID)) {
+                f32 x = event.wheel.x;
+                f32 y = event.wheel.y;
+                if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
+                    x = -x;
+                    y = -y;
+                }
+                state.input.wheelDelta += Vec2{x, y};
             }
             break;
 
@@ -111,13 +108,7 @@ void PumpWindowEvents(WindowState& state)
                     SDL_SetWindowRelativeMouseMode(state.handle, false);
                 }
                 state.mouseCaptured = false;
-                state.mouseDelta = {};
-                for (bool& key : state.keyDown) {
-                    key = false;
-                }
-                for (bool& pressed : state.mouseButtonPressed) {
-                    pressed = false;
-                }
+                ReleaseAllInput(state.input);
             }
             break;
 

@@ -11,7 +11,6 @@
 #include <cmath>
 
 namespace Concord {
-
 namespace {
 
 constexpr f32 kFullTurnDegrees = 360.0f;
@@ -39,6 +38,11 @@ Vec3 NormalizeMovement(Vec3 movement) noexcept
     return movement / std::sqrt(lengthSquared);
 }
 
+u32 ActionId(ControllerAction action) noexcept
+{
+    return static_cast<u32>(action);
+}
+
 } // namespace
 
 FirstPersonController::FirstPersonController(Window& window) noexcept
@@ -63,6 +67,14 @@ FirstPersonController::FirstPersonController(Window& window, Settings settings) 
                                           m_settings.sprintMultiplier > 0.0f
                                       ? std::clamp(m_settings.sprintMultiplier, 0.1f, 16.0f)
                                       : 1.6f;
+
+    m_actions.BindKey(ActionId(ControllerAction::Forward), m_settings.forward);
+    m_actions.BindKey(ActionId(ControllerAction::Backward), m_settings.backward);
+    m_actions.BindKey(ActionId(ControllerAction::Left), m_settings.left);
+    m_actions.BindKey(ActionId(ControllerAction::Right), m_settings.right);
+    m_actions.BindKey(ActionId(ControllerAction::FlyUp), m_settings.flyUp);
+    m_actions.BindKey(ActionId(ControllerAction::FlyDown), m_settings.flyDown);
+    m_actions.BindKey(ActionId(ControllerAction::Sprint), m_settings.sprint);
 }
 
 void FirstPersonController::OnUpdate(Scene& scene, f32 deltaTime)
@@ -70,7 +82,8 @@ void FirstPersonController::OnUpdate(Scene& scene, f32 deltaTime)
     if (!std::isfinite(deltaTime) || deltaTime <= 0.0f) {
         return;
     }
-    if (m_window.WasMouseButtonPressed(MouseButton::Left)) {
+    m_actions.Update(m_window.Input());
+    if (m_window.WasMouseButtonPressed(m_settings.captureButton)) {
         m_window.SetMouseCaptured(true);
     }
 
@@ -112,13 +125,13 @@ void FirstPersonController::OnUpdate(Scene& scene, f32 deltaTime)
             const Vec3 forward{-std::sin(yaw), 0.0f, -std::cos(yaw)};
             const Vec3 right{std::cos(yaw), 0.0f, -std::sin(yaw)};
             Vec3 movement{};
-            if (m_window.IsKeyDown(Key::W)) movement += forward;
-            if (m_window.IsKeyDown(Key::S)) movement -= forward;
-            if (m_window.IsKeyDown(Key::D)) movement += right;
-            if (m_window.IsKeyDown(Key::A)) movement -= right;
+            if (m_actions.IsDown(ActionId(ControllerAction::Forward))) movement += forward;
+            if (m_actions.IsDown(ActionId(ControllerAction::Backward))) movement -= forward;
+            if (m_actions.IsDown(ActionId(ControllerAction::Right))) movement += right;
+            if (m_actions.IsDown(ActionId(ControllerAction::Left))) movement -= right;
             if (m_settings.flyMode) {
-                if (m_window.IsKeyDown(Key::Space)) movement.y += 1.0f;
-                if (m_window.IsKeyDown(Key::Control)) movement.y -= 1.0f;
+                if (m_actions.IsDown(ActionId(ControllerAction::FlyUp))) movement.y += 1.0f;
+                if (m_actions.IsDown(ActionId(ControllerAction::FlyDown))) movement.y -= 1.0f;
             }
 
             const Vec3 direction = NormalizeMovement(movement);
@@ -126,7 +139,7 @@ void FirstPersonController::OnUpdate(Scene& scene, f32 deltaTime)
                 return;
             }
             f32 speed = m_settings.moveSpeed;
-            if (m_window.IsKeyDown(Key::Shift)) {
+            if (m_actions.IsDown(ActionId(ControllerAction::Sprint))) {
                 speed *= m_settings.sprintMultiplier;
             }
             transform.position += direction * (speed * deltaTime);

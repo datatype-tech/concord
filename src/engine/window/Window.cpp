@@ -33,19 +33,46 @@ bool Window::Vsync() const noexcept { return m_impl->state.desc.vsync; }
 bool Window::IsOpen() const noexcept { return m_impl->state.handle != nullptr; }
 bool Window::ShouldClose() const noexcept { return m_impl->state.shouldClose; }
 
-bool Window::IsKeyDown(Key key) const noexcept
+bool Window::IsKeyDown(KeyCode key) const noexcept
 {
-    const u32 index = static_cast<u32>(key);
-    return index < kKeyCount && m_impl->state.keyDown[index];
+    return key != KeyCode::None &&
+           (m_impl->state.input.keys[static_cast<u32>(key)] & kInputStateDown) != 0;
+}
+
+bool Window::WasKeyPressed(KeyCode key) const noexcept
+{
+    return key != KeyCode::None &&
+           (m_impl->state.input.keys[static_cast<u32>(key)] & kInputStatePressed) != 0;
+}
+
+bool Window::WasKeyReleased(KeyCode key) const noexcept
+{
+    return key != KeyCode::None &&
+           (m_impl->state.input.keys[static_cast<u32>(key)] & kInputStateReleased) != 0;
+}
+
+bool Window::IsMouseButtonDown(MouseButton button) const noexcept
+{
+    return (m_impl->state.input.mouseButtons[static_cast<u32>(button)] & kInputStateDown) != 0;
 }
 
 bool Window::WasMouseButtonPressed(MouseButton button) const noexcept
 {
-    const u32 index = static_cast<u32>(button);
-    return index < kMouseButtonCount && m_impl->state.mouseButtonPressed[index];
+    return (m_impl->state.input.mouseButtons[static_cast<u32>(button)] & kInputStatePressed) != 0;
 }
 
-Vec2 Window::MouseDelta() const noexcept { return m_impl->state.mouseDelta; }
+bool Window::WasMouseButtonReleased(MouseButton button) const noexcept
+{
+    return (m_impl->state.input.mouseButtons[static_cast<u32>(button)] & kInputStateReleased) != 0;
+}
+
+Vec2 Window::MousePosition() const noexcept { return m_impl->state.input.mousePosition; }
+
+Vec2 Window::MouseDelta() const noexcept { return m_impl->state.input.mouseDelta; }
+
+Vec2 Window::MouseWheelDelta() const noexcept { return m_impl->state.input.wheelDelta; }
+
+const InputSnapshot& Window::Input() const noexcept { return m_impl->state.input; }
 
 void Window::SetMouseCaptured(bool captured) noexcept
 {
@@ -53,7 +80,7 @@ void Window::SetMouseCaptured(bool captured) noexcept
     if (!state.handle) return;
     if (SDL_SetWindowRelativeMouseMode(state.handle, captured)) {
         state.mouseCaptured = captured;
-        state.mouseDelta = {};
+        state.input.mouseDelta = {};
     }
 }
 
