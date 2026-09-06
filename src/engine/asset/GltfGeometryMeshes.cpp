@@ -127,11 +127,12 @@ bool ReadPrimitive(Context& context, const AssetJson::Value& record, ModelPrimit
 
 bool ReadMeshes(Context& context)
 {
+    context.asset.meshes.clear();
     const AssetJson::Value* meshes = Member(*context.root, "meshes");
     if (!meshes) return true;  // rig-only document: skeletons and animations without geometry
     if (!meshes->Is(AssetJson::Type::Array)) return context.Fail("glTF meshes must be an array");
     if (meshes->array.empty()) return true;
-    context.asset.meshes.clear(); context.asset.meshes.reserve(meshes->array.size());
+    context.asset.meshes.reserve(meshes->array.size());
     for (const AssetJson::Value& record : meshes->array) {
         if (!record.Is(AssetJson::Type::Object)) return context.Fail("invalid glTF mesh");
         ModelMesh mesh{}; mesh.name = std::string(Member(record, "name") ? Member(record, "name")->String() : std::string_view{});

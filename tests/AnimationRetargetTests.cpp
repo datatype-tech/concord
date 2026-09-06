@@ -49,6 +49,7 @@ Concord::Skeleton MakeSourceRig()
         {.name = "mixamorig:RightArm", .parent = 0, .local = {.translation = {-0.4f, 0.2f, 0.0f}}},
         {.name = "mixamorig:LeftHandThumb1", .parent = 7,
          .local = {.translation = {0.1f, 0.1f, 0.0f}}},
+        {.name = "Armature|Hips", .parent = 0, .local = {.translation = {0.0f, 0.9f, 0.0f}}},
     });
 }
 
@@ -292,6 +293,51 @@ bool TestRetargetAssetAnimations()
                Concord::HumanoidSkeleton{}, sourceAsset, targetHumanoid, empty, {}) == 0;
 }
 
+/** A clip channel on the duplicate "hips"-named joint, resolved by name fallback. */
+Concord::AnimationClip MakeDuplicateHipsClip()
+{
+    Concord::AnimationClip clip{};
+    clip.name = "Duplicate";
+    clip.duration = 1.0f;
+    clip.channels.push_back({.path = Concord::AnimationPath::Translation,
+                             .vec3Keys = {{.time = 0.0f, .value = {0.0f, 0.0f, 0.0f}},
+                                          {.time = 1.0f, .value = {5.0f, 0.0f, 0.0f}}},
+                             .sourceNode = 10});
+    return clip;
+}
+
+bool TestDuplicateHipsNameFallback()
+{
+    const Concord::Skeleton source = MakeSourceRig();
+    const Concord::Skeleton target = MakeTargetRig();
+    const Concord::HumanoidSkeleton sourceHumanoid = Concord::BuildHumanoidSkeleton(source);
+    const Concord::HumanoidSkeleton targetHumanoid = Concord::BuildHumanoidSkeleton(target);
+    const Concord::AnimationClip clip = MakeDuplicateHipsClip();
+    const Concord::u32 targetHips = targetHumanoid.Bone(Concord::HumanoidBone::Hips);
+
+    Concord::RetargetResult baked;
+    if (!Concord::RetargetClip(sourceHumanoid, clip, targetHumanoid, {}, baked)) return false;
+    const Concord::AnimationChannel* hips = FindChannel(
+        baked.clip, Concord::AnimationPath::Translation, targetHips);
+    if (hips == nullptr || !SameVec(hips->vec3Keys.back().value, {10.0f, 0.0f, 0.0f})) {
+        return false;
+    }
+
+    Concord::RetargetResult extracted;
+    const Concord::RetargetOptions extract{.rootMotion = Concord::RootMotionMode::ExtractRootMotion};
+    if (!Concord::RetargetClip(sourceHumanoid, clip, targetHumanoid, extract, extracted)) {
+        return false;
+    }
+    if (!extracted.hasRootMotion) return false;
+    const Concord::AnimationChannel* body = FindChannel(
+        extracted.clip, Concord::AnimationPath::Translation, targetHips);
+    const Concord::AnimationChannel* rootMotion = FindChannel(
+        extracted.rootMotion, Concord::AnimationPath::Translation, targetHips);
+    return body != nullptr && SameVec(body->vec3Keys.back().value, {0.0f, 0.0f, 0.0f}) &&
+           rootMotion != nullptr &&
+           SameVec(rootMotion->vec3Keys.back().value, {10.0f, 0.0f, 0.0f});
+}
+
 } // namespace
 
 int main()
@@ -307,6 +353,7 @@ int main()
         {"root-motion-modes", TestRootMotionModes},
         {"invalid-humanoid", TestInvalidHumanoidFails},
         {"name-based-mapping", TestNameBasedMapping},
+        {"duplicate-hips-fallback", TestDuplicateHipsNameFallback},
         {"retarget-asset-animations", TestRetargetAssetAnimations},
     };
     for (const Case& testCase : cases) {

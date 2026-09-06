@@ -7,6 +7,8 @@
 
 #include "engine/animation/AnimationRetarget.h"
 
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace Concord {
@@ -28,6 +30,14 @@ void StripHorizontalTranslation(AnimationChannel& channel) noexcept;
 
 /** Keeps only the scaled horizontal components of a translation channel. */
 void KeepHorizontalTranslation(AnimationChannel& channel, f32 scale) noexcept;
+
+/** Resolves the source joint a channel addresses, or kInvalidJoint. */
+[[nodiscard]] u32 ResolveChannelJoint(const Skeleton& skeleton,
+                                      const AnimationChannel& channel) noexcept;
+
+/** Normalized target joint names for the name-based fallback mapping. */
+[[nodiscard]] std::unordered_map<std::string, u32> TargetJointsByName(
+    const Skeleton& skeleton);
 
 } // namespace Concord
 

@@ -4,6 +4,8 @@
 
 #include "engine/animation/AnimationRetargetInternal.h"
 
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace Concord {
@@ -127,6 +129,22 @@ void KeepHorizontalTranslation(AnimationChannel& channel, f32 scale) noexcept
         key.inTangent = {key.inTangent.x * scale, 0.0f, key.inTangent.z * scale};
         key.outTangent = {key.outTangent.x * scale, 0.0f, key.outTangent.z * scale};
     }
+}
+
+u32 ResolveChannelJoint(const Skeleton& skeleton, const AnimationChannel& channel) noexcept
+{
+    if (channel.sourceNode != kInvalidJoint) return skeleton.FindJoint(channel.sourceNode);
+    return channel.joint < skeleton.joints.size() ? channel.joint : kInvalidJoint;
+}
+
+std::unordered_map<std::string, u32> TargetJointsByName(const Skeleton& skeleton)
+{
+    std::unordered_map<std::string, u32> byName;
+    byName.reserve(skeleton.joints.size());
+    for (u32 joint = 0; joint < skeleton.joints.size(); ++joint) {
+        byName.emplace(NormalizeJointName(skeleton.joints[joint].name), joint);
+    }
+    return byName;
 }
 
 } // namespace Concord

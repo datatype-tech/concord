@@ -24,8 +24,11 @@ struct ModelLoadOptions {
     /**
      * Rejects structurally suspicious input: mirrored node matrices, skinned
      * meshes carrying only one of JOINTS_0/WEIGHTS_0, and animations whose
-     * channels resolve to no imported skeleton. Non-strict mode degrades such
+     * channels resolve to no imported skeleton (documents without skins
+     * therefore reject every animation clip). Non-strict mode degrades such
      * input instead (stripped rotation, default weights, dropped clips).
+     * Sheared node matrices pass the mirror check but still decompose with an
+     * approximate rotation; clean those up in the DCC before export.
      */
     bool strict = true;
     /**
