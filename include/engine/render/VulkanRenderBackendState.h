@@ -5,6 +5,7 @@
 #define CONCORD_VULKANRENDERBACKENDSTATE_H
 #include "engine/render/VulkanRenderBackend.h"
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
+#include "engine/render/vulkan/VulkanDebugOverlay.h"
 #include "engine/render/vulkan/VulkanModelPipeline.h"
 #include "engine/render/vulkan/VulkanTextureCache.h"
 #include "engine/render/vulkan/VulkanSkinningResources.h"
@@ -45,6 +46,9 @@ struct VulkanRenderBackend::Impl {
     VulkanRayTracingSceneRing rayTracing{};
     VulkanRayTracingPipeline rayTracingPipeline{};
     VulkanRayTracingOutputRing rayTracingOutput{};
+    VulkanDebugOverlay debugOverlay{};
+    const DebugOverlayFrame* debugOverlayFrame = nullptr;
+    bool rayTracingCompositedLastFrame = false;
     VulkanFrameRing frames{};
     u32 imageIndex = 0;
     VkFence acquiredImageFence = VK_NULL_HANDLE;

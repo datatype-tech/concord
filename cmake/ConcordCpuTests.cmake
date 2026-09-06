@@ -143,6 +143,13 @@ target_include_directories(concord_input_tests PRIVATE
     ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/SDL3)
 add_test(NAME concord_input_tests COMMAND concord_input_tests)
 
+add_executable(concord_debug_overlay_tests
+    tests/DebugOverlayTests.cpp
+    src/engine/debug/DebugOverlay.cpp)
+target_compile_features(concord_debug_overlay_tests PRIVATE cxx_std_23)
+target_include_directories(concord_debug_overlay_tests PRIVATE ${CONCORD_TEST_INCLUDE})
+add_test(NAME concord_debug_overlay_tests COMMAND concord_debug_overlay_tests)
+
 add_executable(concord_system_tests tests/SystemScheduleTests.cpp)
 target_compile_features(concord_system_tests PRIVATE cxx_std_23)
 target_link_libraries(concord_system_tests PRIVATE concord::runtime)

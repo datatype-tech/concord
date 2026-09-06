@@ -15,6 +15,7 @@
 
 namespace Concord {
 
+class DebugOverlay;
 class Scene;
 class Window;
 
@@ -74,6 +75,15 @@ public:
      * bulk rather than object by object.
      */
     [[nodiscard]] SystemSchedule& Systems() noexcept;
+
+    /**
+     * The debug overlay component owned by this Game.
+     *
+     * Set `showDebugInfo` on it to draw real-time fps, frame-time and scene
+     * statistics in the top-right corner of the window; the renderer receives
+     * nothing while it is off.
+     */
+    [[nodiscard]] DebugOverlay& Overlay() noexcept;
 
     /**
      * Runs the frame loop until the attached window is closed.

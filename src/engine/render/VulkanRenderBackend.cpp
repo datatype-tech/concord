@@ -8,6 +8,7 @@
 #include "engine/render/VulkanRenderBackendExtensions.h"
 #include "engine/render/vulkan/VulkanDepthBuffer.h"
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
+#include "engine/render/vulkan/VulkanDebugOverlay.h"
 #include "engine/render/vulkan/VulkanDevice.h"
 #include "engine/render/vulkan/VulkanFrameSync.h"
 #include "engine/render/vulkan/VulkanFrameDataResources.h"
@@ -23,13 +24,13 @@
 
 namespace Concord {
 VulkanRenderBackend::VulkanRenderBackend() : m_impl(std::make_unique<Impl>()) {}
-bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
+bool VulkanRenderBackend::Init(Window& window, const RenderBackendInit& init)
 {
     Shutdown();
     Impl& impl = *m_impl;
     impl.window = &window;
     const bool initialized =
-        CreateVulkanInstance(impl.context, enableValidation) &&
+        CreateVulkanInstance(impl.context, init.enableValidation) &&
         CreateVulkanSurface(impl.context, window) && CreateVulkanDevice(impl.context) &&
         CreateVulkanSwapchain(impl.context, impl.swapchain, window.Width(), window.Height(),
                               window.Vsync());
@@ -56,8 +57,9 @@ bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
         !ReadVulkanShaderCode("raymiss.rmiss.spv").empty() &&
         !ReadVulkanShaderCode("rayhit.rchit.spv").empty();
     const bool wantsRayScene =
-        (rayQueryShaderAvailable && impl.context.rayTracing.IsRayQueryUsable()) ||
-        (rayPipelineShaderAvailable && impl.context.rayTracing.IsUsable());
+        init.enableRayTracing &&
+        ((rayQueryShaderAvailable && impl.context.rayTracing.IsRayQueryUsable()) ||
+         (rayPipelineShaderAvailable && impl.context.rayTracing.IsUsable()));
     if (wantsRayScene &&
         !CreateVulkanRayTracingSceneRing(impl.context, impl.rayTracing)) {
         std::fprintf(stderr, "[Concord] ray-tracing acceleration structures unavailable; "
@@ -142,7 +144,27 @@ bool VulkanRenderBackend::Init(Window& window, bool enableValidation)
     if (!extensionsReady) {
         std::fprintf(stderr, "[Concord] one or more Vulkan initialize passes failed\n");
     }
+    if (!CreateVulkanDebugOverlay(impl.context, impl.swapchain.format, impl.debugOverlay)) {
+        std::fprintf(stderr, "[Concord] debug overlay unavailable; on-screen stats disabled\n");
+    }
     impl.lifecycleInitialized = true;
     return true;
+}
+
+void VulkanRenderBackend::SetDebugOverlay(const DebugOverlayFrame* overlay)
+{
+    m_impl->debugOverlayFrame = overlay;
+}
+
+RenderBackendStats VulkanRenderBackend::LastFrameStats() const
+{
+    const Impl& impl = *m_impl;
+    RenderBackendStats stats{};
+    stats.width = impl.swapchain.extent.width;
+    stats.height = impl.swapchain.extent.height;
+    stats.visibleObjects = static_cast<u32>(impl.visibleObjectCount);
+    stats.lights = static_cast<u32>(impl.lightCount);
+    stats.rayTracingActive = impl.rayTracingCompositedLastFrame;
+    return stats;
 }
 } // namespace Concord

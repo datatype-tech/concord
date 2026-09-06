@@ -2,23 +2,18 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#ifndef CONCORD_CAPPLICATION_H
-#define CONCORD_CAPPLICATION_H
+#ifndef CONCORD_CDEBUG_H
+#define CONCORD_CDEBUG_H
 
 /**
- * Public entry point for the engine lifecycle and windowing.
+ * Public surface of the engine's debug facilities.
  *
  * This header only re-exports the real declarations from the engine
  * module's private headers (see AGENTS.md §3, facade re-export pattern);
  * application code includes this file, never the ones under `engine/`.
  */
 
-#include "engine/app/Game.h"
-#include "engine/app/GameConfig.h"
 #include "engine/debug/DebugOverlay.h"
-#include "engine/window/Resolution.h"
-#include "engine/window/Window.h"
-#include "engine/window/WindowDesc.h"
-#include "engine/window/WindowMode.h"
+#include "engine/debug/DebugOverlayFrame.h"
 
-#endif // CONCORD_CAPPLICATION_H
+#endif // CONCORD_CDEBUG_H

@@ -116,6 +116,7 @@ target_compile_definitions(concord_render PRIVATE CRENDER_EXPORTS)
 target_include_directories(concord_render PRIVATE
     ${CONCORD_3RD_DIR}/SDL3
     ${CONCORD_3RD_DIR}/Vulkan
+    ${CONCORD_3RD_DIR}/stb
 )
 
 # Render depends on Runtime for Window; never the reverse.

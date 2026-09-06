@@ -125,6 +125,12 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
                               rayTracingBuilt && rayTracing.IsReady() ? &rayTracing : nullptr,
                               impl.swapchainGeneration,
                               VulkanPassPhase::AfterScene);
+    impl.rayTracingCompositedLastFrame = rayTracingComposited;
+    if (impl.debugOverlayFrame != nullptr && impl.debugOverlay.IsReady()) {
+        RecordVulkanDebugOverlay(commandBuffer, impl.debugOverlay, impl.frames.currentFrame,
+                                 impl.swapchain.extent,
+                                 impl.swapchain.views[impl.imageIndex], *impl.debugOverlayFrame);
+    }
     TransitionToPresent(commandBuffer, image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     impl.swapchain.imageLayouts[impl.imageIndex] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 }

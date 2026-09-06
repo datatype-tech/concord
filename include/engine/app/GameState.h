@@ -6,6 +6,7 @@
 #define CONCORD_GAMESTATE_H
 
 #include "engine/app/Game.h"
+#include "engine/debug/DebugOverlay.h"
 #include "engine/render/IRenderBackend.h"
 #include "engine/scene/Scene.h"
 
@@ -22,6 +23,7 @@ struct Game::Impl {
     Scene* scene = nullptr;
     Scene* pendingScene = nullptr;
     std::unique_ptr<IRenderBackend> renderer;
+    DebugOverlay debugOverlay{};
     std::function<void(f32)> onUpdate;
     SystemSchedule systems;
     bool systemsStarted = false;

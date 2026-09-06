@@ -30,12 +30,14 @@ public:
     VulkanRenderBackend(const VulkanRenderBackend&) = delete;
     VulkanRenderBackend& operator=(const VulkanRenderBackend&) = delete;
 
-    bool Init(Window& window, bool enableValidation) override;
+    bool Init(Window& window, const RenderBackendInit& init) override;
     void Shutdown() override;
     bool BeginFrame() override;
     void DrawScene(const Scene& scene) override;
     void EndFrame() override;
     void WaitIdle() override;
+    void SetDebugOverlay(const DebugOverlayFrame* overlay) override;
+    [[nodiscard]] RenderBackendStats LastFrameStats() const override;
 
 private:
     struct Impl;

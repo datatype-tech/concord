@@ -31,7 +31,9 @@ set(CONCORD_SHADER_SOURCES
     "${CONCORD_SHADER_SOURCE_DIR}/directional_shadow_skinned.vert"
     "${CONCORD_SHADER_SOURCE_DIR}/raygen.rgen"
     "${CONCORD_SHADER_SOURCE_DIR}/raymiss.rmiss"
-    "${CONCORD_SHADER_SOURCE_DIR}/rayhit.rchit" CACHE INTERNAL
+    "${CONCORD_SHADER_SOURCE_DIR}/rayhit.rchit"
+    "${CONCORD_SHADER_SOURCE_DIR}/debug_overlay.vert"
+    "${CONCORD_SHADER_SOURCE_DIR}/debug_overlay.frag" CACHE INTERNAL
     "Bundled Concord GLSL sources" FORCE)
 
 function(concord_configure_shaders)

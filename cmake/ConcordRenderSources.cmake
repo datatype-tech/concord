@@ -28,6 +28,10 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanBoxPipelineLayout.cpp
     src/engine/render/vulkan/VulkanBoxPipelineState.cpp
     src/engine/render/vulkan/VulkanBoxPipelineRecord.cpp
+    src/engine/render/vulkan/VulkanDebugFont.cpp
+    src/engine/render/vulkan/VulkanDebugOverlayCreate.cpp
+    src/engine/render/vulkan/VulkanDebugOverlayDestroy.cpp
+    src/engine/render/vulkan/VulkanDebugOverlayRecord.cpp
     src/engine/render/vulkan/VulkanBuffer.cpp
     src/engine/render/vulkan/VulkanBufferCreate.cpp
     src/engine/render/vulkan/VulkanBufferSync.cpp

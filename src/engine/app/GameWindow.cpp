@@ -56,13 +56,15 @@ void Game::AttachWindow(Window& window)
             std::fprintf(stderr, "[Concord] no render backend is registered; "
                                "link the engine's render DLL to enable rendering\n");
         } else {
+            RenderBackendInit init{};
 #if defined(NDEBUG)
-            const bool validation = false;
+            init.enableValidation = false;
 #else
-            const bool validation = m_impl->config.enableValidation;
+            init.enableValidation = m_impl->config.enableValidation;
 #endif
+            init.enableRayTracing = m_impl->config.enableRayTracing;
 
-            if (backend->Init(window, validation)) {
+            if (backend->Init(window, init)) {
                 m_impl->renderer = std::move(backend);
                 return;
             }

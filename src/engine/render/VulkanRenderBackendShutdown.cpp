@@ -8,6 +8,7 @@
 #include "engine/render/VulkanRenderBackendExtensions.h"
 #include "engine/render/vulkan/VulkanDevice.h"
 #include "engine/render/vulkan/VulkanInstance.h"
+#include "engine/render/vulkan/VulkanDebugOverlay.h"
 #include "engine/render/vulkan/VulkanModelPipeline.h"
 #include "engine/render/vulkan/VulkanSkinningResources.h"
 #include "engine/render/vulkan/VulkanSkinnedPipeline.h"
@@ -46,6 +47,7 @@ void VulkanRenderBackend::Shutdown()
         }
         DestroyVulkanTileLightCulling(impl.context, impl.tileCulling);
         DestroyVulkanBoxPipeline(impl.context, impl.boxPipeline);
+        DestroyVulkanDebugOverlay(impl.context, impl.debugOverlay);
         DestroyVulkanModelPipeline(impl.context, impl.modelPipeline);
         DestroyVulkanSkinnedPipeline(impl.context, impl.skinnedPipeline);
         DestroyVulkanShadowPipeline(impl.context, impl.shadowPipeline);

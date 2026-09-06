@@ -38,6 +38,8 @@ void Game::LoadScene(Scene& scene)
 
 SystemSchedule& Game::Systems() noexcept { return m_impl->systems; }
 
+DebugOverlay& Game::Overlay() noexcept { return m_impl->debugOverlay; }
+
 void Game::OnUpdate(std::function<void(f32 deltaTime)> onUpdate)
 {
     m_impl->onUpdate = std::move(onUpdate);
@@ -84,6 +86,13 @@ void Game::Run()
             impl.StartSystems();
 
             Scene& renderScene = impl.scene ? *impl.scene : impl.fallbackScene;
+            if (impl.renderer) {
+                impl.debugOverlay.Update(impl.deltaTime, renderScene.EntityCount(),
+                                         impl.renderer->LastFrameStats());
+                impl.renderer->SetDebugOverlay(impl.debugOverlay.showDebugInfo
+                                                   ? &impl.debugOverlay.Frame()
+                                                   : nullptr);
+            }
             if (impl.renderer && impl.renderer->BeginFrame()) {
                 impl.renderer->DrawScene(renderScene);
                 impl.renderer->EndFrame();

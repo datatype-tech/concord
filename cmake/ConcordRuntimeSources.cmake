@@ -9,6 +9,8 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/app/Game.cpp
     src/engine/app/GameWindow.cpp
 
+    src/engine/debug/DebugOverlay.cpp
+
     ${CONCORD_ASSET_SOURCES}
 
     src/engine/animation/AnimationBlend.cpp
