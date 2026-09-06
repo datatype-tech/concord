@@ -20,6 +20,15 @@ void CollectBindGlobals(const Skeleton& skeleton, std::vector<Mat4>& globals);
                                      const std::vector<Mat4>& sourceGlobals,
                                      const std::vector<Mat4>& targetGlobals);
 
+/** Scales a translation channel's keys and tangents by a uniform factor. */
+void ScaleTranslationChannel(AnimationChannel& channel, f32 scale) noexcept;
+
+/** Zeroes the horizontal components of a translation channel. */
+void StripHorizontalTranslation(AnimationChannel& channel) noexcept;
+
+/** Keeps only the scaled horizontal components of a translation channel. */
+void KeepHorizontalTranslation(AnimationChannel& channel, f32 scale) noexcept;
+
 } // namespace Concord
 
 #endif // CONCORD_ANIMATIONRETARGETINTERNAL_H

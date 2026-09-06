@@ -11,6 +11,8 @@
 
 namespace Concord {
 
+struct ModelAsset;
+
 /** How the source clip's hips translation survives retargeting. */
 enum class RootMotionMode {
     /** Keep the hips translation as authored; playback moves the mesh itself. */
@@ -27,6 +29,12 @@ enum class RootMotionMode {
 /** Retargeting switches. */
 struct RetargetOptions {
     RootMotionMode rootMotion = RootMotionMode::KeepBaked;
+    /**
+     * Maps channels on joints without a semantic slot (fingers, toes, helper
+     * bones) by matching normalized joint names across the rigs. Humanoid
+     * slots always take priority; disable to retarget semantic bones only.
+     */
+    bool mapByName = true;
 };
 
 /** The retargeted body clip plus, optionally, its extracted root motion. */
@@ -46,7 +54,8 @@ struct CENGINE_API RetargetResult {
  * against the target's joints (direct joint indices, no source-node linkage).
  * Rotation and scale keys are copied verbatim; hips translation keys scale by
  * the ratio of bind-pose chain lengths so motion matches the target's size.
- * Channels on joints with no humanoid slot are dropped.
+ * Channels on joints with no humanoid slot map by normalized joint name while
+ * `RetargetOptions::mapByName` is set, and drop otherwise.
  *
  * The result clip is meant to be appended to the target asset's animation
  * list, after which graphs and components address it by clip index.
@@ -56,6 +65,21 @@ struct CENGINE_API RetargetResult {
                                             const HumanoidSkeleton& target,
                                             const RetargetOptions& options,
                                             RetargetResult& out);
+
+/**
+ * Retargets every clip of a source asset into a target asset.
+ *
+ * Appends one body clip per source animation (plus its root-motion clip in
+ * ExtractRootMotion mode) to `targetAsset.animations` in source order.
+ *
+ * @return The number of body clips appended, or 0 when either humanoid
+ *         mapping is invalid or the first failing clip stopped the batch.
+ */
+[[nodiscard]] CENGINE_API usize RetargetAssetAnimations(const HumanoidSkeleton& source,
+                                                        const ModelAsset& sourceAsset,
+                                                        const HumanoidSkeleton& target,
+                                                        ModelAsset& targetAsset,
+                                                        const RetargetOptions& options);
 
 } // namespace Concord
 

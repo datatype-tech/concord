@@ -4,9 +4,11 @@
 
 #include "engine/animation/AnimationRetarget.h"
 #include "engine/animation/Humanoid.h"
+#include "engine/asset/ModelAsset.h"
 
 #include <cmath>
 #include <cstdio>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -45,6 +47,8 @@ Concord::Skeleton MakeSourceRig()
         {.name = "mixamorig:RightLeg", .parent = 5, .local = {.translation = {0.0f, -0.5f, 0.0f}}},
         {.name = "mixamorig:LeftArm", .parent = 0, .local = {.translation = {0.4f, 0.2f, 0.0f}}},
         {.name = "mixamorig:RightArm", .parent = 0, .local = {.translation = {-0.4f, 0.2f, 0.0f}}},
+        {.name = "mixamorig:LeftHandThumb1", .parent = 7,
+         .local = {.translation = {0.1f, 0.1f, 0.0f}}},
     });
 }
 
@@ -61,6 +65,7 @@ Concord::Skeleton MakeTargetRig()
         {.name = "LeftUpLeg", .parent = 3, .local = {.translation = {0.6f, 0.0f, 0.0f}}},
         {.name = "LeftArm", .parent = 3, .local = {.translation = {0.8f, 0.4f, 0.0f}}},
         {.name = "RightArm", .parent = 3, .local = {.translation = {-0.8f, 0.4f, 0.0f}}},
+        {.name = "LeftHandThumb1", .parent = 7, .local = {.translation = {0.2f, 0.2f, 0.0f}}},
     });
 }
 
@@ -213,6 +218,80 @@ bool TestInvalidHumanoidFails()
                                   Concord::BuildHumanoidSkeleton(complete), {}, result);
 }
 
+/** MakeClip plus a translation channel on the non-semantic thumb joint. */
+Concord::AnimationClip MakeThumbClip()
+{
+    Concord::AnimationClip clip = MakeClip();
+    clip.channels.push_back({.path = Concord::AnimationPath::Translation,
+                             .vec3Keys = {{.time = 0.0f, .value = {0.0f, 0.0f, 0.0f}},
+                                          {.time = 1.0f, .value = {1.0f, 0.0f, 0.0f}}},
+                             .sourceNode = 9});
+    return clip;
+}
+
+bool TestNameBasedMapping()
+{
+    const Concord::Skeleton source = MakeSourceRig();
+    const Concord::Skeleton target = MakeTargetRig();
+    const Concord::HumanoidSkeleton sourceHumanoid = Concord::BuildHumanoidSkeleton(source);
+    const Concord::HumanoidSkeleton targetHumanoid = Concord::BuildHumanoidSkeleton(target);
+    const Concord::AnimationClip clip = MakeThumbClip();
+
+    Concord::RetargetResult mapped;
+    if (!Concord::RetargetClip(sourceHumanoid, clip, targetHumanoid, {}, mapped)) return false;
+    if (mapped.clip.channels.size() != clip.channels.size()) return false;
+    const Concord::AnimationChannel* thumb = FindChannel(
+        mapped.clip, Concord::AnimationPath::Translation, 9);
+    if (thumb == nullptr || thumb->sourceNode != Concord::kInvalidJoint ||
+        !SameVec(thumb->vec3Keys.back().value, {1.0f, 0.0f, 0.0f})) {
+        return false;
+    }
+    const Concord::AnimationChannel* hips = FindChannel(
+        mapped.clip, Concord::AnimationPath::Translation,
+        targetHumanoid.Bone(Concord::HumanoidBone::Hips));
+    if (hips == nullptr || !SameVec(hips->vec3Keys.back().value, {20.0f, 2.0f, 0.0f})) {
+        return false;
+    }
+
+    Concord::RetargetResult semanticOnly;
+    const Concord::RetargetOptions noNames{.mapByName = false};
+    if (!Concord::RetargetClip(sourceHumanoid, clip, targetHumanoid, noNames, semanticOnly)) {
+        return false;
+    }
+    return semanticOnly.clip.channels.size() == clip.channels.size() - 1;
+}
+
+bool TestRetargetAssetAnimations()
+{
+    const Concord::Skeleton source = MakeSourceRig();
+    const Concord::Skeleton target = MakeTargetRig();
+    const Concord::HumanoidSkeleton sourceHumanoid = Concord::BuildHumanoidSkeleton(source);
+    const Concord::HumanoidSkeleton targetHumanoid = Concord::BuildHumanoidSkeleton(target);
+
+    Concord::ModelAsset sourceAsset;
+    sourceAsset.animations.push_back(MakeClip());
+    Concord::AnimationClip second = MakeClip();
+    second.name = "Run";
+    sourceAsset.animations.push_back(std::move(second));
+    Concord::ModelAsset targetAsset;
+
+    Concord::RetargetOptions extract{.rootMotion = Concord::RootMotionMode::ExtractRootMotion};
+    const Concord::usize appended =
+        Concord::RetargetAssetAnimations(sourceHumanoid, sourceAsset, targetHumanoid,
+                                         targetAsset, extract);
+    if (appended != 2 || targetAsset.animations.size() != 4) return false;
+    if (targetAsset.animations[0].name != "Walk" ||
+        targetAsset.animations[1].name != "Walk_RootMotion" ||
+        targetAsset.animations[2].name != "Run" ||
+        targetAsset.animations[3].name != "Run_RootMotion") {
+        return false;
+    }
+
+    Concord::ModelAsset empty;
+    return Concord::RetargetAssetAnimations(
+               Concord::HumanoidSkeleton{}, sourceAsset, targetHumanoid, empty, {}) == 0;
+}
+
 } // namespace
 
 int main()
@@ -227,6 +306,8 @@ int main()
         {"retarget-mapping", TestRetargetMapping},
         {"root-motion-modes", TestRootMotionModes},
         {"invalid-humanoid", TestInvalidHumanoidFails},
+        {"name-based-mapping", TestNameBasedMapping},
+        {"retarget-asset-animations", TestRetargetAssetAnimations},
     };
     for (const Case& testCase : cases) {
         if (!testCase.run()) {

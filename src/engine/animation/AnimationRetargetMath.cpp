@@ -99,4 +99,34 @@ f32 ComputeMotionScale(const HumanoidSkeleton& source, const HumanoidSkeleton& t
     return counted > 0 ? total / static_cast<f32>(counted) : 1.0f;
 }
 
+void ScaleTranslationChannel(AnimationChannel& channel, f32 scale) noexcept
+{
+    for (AnimationVec3Key& key : channel.vec3Keys) {
+        key.value *= scale;
+        key.inTangent *= scale;
+        key.outTangent *= scale;
+    }
+}
+
+void StripHorizontalTranslation(AnimationChannel& channel) noexcept
+{
+    for (AnimationVec3Key& key : channel.vec3Keys) {
+        key.value.x = 0.0f;
+        key.value.z = 0.0f;
+        key.inTangent.x = 0.0f;
+        key.inTangent.z = 0.0f;
+        key.outTangent.x = 0.0f;
+        key.outTangent.z = 0.0f;
+    }
+}
+
+void KeepHorizontalTranslation(AnimationChannel& channel, f32 scale) noexcept
+{
+    for (AnimationVec3Key& key : channel.vec3Keys) {
+        key.value = {key.value.x * scale, 0.0f, key.value.z * scale};
+        key.inTangent = {key.inTangent.x * scale, 0.0f, key.inTangent.z * scale};
+        key.outTangent = {key.outTangent.x * scale, 0.0f, key.outTangent.z * scale};
+    }
+}
+
 } // namespace Concord

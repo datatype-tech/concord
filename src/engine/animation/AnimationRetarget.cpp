@@ -5,48 +5,33 @@
 #include "engine/animation/AnimationRetarget.h"
 
 #include "engine/animation/AnimationRetargetInternal.h"
+#include "engine/asset/ModelAsset.h"
 
 #include <cmath>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace Concord {
 namespace {
-
-void ScaleTranslationChannel(AnimationChannel& channel, f32 scale) noexcept
-{
-    for (AnimationVec3Key& key : channel.vec3Keys) {
-        key.value *= scale;
-        key.inTangent *= scale;
-        key.outTangent *= scale;
-    }
-}
-
-void StripHorizontalTranslation(AnimationChannel& channel) noexcept
-{
-    for (AnimationVec3Key& key : channel.vec3Keys) {
-        key.value.x = 0.0f;
-        key.value.z = 0.0f;
-        key.inTangent.x = 0.0f;
-        key.inTangent.z = 0.0f;
-        key.outTangent.x = 0.0f;
-        key.outTangent.z = 0.0f;
-    }
-}
-
-void KeepHorizontalTranslation(AnimationChannel& channel, f32 scale) noexcept
-{
-    for (AnimationVec3Key& key : channel.vec3Keys) {
-        key.value = {key.value.x * scale, 0.0f, key.value.z * scale};
-        key.inTangent = {key.inTangent.x * scale, 0.0f, key.inTangent.z * scale};
-        key.outTangent = {key.outTangent.x * scale, 0.0f, key.outTangent.z * scale};
-    }
-}
 
 /** Resolves the source joint a channel addresses, or kInvalidJoint. */
 u32 ResolveChannelJoint(const Skeleton& skeleton, const AnimationChannel& channel) noexcept
 {
     if (channel.sourceNode != kInvalidJoint) return skeleton.FindJoint(channel.sourceNode);
     return channel.joint < skeleton.joints.size() ? channel.joint : kInvalidJoint;
+}
+
+/** Normalized target joint names for the name-based fallback mapping. */
+std::unordered_map<std::string, u32> TargetJointsByName(const Skeleton& skeleton)
+{
+    std::unordered_map<std::string, u32> byName;
+    byName.reserve(skeleton.joints.size());
+    for (u32 joint = 0; joint < skeleton.joints.size(); ++joint) {
+        byName.emplace(NormalizeJointName(skeleton.joints[joint].name), joint);
+    }
+    return byName;
 }
 
 } // namespace
@@ -58,17 +43,21 @@ bool RetargetClip(const HumanoidSkeleton& source, const AnimationClip& clip,
     try {
         if (!source.IsValid() || !target.IsValid()) return false;
         const Skeleton& sourceSkeleton = *source.skeleton;
+        const Skeleton& targetSkeleton = *target.skeleton;
 
         std::vector<u32> slotOfJoint(sourceSkeleton.joints.size(), kInvalidJoint);
         for (u32 slot = 0; slot < kHumanoidBoneCount; ++slot) {
             const u32 joint = source.Bone(slot);
             if (joint < slotOfJoint.size()) slotOfJoint[joint] = slot;
         }
+        const std::unordered_map<std::string, u32> targetByName =
+            options.mapByName ? TargetJointsByName(targetSkeleton)
+                              : std::unordered_map<std::string, u32>{};
 
         std::vector<Mat4> sourceGlobals;
         std::vector<Mat4> targetGlobals;
         CollectBindGlobals(sourceSkeleton, sourceGlobals);
-        CollectBindGlobals(*target.skeleton, targetGlobals);
+        CollectBindGlobals(targetSkeleton, targetGlobals);
         const f32 motionScale = ComputeMotionScale(source, target, sourceGlobals, targetGlobals);
         const bool stripHorizontal = options.rootMotion != RootMotionMode::KeepBaked;
         const bool extractRoot = options.rootMotion == RootMotionMode::ExtractRootMotion;
@@ -81,11 +70,17 @@ bool RetargetClip(const HumanoidSkeleton& source, const AnimationClip& clip,
 
         for (const AnimationChannel& channel : clip.channels) {
             const u32 sourceJoint = ResolveChannelJoint(sourceSkeleton, channel);
-            if (sourceJoint >= slotOfJoint.size() || slotOfJoint[sourceJoint] == kInvalidJoint) {
-                continue;
-            }
+            if (sourceJoint >= slotOfJoint.size()) continue;
+
+            u32 targetJoint = kInvalidJoint;
             const u32 slot = slotOfJoint[sourceJoint];
-            const u32 targetJoint = target.Bone(slot);
+            if (slot != kInvalidJoint) {
+                targetJoint = target.Bone(slot);
+            } else if (options.mapByName) {
+                const auto it = targetByName.find(
+                    NormalizeJointName(sourceSkeleton.joints[sourceJoint].name));
+                if (it != targetByName.end()) targetJoint = it->second;
+            }
             if (targetJoint == kInvalidJoint) continue;
 
             AnimationChannel retargeted = channel;
@@ -116,6 +111,28 @@ bool RetargetClip(const HumanoidSkeleton& source, const AnimationClip& clip,
     } catch (...) {
         return false;
     }
+}
+
+usize RetargetAssetAnimations(const HumanoidSkeleton& source, const ModelAsset& sourceAsset,
+                              const HumanoidSkeleton& target, ModelAsset& targetAsset,
+                              const RetargetOptions& options)
+{
+    if (!source.IsValid() || !target.IsValid()) return 0;
+    usize appended = 0;
+    try {
+        for (const AnimationClip& clip : sourceAsset.animations) {
+            RetargetResult result;
+            if (!RetargetClip(source, clip, target, options, result)) return appended;
+            targetAsset.animations.push_back(std::move(result.clip));
+            ++appended;
+            if (result.hasRootMotion) {
+                targetAsset.animations.push_back(std::move(result.rootMotion));
+            }
+        }
+    } catch (...) {
+        return appended;
+    }
+    return appended;
 }
 
 } // namespace Concord
