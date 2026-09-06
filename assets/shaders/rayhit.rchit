@@ -27,6 +27,8 @@ layout(std430, set = 2, binding = 3) readonly buffer RtModelPrimitives { RtModel
 layout(location = 0) rayPayloadInEXT vec4 payload;
 // Secondary payload for sun occlusion rays (miss record 1 sets it to lit).
 layout(location = 1) rayPayloadEXT vec4 shadowPayload;
+// Reflection payload (location 2); w seeds the nested hit's depth.
+layout(location = 2) rayPayloadEXT vec4 reflectionPayload;
 hitAttributeEXT vec2 hitAttributes;
 
 const vec3 faceNormals[12] = vec3[](vec3(0.0, 0.0, -1.0), vec3(0.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(0.0, 0.0, 1.0), vec3(-1.0, 0.0, 0.0), vec3(-1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, -1.0, 0.0), vec3(0.0, -1.0, 0.0));
@@ -185,5 +187,20 @@ void main()
     color += mix(vec3(0.04, 0.08, 0.18), baseColor, 0.45) *
              rim * (0.18 + metallic * 0.3);
     color += baseColor * emissive;
-    payload = vec4(ToneMap(color), 1.0);
+
+    // One mirror bounce for smooth metallic model surfaces (the demo's
+    // reflective sphere). The nested payload's w seeds the next depth so
+    // recursion terminates after a single bounce.
+    float depth = payload.w;
+    float reflectivity = metallic * (1.0 - roughness);
+    if (modelInstance && depth < 1.0 && reflectivity > 0.2) {
+        reflectionPayload = vec4(0.0, 0.0, 0.0, depth + 1.0);
+        vec3 reflected = NormalizeOrUp(reflect(rayDirection, normal));
+        vec3 reflOrigin = position + normal * 0.02 + reflected * 0.02;
+        traceRayEXT(scene, gl_RayFlagsOpaqueEXT, 0xFFu, 0u, 0u, 0u, reflOrigin,
+                    0.001, reflected, 10000.0, 2);
+        color = mix(color, reflectionPayload.rgb * mix(vec3(1.0), baseColor, 0.15),
+                    clamp(reflectivity, 0.0, 1.0));
+    }
+    payload = vec4(ToneMap(color), depth + 1.0);
 }

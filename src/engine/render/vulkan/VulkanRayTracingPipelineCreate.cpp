@@ -102,8 +102,9 @@ bool CreatePipeline(VulkanRayTracingPipeline& pipeline, VkShaderModule modules[4
     info.pStages = stages;
     info.groupCount = 4;
     info.pGroups = groups;
-    // Occlusion rays launched from the closest-hit shader need depth 2.
-    info.maxPipelineRayRecursionDepth = 2;
+    // Occlusion and single-bounce mirror rays launched from the
+    // closest-hit shader need depth 3.
+    info.maxPipelineRayRecursionDepth = 3;
     info.layout = pipeline.layout;
     return pipeline.createPipelines(pipeline.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &info,
                                     nullptr, &pipeline.pipeline) == VK_SUCCESS;

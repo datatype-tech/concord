@@ -25,7 +25,7 @@ void main()
     mat4 inverseView = inverse(frame.camera.view);
     vec3 origin = (inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vec3 direction = normalize((inverseView * vec4(viewPosition.xyz, 0.0)).xyz);
-    payload = vec4(0.02, 0.025, 0.04, 1.0);
+    payload = vec4(0.02, 0.025, 0.04, 0.0); // w carries recursion depth
     traceRayEXT(scene, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin, 0.01,
                 direction, 10000.0, 0);
     imageStore(outputImage, pixel, payload);
