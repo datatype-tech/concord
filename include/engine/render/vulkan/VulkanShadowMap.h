@@ -13,7 +13,7 @@
 namespace Concord {
 
 /** Default square resolution used by the optional directional shadow map. */
-inline constexpr u32 kDirectionalShadowMapSize = 1024;
+inline constexpr u32 kDirectionalShadowMapSize = 2048;
 
 /** Binding used inside the shadow map's standalone sampled-image set. */
 inline constexpr u32 kDirectionalShadowMapBinding = 0;

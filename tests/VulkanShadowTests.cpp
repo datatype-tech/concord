@@ -13,7 +13,7 @@
 int main()
 {
     using namespace Concord;
-    if (kDirectionalShadowMapSize != 1024 || kDirectionalShadowMapBinding != 0 ||
+    if (kDirectionalShadowMapSize != 2048 || kDirectionalShadowMapBinding != 0 ||
         kDirectionalShadowMapSet != 1 ||
         sizeof(VulkanShadowPushConstants) != 128 ||
         offsetof(VulkanShadowPushConstants, model) != 64 ||

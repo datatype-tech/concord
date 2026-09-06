@@ -25,6 +25,8 @@ layout(std430, set = 2, binding = 1) readonly buffer RtModelVertices { RtModelVe
 layout(std430, set = 2, binding = 2) readonly buffer RtModelIndices { uint indices[]; } modelIndices;
 layout(std430, set = 2, binding = 3) readonly buffer RtModelPrimitives { RtModelPrimitiveInfo primitives[]; } modelPrimitives;
 layout(location = 0) rayPayloadInEXT vec4 payload;
+// Secondary payload for sun occlusion rays (miss record 1 sets it to lit).
+layout(location = 1) rayPayloadEXT vec4 shadowPayload;
 hitAttributeEXT vec2 hitAttributes;
 
 const vec3 faceNormals[12] = vec3[](vec3(0.0, 0.0, -1.0), vec3(0.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(0.0, 0.0, 1.0), vec3(-1.0, 0.0, 0.0), vec3(-1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, -1.0, 0.0), vec3(0.0, -1.0, 0.0));
@@ -91,6 +93,17 @@ bool LoadModelHit(out vec3 position, out vec3 normal, out vec3 baseColor, out fl
     emissive = max(dot(info.emissive.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0);
     return true;
 }
+/** Traces an occlusion ray toward a directional light; 1.0 when unobstructed. */
+float SunVisibility(vec3 position, vec3 normal, vec3 toLight)
+{
+    shadowPayload = vec4(0.0);
+    vec3 origin = position + normal * 0.02 + toLight * 0.02;
+    uint flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT |
+                 gl_RayFlagsOpaqueEXT;
+    traceRayEXT(scene, flags, 0xFFu, 0u, 0u, 1u, origin, 0.001, toLight, 600.0, 1);
+    return shadowPayload.x;
+}
+
 vec3 ShadeLight(FrameLightData light, vec3 baseColor, vec3 normal,
                 vec3 position, vec3 viewDirection, float metallic, float roughness)
 {
@@ -160,8 +173,13 @@ void main()
                  frame.ambientColorIntensity.w * (0.7 + 0.3 * max(normal.y, 0.0)));
     uint lightCount = min(frame.header.y, 64u);
     for (uint index = 0u; index < lightCount; ++index) {
-        color += ShadeLight(frame.lights[index], baseColor, normal, position,
-                            viewDirection, metallic, roughness);
+        vec3 contribution = ShadeLight(frame.lights[index], baseColor, normal, position,
+                                       viewDirection, metallic, roughness);
+        if (frame.lights[index].positionType.w == 0.0) {
+            contribution *= SunVisibility(
+                position, normal, NormalizeOrUp(-frame.lights[index].directionRange.xyz));
+        }
+        color += contribution;
     }
     float rim = pow(1.0 - max(dot(normal, viewDirection), 0.0), 4.0);
     color += mix(vec3(0.04, 0.08, 0.18), baseColor, 0.45) *

@@ -43,19 +43,29 @@ vec3 CameraPosition()
     return -transpose(basis) * frame.camera.view[3].xyz;
 }
 /** Returns filtered visibility for the selected directional light. */
-float DirectionalShadowVisibility(vec3 position)
+float DirectionalShadowVisibility(vec3 position, vec3 normal, float normalLight)
 {
-    vec4 clip = frame.shadowViewProjection * vec4(position, 1.0);
+    vec2 texel = 1.0 / vec2(textureSize(directionalShadow, 0));
+    // World-space footprint of one shadow texel, recovered from the
+    // orthographic projection's x scale (2 / diameter).
+    float diameter = 2.0 / max(abs(frame.shadowViewProjection[0].x), 0.000001);
+    float texelWorld = diameter * texel.x;
+    // Offset the receiver along its normal so sloped surfaces stop
+    // self-shadowing, scaled up at grazing light angles.
+    vec3 offset = position + normal * (1.0 * texelWorld /
+                                        clamp(abs(normalLight), 0.5, 1.0));
+    vec4 clip = frame.shadowViewProjection * vec4(offset, 1.0);
     if (clip.w <= 0.0) return 1.0;
     vec3 ndc = clip.xyz / clip.w;
     if (ndc.z < 0.0 || ndc.z > 1.0 || any(greaterThan(abs(ndc.xy), vec2(1.0)))) return 1.0;
     vec2 uv = ndc.xy * 0.5 + 0.5;
-    vec2 texel = 1.0 / vec2(textureSize(directionalShadow, 0));
+    float slope = clamp(1.0 - normalLight, 0.0, 1.0);
+    float bias = 0.0006 + 0.0028 * slope;
     float visibility = 0.0;
     for (int y = -1; y <= 1; ++y)
         for (int x = -1; x <= 1; ++x)
-            visibility += texture(directionalShadow, vec3(uv + vec2(x, y) * texel,
-                                                             ndc.z - 0.0025));
+            visibility += texture(directionalShadow,
+                                  vec3(uv + vec2(x, y) * texel, ndc.z - bias));
     return mix(0.38, 1.0, visibility / 9.0);
 }
 /** Evaluates one bounded light contribution for the current fragment. */
@@ -89,7 +99,7 @@ vec3 EvaluateLight(FrameLightData light, uint lightIndex, vec3 baseColor, vec3 n
     vec3 specularColor = mix(f0, vec3(1.0), fresnel);
     float shadow = ((frame.header.w & 2u) != 0u && light.positionType.w == 0.0 &&
                     lightIndex == ((frame.header.w >> 8u) & 255u))
-                       ? DirectionalShadowVisibility(position) : 1.0;
+                       ? DirectionalShadowVisibility(position, normal, normalLight) : 1.0;
     return light.colorIntensity.rgb * light.colorIntensity.w * attenuation * shadow *
            (baseColor * (1.0 - metallic) * diffuse + specularColor * specular * 0.35);
 }

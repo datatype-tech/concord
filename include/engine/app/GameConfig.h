@@ -24,6 +24,13 @@ struct GameConfig {
     bool enableValidation = true;
 
     /**
+     * Whether the renderer may build ray-tracing resources. Ray tracing
+     * replaces the whole raster path when active, so this doubles as the
+     * quality/performance switch for the shading mode.
+     */
+    bool enableRayTracing = true;
+
+    /**
      * Upper bound on frame rate when vsync is off, in frames per second.
      * Zero means unbounded.
      */

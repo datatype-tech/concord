@@ -13,12 +13,13 @@ namespace Concord {
 bool CreateVulkanRayTracingPipelineSbt(const VulkanContext& context,
                                        VulkanRayTracingPipeline& pipeline)
 {
-    pipeline.sbtLayout = BuildVulkanRayTracingSbtLayout(pipeline.support, 1, 1, 1);
+    // Raygen, sky miss + shadow miss, one hit group.
+    pipeline.sbtLayout = BuildVulkanRayTracingSbtLayout(pipeline.support, 1, 2, 1);
     if (!pipeline.sbtLayout.IsReady() || pipeline.pipeline == VK_NULL_HANDLE ||
         pipeline.getShaderGroupHandles == nullptr) {
         return false;
     }
-    constexpr u32 groupCount = 3;
+    constexpr u32 groupCount = 4;
     const usize handleSize = pipeline.support.shaderGroupHandleSize;
     const usize handleBytes = handleSize * groupCount;
     std::vector<std::byte> handles(handleBytes);
@@ -29,6 +30,8 @@ bool CreateVulkanRayTracingPipelineSbt(const VulkanContext& context,
     std::vector<std::byte> records(static_cast<usize>(pipeline.sbtLayout.totalSize));
     const VkDeviceSize offsets[] = {pipeline.sbtLayout.raygen.offset,
                                     pipeline.sbtLayout.miss.offset,
+                                    pipeline.sbtLayout.miss.offset +
+                                        static_cast<VkDeviceSize>(pipeline.sbtLayout.miss.stride),
                                     pipeline.sbtLayout.hit.offset};
     for (u32 index = 0; index < groupCount; ++index) {
         std::memcpy(records.data() + static_cast<usize>(offsets[index]),
