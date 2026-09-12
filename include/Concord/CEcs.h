@@ -16,6 +16,8 @@
 #include "engine/ecs/Components.h"
 #include "engine/ecs/AnimationComponents.h"
 #include "engine/ecs/AnimationSystem.h"
+#include "engine/ecs/AudioComponents.h"
+#include "engine/ecs/AudioSystem.h"
 #include "engine/ecs/Entity.h"
 #include "engine/ecs/ParticleComponents.h"
 #include "engine/ecs/ParticleSystem.h"

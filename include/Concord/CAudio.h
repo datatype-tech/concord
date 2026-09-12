@@ -2,24 +2,22 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#ifndef CONCORD_COBJECT_H
-#define CONCORD_COBJECT_H
+#ifndef CONCORD_CAUDIO_H
+#define CONCORD_CAUDIO_H
 
 /**
- * Public entry point for renderable scene primitives.
+ * Public entry point for the Steam Audio spatial mixer.
  *
  * This header only re-exports the real declarations from the engine
  * module's private headers (see AGENTS.md §3, facade re-export pattern);
  * application code includes this file, never the ones under `engine/`.
  */
 
-#include "engine/core/Transform.h"
-#include "engine/scene/Box.h"
-#include "engine/scene/Material.h"
-#include "engine/scene/Model.h"
-#include "engine/scene/ParticleEmitter.h"
-#include "engine/scene/PhysicsBody.h"
+#include "engine/audio/AudioClip.h"
+#include "engine/audio/AudioSettings.h"
+#include "engine/audio/AudioWorld.h"
+#include "engine/ecs/AudioComponents.h"
+#include "engine/ecs/AudioSystem.h"
 #include "engine/scene/Sound.h"
-#include "engine/scene/Water.h"
 
-#endif // CONCORD_COBJECT_H
+#endif // CONCORD_CAUDIO_H

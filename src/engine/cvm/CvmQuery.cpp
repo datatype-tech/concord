@@ -7,6 +7,7 @@
 #include "engine/core/Types.h"
 #include "engine/core/Vec3.h"
 #include "engine/cvm/CvmSceneAccess.h"
+#include "engine/ecs/AudioComponents.h"
 #include "engine/ecs/Components.h"
 #include "engine/ecs/ParticleComponents.h"
 #include "engine/physics/PhysicsQuery.h"
@@ -114,6 +115,7 @@ std::int64_t ConcordCvmEntityKind(std::int64_t entity)
     if (world.Has<Concord::ModelRenderer>(target)) return 3;
     if (world.Has<Concord::LightComponent>(target)) return 4;
     if (world.Has<Concord::ParticleEmitterComponent>(target)) return 5;
+    if (world.Has<Concord::AudioSource>(target)) return 6;
     return 0;
 }
 

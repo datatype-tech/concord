@@ -313,7 +313,7 @@ CENGINE_API double ConcordCvmLightAngle(std::int64_t entity, std::int64_t axis);
  * The engine cannot return a CVM list handle (those live in the script
  * runtime), so a script snapshots the live entities and then indexes the table.
  * Kind is a small integer rather than a string: 1 camera, 2 mesh, 3 model,
- * 4 light, 5 particles, 0 none.
+ * 4 light, 5 particles, 6 sound, 0 none.
  */
 
 /**
@@ -761,6 +761,51 @@ CENGINE_API double ConcordCvmEntityAngularVelocity(std::int64_t entity, std::int
 
 /** Switches the first-person controller between fly and walk. */
 CENGINE_API std::int64_t ConcordCvmSetFlyMode(std::int64_t flyMode);
+
+/** Steps Steam Audio / the stereo mix. Without it, voices never reach a device. */
+CENGINE_API std::int64_t ConcordCvmAddAudioSystem(void);
+
+/** Ears in the world. If none exists, the mixer uses the main camera. */
+CENGINE_API std::int64_t ConcordCvmSceneSpawnListener(std::int64_t scene, double x, double y,
+                                                      double z);
+
+/**
+ * Puts ears on an existing entity (usually the camera).
+ *
+ * \p gain is a linear multiplier. Returns 0 when the handle is stale or the
+ * entity has no Transform for the mixer to follow.
+ */
+CENGINE_API std::int64_t ConcordCvmEntityAddListener(std::int64_t entity, double gain);
+
+/**
+ * Spatial voice at a point. \p path is a WAVE file; \p loop and \p spatial
+ * are 0/1. Returns 0 when the clip cannot be loaded.
+ */
+CENGINE_API std::int64_t ConcordCvmSceneSpawnSound(std::int64_t scene, double x, double y, double z,
+                                                   const char* path, double volume,
+                                                   std::int64_t loop, std::int64_t spatial);
+
+/** Starts a source. */
+CENGINE_API std::int64_t ConcordCvmEntityPlay(std::int64_t entity);
+
+/** Stops a source and rewinds it. */
+CENGINE_API std::int64_t ConcordCvmEntityStop(std::int64_t entity);
+
+/** Linear gain on a source. Zero is silence. */
+CENGINE_API std::int64_t ConcordCvmEntitySetVolume(std::int64_t entity, double volume);
+
+/** Current linear gain, or 0 when the entity has no source. */
+CENGINE_API double ConcordCvmEntityVolume(std::int64_t entity);
+
+/** Playback rate. 1 is authored speed. */
+CENGINE_API std::int64_t ConcordCvmEntitySetPitch(std::int64_t entity, double pitch);
+
+/** Current playback rate, or 0 when the entity has no source. */
+CENGINE_API double ConcordCvmEntityPitch(std::int64_t entity);
+
+/** Distance attenuation: full volume at \p minDistance, silent at \p maxDistance. */
+CENGINE_API std::int64_t ConcordCvmEntitySetRange(std::int64_t entity, double minDistance,
+                                                  double maxDistance);
 
 /*
  * Input.

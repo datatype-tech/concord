@@ -32,7 +32,7 @@
 namespace {
 
 /** The revision of the CVM C ABI this module implements. */
-constexpr std::int64_t kCvmApiVersion = 11;
+constexpr std::int64_t kCvmApiVersion = 12;
 
 /** Address of the script's frame callback, or 0 when none is registered. */
 std::int64_t g_updateCallback = 0;

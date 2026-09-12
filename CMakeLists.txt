@@ -94,6 +94,7 @@ target_include_directories(concord_runtime PUBLIC
 # consumer's include path, enforcing the no-leak rule in AGENTS.md §5.
 target_include_directories(concord_runtime PRIVATE
     ${CONCORD_3RD_DIR}/SDL3
+    ${CONCORD_3RD_DIR}/SteamAudio
     ${CONCORD_3RD_DIR}/stb
 )
 target_link_libraries(concord_runtime PRIVATE SDL3::SDL3 Jolt)

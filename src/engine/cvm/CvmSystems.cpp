@@ -10,6 +10,7 @@
 #include "engine/ecs/AnimationSystem.h"
 #include "engine/ecs/DayCycleSystem.h"
 #include "engine/ecs/ParticleSystem.h"
+#include "engine/ecs/AudioSystem.h"
 #include "engine/ecs/PhysicsSystem.h"
 #include "engine/ecs/WaterRippleSystem.h"
 #include "engine/scene/DayCycle.h"
@@ -44,6 +45,7 @@ struct Requests {
     bool firstPerson = false;
     bool flyMode = false;
     bool physics = false;
+    bool audio = false;
 };
 
 Requests g_requests;
@@ -62,6 +64,7 @@ void ApplyRequestedSystems(Game& game, Window& window)
     if (requests.animation) game.Systems().Add<AnimationSystem>();
     if (requests.particles) game.Systems().Add<ParticleSystem>();
     if (requests.physics) game.Systems().Add<PhysicsSystem>();
+    if (requests.audio) game.Systems().Add<AudioSystem>();
     if (requests.ripples) game.Systems().Add<WaterRippleSystem>();
     if (requests.dayCycle) game.Systems().Add<DayCycleSystem>(requests.dayCycleSettings);
     if (requests.firstPerson) {
@@ -144,6 +147,13 @@ CENGINE_API std::int64_t ConcordCvmSetFlyMode(std::int64_t flyMode)
     if (Concord::Cvm::g_firstPerson != nullptr) {
         Concord::Cvm::g_firstPerson->SetFlyMode(flyMode != 0);
     }
+    return 1;
+}
+
+CENGINE_API std::int64_t ConcordCvmAddAudioSystem(void)
+{
+    std::lock_guard<std::mutex> guard(Concord::Cvm::g_systemsMutex);
+    Concord::Cvm::g_requests.audio = true;
     return 1;
 }
 

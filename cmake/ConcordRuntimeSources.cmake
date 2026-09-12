@@ -14,6 +14,7 @@ set(CONCORD_RUNTIME_SOURCES
     # backend, so the Runtime -> Render direction stays one-way.
     src/engine/cvm/CvmEntityRegistry.cpp
     src/engine/cvm/CvmAnimation.cpp
+    src/engine/cvm/CvmAudio.cpp
     src/engine/cvm/CvmModel.cpp
     src/engine/cvm/CvmModelRegistry.cpp
     src/engine/cvm/CvmParticles.cpp
@@ -53,6 +54,7 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/input/InputMap.cpp
     src/engine/input/SdlInputCodes.cpp
 
+    src/engine/ecs/AudioSystem.cpp
     src/engine/ecs/DayCycleSystem.cpp
     src/engine/ecs/WaterRippleSystem.cpp
     src/engine/ecs/WorldId.cpp
@@ -60,6 +62,9 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/ecs/ParticleSystem.cpp
     src/engine/ecs/PhysicsSystem.cpp
     src/engine/ecs/SystemSchedule.cpp
+
+    src/engine/audio/AudioClip.cpp
+    src/engine/audio/AudioWorld.cpp
 
     src/engine/physics/PhysicsWorld.cpp
 
