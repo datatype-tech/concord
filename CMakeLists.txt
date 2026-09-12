@@ -53,6 +53,7 @@ set(CONCORD_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib" CACHE INTERNAL
     "Concord prebuilt libraries")
 
 include(cmake/ConcordDependencies.cmake)
+include(cmake/ConcordJolt.cmake)
 include(cmake/ConcordSources.cmake)
 include(cmake/ConcordShaders.cmake)
 
@@ -95,7 +96,7 @@ target_include_directories(concord_runtime PRIVATE
     ${CONCORD_3RD_DIR}/SDL3
     ${CONCORD_3RD_DIR}/stb
 )
-target_link_libraries(concord_runtime PRIVATE SDL3::SDL3)
+target_link_libraries(concord_runtime PRIVATE SDL3::SDL3 Jolt)
 
 # ---------------------------------------------------------------------------
 # ConcordFlashGameEngineRender.dll

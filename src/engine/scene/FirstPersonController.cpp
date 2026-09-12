@@ -5,6 +5,7 @@
 #include "engine/scene/FirstPersonController.h"
 
 #include "engine/ecs/Components.h"
+#include "engine/ecs/PhysicsComponents.h"
 #include "engine/scene/Scene.h"
 
 #include <algorithm>
@@ -67,6 +68,9 @@ FirstPersonController::FirstPersonController(Window& window, Settings settings) 
                                           m_settings.sprintMultiplier > 0.0f
                                       ? std::clamp(m_settings.sprintMultiplier, 0.1f, 16.0f)
                                       : 1.6f;
+    m_settings.jumpSpeed = std::isfinite(m_settings.jumpSpeed) && m_settings.jumpSpeed > 0.0f
+                               ? std::clamp(m_settings.jumpSpeed, 0.1f, 100.0f)
+                               : 5.5f;
 
     m_actions.BindKey(ActionId(ControllerAction::Forward), m_settings.forward);
     m_actions.BindKey(ActionId(ControllerAction::Backward), m_settings.backward);
@@ -75,6 +79,11 @@ FirstPersonController::FirstPersonController(Window& window, Settings settings) 
     m_actions.BindKey(ActionId(ControllerAction::FlyUp), m_settings.flyUp);
     m_actions.BindKey(ActionId(ControllerAction::FlyDown), m_settings.flyDown);
     m_actions.BindKey(ActionId(ControllerAction::Sprint), m_settings.sprint);
+}
+
+void FirstPersonController::SetFlyMode(bool flyMode) noexcept
+{
+    m_settings.flyMode = flyMode;
 }
 
 void FirstPersonController::OnUpdate(Scene& scene, f32 deltaTime)
@@ -94,6 +103,15 @@ void FirstPersonController::OnUpdate(Scene& scene, f32 deltaTime)
     }
     if (!m_camera.IsValid()) {
         return;
+    }
+    if (!m_settings.flyMode && !scene.GetWorld().Has<CharacterMotor>(m_camera)) {
+        scene.GetWorld().Add<CharacterMotor>(m_camera, CharacterMotor{});
+    }
+    if (m_settings.flyMode) {
+        if (CharacterMotor* motor = scene.GetWorld().Get<CharacterMotor>(m_camera)) {
+            motor->enabled = false;
+            motor->wishVelocity = {};
+        }
     }
 
     scene.Query<Transform, CameraComponent>(
@@ -135,12 +153,23 @@ void FirstPersonController::OnUpdate(Scene& scene, f32 deltaTime)
             }
 
             const Vec3 direction = NormalizeMovement(movement);
-            if (direction.x == 0.0f && direction.y == 0.0f && direction.z == 0.0f) {
-                return;
-            }
             f32 speed = m_settings.moveSpeed;
             if (m_actions.IsDown(ActionId(ControllerAction::Sprint))) {
                 speed *= m_settings.sprintMultiplier;
+            }
+            if (!m_settings.flyMode) {
+                if (CharacterMotor* motor = scene.GetWorld().Get<CharacterMotor>(entity)) {
+                    motor->enabled = true;
+                    Vec3 wish = direction * speed;
+                    if (m_window.WasKeyPressed(m_settings.flyUp) && motor->grounded) {
+                        wish.y = m_settings.jumpSpeed;
+                    }
+                    motor->wishVelocity = wish;
+                }
+                return;
+            }
+            if (direction.x == 0.0f && direction.y == 0.0f && direction.z == 0.0f) {
+                return;
             }
             transform.position += direction * (speed * deltaTime);
         });

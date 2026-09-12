@@ -17,5 +17,8 @@
 #include "engine/scene/Box.h"
 #include "engine/scene/Material.h"
 #include "engine/scene/Model.h"
+#include "engine/scene/ParticleEmitter.h"
+#include "engine/scene/PhysicsBody.h"
+#include "engine/scene/Water.h"
 
 #endif // CONCORD_COBJECT_H

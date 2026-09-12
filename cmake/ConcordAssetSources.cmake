@@ -31,4 +31,5 @@ set(CONCORD_ASSET_SOURCES
     src/engine/asset/ObjLoaderGeometry.cpp
     src/engine/asset/ObjLoaderMtl.cpp
     src/engine/asset/Skeleton.cpp
+    src/engine/asset/WaterMaterial.cpp
 )

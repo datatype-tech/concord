@@ -35,6 +35,8 @@ public:
         f32 maxPitch = 89.0f;
         /** Whether vertical movement is enabled through the fly bindings. */
         bool flyMode = false;
+        /** Upward speed applied on jump when fly mode is off and the motor is grounded. */
+        f32 jumpSpeed = 5.5f;
         /** Speed multiplier while the sprint action is held. */
         f32 sprintMultiplier = 1.6f;
         /** Key bindings applied to the action map at construction. */
@@ -53,6 +55,11 @@ public:
     FirstPersonController(Window& window, Settings settings) noexcept;
 
     void OnUpdate(Scene& scene, f32 deltaTime) override;
+
+    /** Switches between flying and the CharacterMotor walk path. */
+    void SetFlyMode(bool flyMode) noexcept;
+
+    [[nodiscard]] bool FlyMode() const noexcept { return m_settings.flyMode; }
 
     /** Live action map; rebind actions between frames for runtime controls. */
     [[nodiscard]] InputMap& Actions() noexcept { return m_actions; }
