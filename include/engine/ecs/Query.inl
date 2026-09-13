@@ -87,6 +87,19 @@ void World::Query(Fn&& fn) const
     }
 }
 
+template <typename Fn>
+void World::ForEachEntity(Fn&& fn) const
+{
+    QueryScope scope(*this);
+    const u32 slots = m_entities.SlotCount();
+    for (u32 index = 0; index < slots; ++index) {
+        if (!m_entities.IsSlotAlive(index)) {
+            continue;
+        }
+        fn(m_entities.HandleAt(index));
+    }
+}
+
 } // namespace Concord
 
 #endif // CONCORD_QUERY_INL

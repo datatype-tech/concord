@@ -91,6 +91,28 @@ bool TestForeignAndConstructionFailures()
                  world.ComponentCount<Throwing>() == 0);
 }
 
+bool TestForEachEntity()
+{
+    Concord::World world;
+    const Concord::Entity first = world.Create();
+    const Concord::Entity second = world.Create();
+    world.Destroy(first);
+    const Concord::Entity reused = world.Create();
+    Concord::usize walked = 0;
+    Concord::u32 sawReused = 0;
+    Concord::u32 sawSecond = 0;
+    world.ForEachEntity([&](Concord::Entity entity) {
+        ++walked;
+        if (entity == reused) {
+            ++sawReused;
+        }
+        if (entity == second) {
+            ++sawSecond;
+        }
+    });
+    return Check(walked == 2 && sawReused == 1 && sawSecond == 1 && world.EntityCount() == 2);
+}
+
 } // namespace
 
 namespace ConcordTests {
@@ -101,7 +123,7 @@ bool RunWorldEcsTests()
     static_assert(!std::is_move_assignable_v<Concord::EntityRegistry>);
     static_assert(!std::is_move_constructible_v<Concord::World>);
     static_assert(!std::is_move_assignable_v<Concord::World>);
-    return TestEntityLifetime() && TestForeignAndConstructionFailures();
+    return TestEntityLifetime() && TestForeignAndConstructionFailures() && TestForEachEntity();
 }
 
 } // namespace ConcordTests

@@ -92,6 +92,12 @@ public:
     /** Number of live entities. */
     [[nodiscard]] usize Count() const noexcept { return m_alive.size() - m_free.size(); }
 
+    /** Slot array length, including retired holes, for dense iteration. */
+    [[nodiscard]] u32 SlotCount() const noexcept { return static_cast<u32>(m_alive.size()); }
+
+    /** Process-wide identity stamped onto every handle this registry issues. */
+    [[nodiscard]] u64 Id() const noexcept { return m_worldId; }
+
 private:
     std::vector<u32> m_generations;
     std::vector<bool> m_alive;

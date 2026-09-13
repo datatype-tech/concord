@@ -63,6 +63,15 @@ public:
     template <typename T, typename... Rest, typename Fn>
     void Query(Fn&& fn) const;
 
+    /**
+     * Invokes `fn(Entity)` for every live entity, in slot order.
+     *
+     * Structural change is forbidden for the duration, the same rule Query
+     * uses: collect handles and act after the walk.
+     */
+    template <typename Fn>
+    void ForEachEntity(Fn&& fn) const;
+
     /** Queues a command during Query (or an active flush) for later execution. */
     void Defer(std::function<void()> command);
     /** Queues destruction of an entity without capturing a callback parameter. */
@@ -80,6 +89,9 @@ public:
 
     /** Number of live entities. */
     [[nodiscard]] usize EntityCount() const noexcept;
+
+    /** Process-wide identity stamped onto every handle this world issues. */
+    [[nodiscard]] u64 Id() const noexcept { return m_entities.Id(); }
 
     /** Number of entities carrying component `T`. */
     template <typename T>
