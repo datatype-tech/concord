@@ -11,6 +11,7 @@ set(CONCORD_ASSET_SOURCES
     src/engine/asset/ImageAssetCache.cpp
     src/engine/asset/ImageAssetUri.cpp
     src/engine/asset/StbImage.cpp
+    src/engine/asset/SkinnedGeometry.cpp
     src/engine/asset/SkinningPalette.cpp
     src/engine/asset/GltfAccessors.cpp
     src/engine/asset/GltfBuffers.cpp

@@ -33,8 +33,12 @@ set(CONCORD_SHADER_SOURCES
     "${CONCORD_SHADER_SOURCE_DIR}/raymiss.rmiss"
     "${CONCORD_SHADER_SOURCE_DIR}/raymiss_shadow.rmiss"
     "${CONCORD_SHADER_SOURCE_DIR}/rayhit.rchit"
+    "${CONCORD_SHADER_SOURCE_DIR}/particle.vert"
+    "${CONCORD_SHADER_SOURCE_DIR}/particle.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/debug_overlay.vert"
-    "${CONCORD_SHADER_SOURCE_DIR}/debug_overlay.frag" CACHE INTERNAL
+    "${CONCORD_SHADER_SOURCE_DIR}/debug_overlay.frag"
+    "${CONCORD_SHADER_SOURCE_DIR}/post.comp"
+    "${CONCORD_SHADER_SOURCE_DIR}/smoke.frag" CACHE INTERNAL
     "Bundled Concord GLSL sources" FORCE)
 
 function(concord_configure_shaders)
@@ -77,11 +81,16 @@ function(concord_configure_shaders)
         set(output "${CONCORD_SHADER_OUTPUT_DIR}/${stem}.spv")
         concord_shader_arguments(
             "${compiler_kind}" "${stage}" main glsl arguments output_flag)
+        list(APPEND arguments "-I${CONCORD_SHADER_SOURCE_DIR}")
+        set(shader_depends "${source}")
+        if(stem STREQUAL "raymiss.rmiss" OR stem STREQUAL "rayhit.rchit")
+            list(APPEND shader_depends "${CONCORD_SHADER_SOURCE_DIR}/sky.glsl")
+        endif()
         add_custom_command(
             OUTPUT "${output}"
             COMMAND ${CMAKE_COMMAND} -E make_directory "${CONCORD_SHADER_OUTPUT_DIR}"
             COMMAND "${compiler}" ${arguments} "${output_flag}" "${output}" "${source}"
-            DEPENDS "${source}"
+            DEPENDS ${shader_depends}
             COMMENT "Compile Vulkan shader ${stem}"
             VERBATIM)
         list(APPEND outputs "${output}")
@@ -97,6 +106,15 @@ function(concord_stage_shaders target)
         return()
     endif()
     add_dependencies(${target} concord_shaders)
+    # A POST_BUILD step runs only when the target itself relinks. Editing a
+    # shader alone changes nothing the linker looks at, so the compiled SPIR-V
+    # was rebuilt in the build tree while the copy beside the executable stayed
+    # on the previous revision -- and the engine, which loads the staged copy,
+    # kept rendering the old shader with nothing to say that it had. Naming the
+    # compiled shaders as link inputs makes a shader edit relink the target and
+    # therefore re-stage them.
+    set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS
+                 ${CONCORD_SHADER_OUTPUTS})
     foreach(output IN LISTS CONCORD_SHADER_OUTPUTS)
         get_filename_component(name "${output}" NAME)
         add_custom_command(TARGET ${target} POST_BUILD

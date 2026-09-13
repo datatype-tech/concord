@@ -8,9 +8,14 @@
 set(CONCORD_RENDER_SOURCES
     src/engine/render/RenderFrameData.cpp
     src/engine/render/RenderModelSnapshot.cpp
+    src/engine/render/RenderParticleSnapshot.cpp
+    src/engine/render/RenderRippleSnapshot.cpp
+    src/engine/render/RenderWaterBodySnapshot.cpp
     src/engine/render/RenderSkinningSnapshot.cpp
     src/engine/render/RenderSceneSnapshot.cpp
     src/engine/render/RayTracingGeometry.cpp
+    src/engine/render/RayTracingTextureSlots.cpp
+    src/engine/render/TileDepthSlicing.cpp
     src/engine/render/VulkanRenderBackend.cpp
     src/engine/render/VulkanRenderBackendModels.cpp
     src/engine/render/VulkanRenderBackendRaster.cpp
@@ -24,6 +29,12 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/VulkanRenderBackendShadow.cpp
     src/engine/render/vulkan/VulkanBackendRegistration.cpp
     src/engine/render/vulkan/VulkanBoxPipeline.cpp
+    src/engine/render/vulkan/VulkanBoxMaterial.cpp
+    src/engine/render/vulkan/VulkanFrameProbe.cpp
+    src/engine/render/vulkan/VulkanFrameProbeReport.cpp
+    src/engine/render/vulkan/VulkanPostProcess.cpp
+    src/engine/render/vulkan/VulkanPostProcessImage.cpp
+    src/engine/render/vulkan/VulkanPostProcessRecord.cpp
     src/engine/render/vulkan/VulkanBoxPipelineColor.cpp
     src/engine/render/vulkan/VulkanBoxPipelineLayout.cpp
     src/engine/render/vulkan/VulkanBoxPipelineState.cpp
@@ -62,6 +73,7 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanPresent.cpp
     src/engine/render/vulkan/VulkanResult.cpp
     src/engine/render/vulkan/VulkanRayTracingSupport.cpp
+    src/engine/render/vulkan/VulkanRayTracingTextures.cpp
     src/engine/render/vulkan/VulkanRayTracingPipeline.cpp
     src/engine/render/vulkan/VulkanRayTracingPipelineCreate.cpp
     src/engine/render/vulkan/VulkanRayTracingPipelineSbt.cpp
@@ -77,6 +89,10 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanRayTracingSceneTopLevel.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneRecord.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneInstances.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneRipples.cpp
+    src/engine/render/vulkan/VulkanRayTracingSkinned.cpp
+    src/engine/render/vulkan/VulkanRayTracingSkinnedBlas.cpp
+    src/engine/render/vulkan/VulkanRayTracingSkinnedUpdate.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModels.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelCreate.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelData.cpp
@@ -90,6 +106,8 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanSwapchain.cpp
     src/engine/render/vulkan/VulkanSwapchainResources.cpp
     src/engine/render/vulkan/VulkanShaderModule.cpp
+    src/engine/render/vulkan/VulkanParticlePipeline.cpp
+    src/engine/render/vulkan/VulkanParticlePipelineRecord.cpp
     src/engine/render/vulkan/VulkanTileLightCulling.cpp
     src/engine/render/vulkan/VulkanShadowMap.cpp
     src/engine/render/vulkan/VulkanShadowMapDescriptors.cpp

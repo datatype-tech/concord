@@ -32,15 +32,19 @@ target_include_directories(concord_ray_tracing_layout_tests PRIVATE
 add_test(NAME concord_ray_tracing_layout_tests COMMAND concord_ray_tracing_layout_tests)
 
 set(CONCORD_RAY_SCENE_SOURCES
+    src/engine/render/RayTracingTextureSlots.cpp
     src/engine/render/vulkan/VulkanRayTracingScene.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneGeometry.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneBottomLevel.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneTopLevel.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneRecord.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneInstances.cpp
+    src/engine/render/vulkan/VulkanBoxMaterial.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBuild.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelData.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBuffers.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneRipples.cpp
+    src/engine/render/vulkan/VulkanRayTracingSkinnedBlas.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBarrier.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelDestroy.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneDescriptor.cpp
@@ -70,6 +74,7 @@ add_test(NAME concord_ray_tracing_scene_ring_tests COMMAND concord_ray_tracing_s
 add_executable(concord_ray_tracing_model_tests
     tests/VulkanRayTracingModelTests.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneInstances.cpp
+    src/engine/render/vulkan/VulkanBoxMaterial.cpp
     src/engine/render/vulkan/VulkanBuffer.cpp
     src/engine/render/vulkan/VulkanBufferCreate.cpp
     src/engine/render/vulkan/VulkanBufferSync.cpp
@@ -90,7 +95,8 @@ add_executable(concord_vulkan_model_asset_tests
     tests/VulkanModelAssetTests.cpp
     src/engine/render/vulkan/VulkanModelAsset.cpp
     src/engine/asset/ModelAsset.cpp
-    src/engine/asset/Skeleton.cpp)
+    src/engine/asset/Skeleton.cpp
+    src/engine/asset/WaterMaterial.cpp)
 target_compile_features(concord_vulkan_model_asset_tests PRIVATE cxx_std_23)
 target_include_directories(concord_vulkan_model_asset_tests PRIVATE
     ${CONCORD_TEST_INCLUDE} ${CONCORD_3RD_DIR}/Vulkan)

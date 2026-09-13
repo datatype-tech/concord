@@ -57,6 +57,7 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/ecs/AudioSystem.cpp
     src/engine/ecs/DayCycleSystem.cpp
     src/engine/ecs/WaterRippleSystem.cpp
+    src/engine/ecs/WaterSplashSystem.cpp
     src/engine/ecs/WorldId.cpp
     src/engine/ecs/AnimationSystem.cpp
     src/engine/ecs/ParticleSystem.cpp
@@ -64,6 +65,7 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/ecs/SystemSchedule.cpp
 
     src/engine/audio/AudioClip.cpp
+    src/engine/audio/AudioClipPresets.cpp
     src/engine/audio/AudioWorld.cpp
 
     src/engine/physics/PhysicsWorld.cpp

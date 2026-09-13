@@ -11,9 +11,11 @@ add_executable(concord_ray_tracing_scene_gpu_tests tests/VulkanRayTracingSceneGp
     src/engine/render/vulkan/VulkanRayTracingSceneTopLevel.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneRecord.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneInstances.cpp
+    src/engine/render/vulkan/VulkanBoxMaterial.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBuild.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelData.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBuffers.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneRipples.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBarrier.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelDestroy.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneDescriptor.cpp
@@ -39,11 +41,13 @@ add_executable(concord_ray_tracing_model_gpu_tests
     src/engine/render/vulkan/VulkanRayTracingSceneTopLevel.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneRecord.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneInstances.cpp
+    src/engine/render/vulkan/VulkanBoxMaterial.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModels.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelCreate.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBuild.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelData.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBuffers.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneRipples.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBarrier.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelDestroy.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneDescriptor.cpp
@@ -87,9 +91,11 @@ add_executable(concord_ray_tracing_pipeline_gpu_tests
     src/engine/render/vulkan/VulkanRayTracingSceneTopLevel.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneRecord.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneInstances.cpp
+    src/engine/render/vulkan/VulkanBoxMaterial.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBuild.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelData.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBuffers.cpp
+    src/engine/render/vulkan/VulkanRayTracingSceneRipples.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelBarrier.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneModelDestroy.cpp
     src/engine/render/vulkan/VulkanRayTracingSceneDescriptor.cpp
