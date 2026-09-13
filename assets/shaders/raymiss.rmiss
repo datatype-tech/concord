@@ -150,6 +150,7 @@ float Hash13(vec3 cell)
 }
 
 #include "sky.glsl"
+#include "cloud.glsl"
 
 /** Supplies the atmospheric dome and the sun for rays that escape the scene. */
 void main()
@@ -166,7 +167,11 @@ void main()
     // the horizon brightens through a longer view path, night falls out when
     // the sun leaves. Scale puts noon on the 0..1 range the clouds use so the
     // two cannot drift apart when a scene retunes its sun.
-    vec3 color = AnalyticSky(direction, toSun, sunRadiance * 20.0, zenith, horizon);
+    vec3 color = AnalyticSky(direction, toSun, sunRadiance, zenith, horizon);
+    // Kept before the sun disc is drawn into it. This is what lights the parts
+    // of a cloud the sun cannot reach, and a fill that carried the disc would
+    // put a second sun inside every cloud the first one happens to sit behind.
+    vec3 skyFill = color;
 
     float elevation = clamp(direction.y, 0.0, 1.0);
     float alignment = max(dot(direction, toSun), 0.0);
@@ -190,6 +195,26 @@ void main()
         float star = step(0.9965, cell) * step(0.08, direction.y);
         color += vec3(0.82, 0.88, 1.0) * star * night * 1.15;
     }
+
+    // Composited over everything the dome produced and under the medium. The
+    // layer sits between the eye and the sun, the moon and the stars alike, so
+    // it has to be able to hide all three; the air, on the other hand, sits in
+    // front of the layer as much as in front of the sky behind it.
+    //
+    // The first step is offset per pixel because a march of a few dozen steps
+    // through a soft volume lays down concentric rings wherever the step
+    // boundaries line up across neighbouring pixels. Breaking that alignment
+    // does not remove the error, it redistributes it into grain, which the eye
+    // reads as cloud texture rather than as a rendering artifact.
+    float jitter = Hash12(vec2(gl_LaunchIDEXT.xy) + fract(frame.cloudDetail.z) * 977.0);
+    // A camera ray pays for the layer in full; anything spawned by a surface
+    // pays a third. The payload's w is the recursion depth on an ordinary ray
+    // and a distance on a transmission ray, and both mean the same thing here:
+    // this is not the ray the viewer is looking along.
+    float quality = payload.w >= 1.0 ? 0.34 : 1.0;
+    vec4 clouds =
+        CloudLayer(gl_WorldRayOriginEXT, direction, toSun, sunRadiance, skyFill, jitter, quality);
+    color = color * clouds.a + clouds.rgb;
 
     if (frame.fog.x > 0.0) {
         vec3 unitSun = normalize(toSun);

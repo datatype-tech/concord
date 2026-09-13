@@ -29,6 +29,25 @@ float SkyPhaseHg(float cosTheta, float anisotropy)
 }
 
 /**
+ * Sun irradiance the sky integral is driven by, per unit of engine sun radiance.
+ *
+ * The two lighting paths in this renderer do not share a convention, and this
+ * number is where they are reconciled. A surface is shaded as
+ * `lightColor * intensity * NdotL` with no 1/pi anywhere, so a white surface
+ * facing a noon sun comes back at several units; the sky below is an honest
+ * radiance integral, which divides the same irradiance across the whole sphere
+ * it scatters into and comes back at a few hundredths. Left to themselves the
+ * two disagree by about two orders of magnitude -- and what that looks like is
+ * a bright sunlit courtyard under a sky darker than its own shadows, which is
+ * an arrangement no photograph has ever contained.
+ *
+ * Calibrated rather than derived: this is the value at which a clear midday
+ * zenith lands slightly brighter than sunlit ground, which is what an eye
+ * expects and what makes the clouds read as lit rather than as smoke.
+ */
+const float kSkySunIrradiance = 132.0;
+
+/**
  * Analytic single-scatter sky shared by the miss stage and the environment
  * term. Rayleigh blue plus a Mie forward lobe, both attenuated by the air
  * they crossed: the sun reddens itself as it sets, the horizon brightens
@@ -37,13 +56,17 @@ float SkyPhaseHg(float cosTheta, float anisotropy)
  *
  * @param direction     View ray, normalized.
  * @param toSun         Unit vector toward the sun.
- * @param sunIrradiance Sun colour in sky units (SunRadiance * ~20).
+ * @param sunRadiance   The frame's sun, normalized so noon is about one. Scaled
+ *                      to irradiance here rather than by the caller, so that
+ *                      the night blend below can still read the sun on the
+ *                      scale the rest of the engine quotes it on.
  * @param nightZenith   Day-cycle zenith, which is the night floor after sunset.
  * @param nightHorizon  Day-cycle horizon, same.
  */
-vec3 AnalyticSky(vec3 direction, vec3 toSun, vec3 sunIrradiance, vec3 nightZenith,
+vec3 AnalyticSky(vec3 direction, vec3 toSun, vec3 sunRadiance, vec3 nightZenith,
                  vec3 nightHorizon)
 {
+    vec3 sunIrradiance = max(sunRadiance, vec3(0.0)) * kSkySunIrradiance;
     float viewElevation = direction.y;
     float sunElevation = toSun.y;
     // 0.89 overhead, ~8.3 at the horizon: the same curve the old two-colour
@@ -70,7 +93,10 @@ vec3 AnalyticSky(vec3 direction, vec3 toSun, vec3 sunIrradiance, vec3 nightZenit
     // Below the horizon there is no sky, only ground haze: fade to the night
     // floor instead of mirroring blue under the world.
     float above = smoothstep(-0.08, 0.06, viewElevation);
-    float nightAmount = 1.0 - clamp(dot(sunIrradiance, vec3(0.05)), 0.0, 1.0);
+    // Read from the sun as the engine quotes it, not from the irradiance above:
+    // the scale factor is a units conversion, and folding it in here would move
+    // the hour at which night falls every time that conversion was retuned.
+    float nightAmount = 1.0 - clamp(dot(sunRadiance, vec3(1.0)), 0.0, 1.0);
     vec3 night = mix(nightHorizon, nightZenith, clamp(viewElevation, 0.0, 1.0));
     vec3 lit = mix(day, night, nightAmount * smoothstep(0.12, -0.12, sunElevation));
     return mix(night * 0.35, lit, above);

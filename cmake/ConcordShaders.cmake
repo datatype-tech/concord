@@ -84,7 +84,9 @@ function(concord_configure_shaders)
         list(APPEND arguments "-I${CONCORD_SHADER_SOURCE_DIR}")
         set(shader_depends "${source}")
         if(stem STREQUAL "raymiss.rmiss" OR stem STREQUAL "rayhit.rchit")
-            list(APPEND shader_depends "${CONCORD_SHADER_SOURCE_DIR}/sky.glsl")
+            list(APPEND shader_depends
+                 "${CONCORD_SHADER_SOURCE_DIR}/sky.glsl"
+                 "${CONCORD_SHADER_SOURCE_DIR}/cloud.glsl")
         endif()
         add_custom_command(
             OUTPUT "${output}"
