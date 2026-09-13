@@ -9,6 +9,7 @@
 #include "engine/core/Vec3.h"
 #include "engine/ecs/Entity.h"
 #include "engine/ecs/System.h"
+#include "engine/ecs/WaterSurfaceQuery.h"
 
 #include <unordered_map>
 #include <utility>
@@ -39,15 +40,6 @@ public:
     void OnUpdate(Scene& scene, f32 deltaTime) override;
 
 private:
-    /** One water surface's world-space footprint, snapshotted for this frame. */
-    struct Surface {
-        f32 worldY = 0.0f;
-        f32 centreX = 0.0f;
-        f32 centreZ = 0.0f;
-        f32 halfExtentX = 0.0f;
-        f32 halfExtentZ = 0.0f;
-    };
-
     /** A crossing found this frame, acted on once the body query has finished. */
     struct Impact {
         Vec3 position{};
@@ -55,7 +47,7 @@ private:
     };
 
     /** This frame's water surfaces, rebuilt before the body query runs. */
-    std::vector<Surface> m_surfaces;
+    std::vector<WaterSurface> m_surfaces;
 
     /** Crossings found this frame; cleared and refilled every update. */
     std::vector<Impact> m_impacts;

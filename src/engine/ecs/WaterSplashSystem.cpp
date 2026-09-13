@@ -42,22 +42,7 @@ void WaterSplashSystem::OnUpdate(Scene& scene, f32 deltaTime)
 
     // Snapshotted once so the body query below tests against one frame's
     // worth of surfaces rather than re-querying water per dynamic body.
-    m_surfaces.clear();
-    world.Query<WaterBodyComponent, Transform>(
-        [this](Entity, const WaterBodyComponent& body, const Transform& transform) {
-            const f32 halfX = body.extent.x * std::abs(transform.scale.x);
-            const f32 halfZ = body.extent.y * std::abs(transform.scale.z);
-            // Either axis at zero opts a surface out entirely -- the sentinel
-            // WaterBodyComponent itself documents for a vertical waterfall sheet.
-            if (!(halfX > 0.0f) || !(halfZ > 0.0f)) {
-                return;
-            }
-            m_surfaces.push_back(Surface{.worldY = transform.position.y,
-                                          .centreX = transform.position.x,
-                                          .centreZ = transform.position.z,
-                                          .halfExtentX = halfX,
-                                          .halfExtentZ = halfZ});
-        });
+    CollectWaterSurfaces(world, m_surfaces);
 
     m_impacts.clear();
     if (!m_surfaces.empty()) {
@@ -66,14 +51,8 @@ void WaterSplashSystem::OnUpdate(Scene& scene, f32 deltaTime)
                 if (rigidBody.motion != BodyMotion::Dynamic) {
                     return;
                 }
-                const Surface* hit = nullptr;
-                for (const Surface& surface : m_surfaces) {
-                    if (std::abs(transform.position.x - surface.centreX) <= surface.halfExtentX &&
-                        std::abs(transform.position.z - surface.centreZ) <= surface.halfExtentZ) {
-                        hit = &surface;
-                        break;
-                    }
-                }
+                const WaterSurface* hit =
+                    FindWaterSurface(m_surfaces, transform.position.x, transform.position.z);
                 bool& wasSubmerged = m_submerged[PackEntity(entity)];
                 if (hit == nullptr) {
                     // Outside every footprint: neither above nor below anything

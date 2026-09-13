@@ -119,6 +119,7 @@ add_test(NAME concord_water_body_snapshot_tests COMMAND concord_water_body_snaps
 add_executable(concord_water_splash_tests
     tests/WaterSplashSystemTests.cpp
     src/engine/ecs/WaterSplashSystem.cpp
+    src/engine/ecs/WaterSurfaceQuery.cpp
     src/engine/asset/WaterMaterial.cpp
     src/engine/asset/ModelAsset.cpp
     src/engine/asset/Skeleton.cpp

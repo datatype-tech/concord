@@ -14,6 +14,8 @@
  */
 
 #include "engine/asset/WaterMaterial.h"
+#include "engine/ecs/BuoyancyComponent.h"
+#include "engine/ecs/WaterBuoyancySystem.h"
 #include "engine/ecs/WaterRippleSystem.h"
 #include "engine/ecs/WaterSplashSystem.h"
 #include "engine/scene/Water.h"

@@ -58,6 +58,8 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/ecs/DayCycleSystem.cpp
     src/engine/ecs/WaterRippleSystem.cpp
     src/engine/ecs/WaterSplashSystem.cpp
+    src/engine/ecs/WaterSurfaceQuery.cpp
+    src/engine/ecs/WaterBuoyancySystem.cpp
     src/engine/ecs/WorldId.cpp
     src/engine/ecs/AnimationSystem.cpp
     src/engine/ecs/ParticleSystem.cpp
