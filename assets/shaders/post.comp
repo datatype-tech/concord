@@ -1,0 +1,251 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform sampler2D sourceImage;
+layout(set = 0, binding = 1, rgba16f) uniform image2D gradedImage;
+
+layout(push_constant) uniform PostConstants {
+    // x exposure, y contrast, z saturation, w vignette.
+    vec4 grade;
+    // x bloom threshold, y bloom intensity, z bloom radius in pixels,
+    // w chromatic aberration.
+    vec4 bloom;
+    // xy extent, zw inverse extent.
+    vec4 resolution;
+} post;
+
+/** Golden-angle spacing, which never repeats a direction over a full turn. */
+const float kGoldenAngle = 2.39996323;
+// Eight taps per ring rather than twenty. The spiral only needs enough samples
+// to stop the rings showing through each other, and this is the one gather in
+// the pipeline that runs on every pixel of the frame -- two rings of eight is
+// sixteen texture fetches against forty, for a difference the two radii hide
+// almost completely.
+const int kBloomTaps = 6;
+
+/** Cool shadows against warm highlights, the split a print stock gives. */
+const vec3 kShadowTint = vec3(0.94, 0.98, 1.10);
+const vec3 kHighlightTint = vec3(1.07, 1.00, 0.93);
+
+/**
+ * Isolates the part of a sample bright enough to scatter in the lens.
+ *
+ * The knee is what keeps a surface crossing the threshold from popping a ring
+ * of glow as it brightens: without it the weight jumps from nothing to
+ * everything at one value, and a moving highlight leaves a visible edge.
+ */
+vec3 BrightPass(vec3 color, float threshold, float knee)
+{
+    vec3 positive = max(color, vec3(0.0));
+    float luma = dot(positive, vec3(0.2126, 0.7152, 0.0722));
+    float soft = clamp(luma - threshold + knee, 0.0, 2.0 * knee);
+    soft = soft * soft / (4.0 * knee + 0.0001);
+    float weight = max(soft, luma - threshold) / max(luma, 0.0001);
+    return positive * weight;
+}
+
+/**
+ * One ring of a golden-angle spiral gather.
+ *
+ * Taps are distributed by area rather than by radius -- sqrt on the parameter
+ * is what does that -- so the disc is sampled evenly instead of crowding the
+ * centre, and the rotation of each tap keeps twenty samples from lining up
+ * into twenty visible ghosts.
+ */
+vec3 GatherRing(ivec2 pixel, ivec2 limit, float radius, float exposure, float threshold)
+{
+    vec3 sum = vec3(0.0);
+    float total = 0.0;
+    for (int index = 0; index < kBloomTaps; ++index) {
+        float t = (float(index) + 0.5) / float(kBloomTaps);
+        float angle = float(index) * kGoldenAngle;
+        vec2 direction = vec2(cos(angle), sin(angle));
+        ivec2 offset = ivec2(round(direction * sqrt(t) * radius));
+        float weight = 1.0 - t * 0.7;
+        // Exposure is applied before the threshold, so the threshold means
+        // "brighter than this in the picture" rather than in whatever absolute
+        // units the scene's lights happen to use. Measuring it in raw radiance
+        // would make it drift the moment the exposure moved.
+        vec3 tapped = texelFetch(sourceImage, clamp(pixel + offset, ivec2(0), limit), 0).rgb;
+        sum += BrightPass(tapped * exposure, threshold, 0.35) * weight;
+        total += weight;
+    }
+    return total > 0.0 ? sum / total : vec3(0.0);
+}
+
+/**
+ * Samples the frame with the radial fringe a real lens leaves.
+ *
+ * Each wavelength focuses at a slightly different radius, so the error grows
+ * with distance from the optical centre: the middle of a shot stays clean and
+ * the corners fringe. Offsetting all three channels equally would only blur.
+ */
+vec3 SampleAberrated(vec2 uv, vec2 fromCenter)
+{
+    float amount = post.bloom.w * dot(fromCenter, fromCenter);
+    if (amount < 0.0001) {
+        // One fetch rather than three identical ones: with no aberration the
+        // three offsets coincide, and the two extra taps are pure cost.
+        return texture(sourceImage, uv).rgb;
+    }
+    vec2 redUv = clamp(uv + fromCenter * amount, vec2(0.0), vec2(1.0));
+    vec2 blueUv = clamp(uv - fromCenter * amount, vec2(0.0), vec2(1.0));
+    return vec3(texture(sourceImage, redUv).r, texture(sourceImage, uv).g,
+                texture(sourceImage, blueUv).b);
+}
+
+/**
+ * Compresses HDR radiance into display range with the Narkowicz ACES fit.
+ *
+ * The 0.6 pre-exposure is part of the fit rather than a taste knob: the
+ * rational curve was solved for radiance scaled that way.
+ */
+vec3 ToneMap(vec3 color)
+{
+    vec3 value = max(color, vec3(0.0)) * 0.6;
+    return clamp((value * (2.51 * value + 0.03)) /
+                     (value * (2.43 * value + 0.59) + 0.14),
+                 0.0, 1.0);
+}
+
+/**
+ * Film print emulation, applied to display-referred values.
+ *
+ * The tone curve alone is deliberately flat: it is a scene-to-display
+ * transform, not a look. Everything that reads as "shot on film" rather than
+ * "rendered" happens here -- an S-curve around mid grey for contrast that
+ * survives clipping, saturation pinned to luminance so colours deepen without
+ * shifting hue, a split tone that keeps shadows cool and highlights warm, and
+ * a lens vignette that stops a wide shot reading as a flat panel.
+ */
+vec3 Grade(vec3 color, vec2 fromCenter)
+{
+    vec3 value = clamp(color, 0.0, 1.0);
+    // smoothstep is an S-curve pivoting on mid grey; mixing toward it by the
+    // authored amount leaves 0 and 1 exactly where they were, so contrast
+    // deepens the mid-tones without crushing the ends.
+    value = mix(value, value * value * (3.0 - 2.0 * value), post.grade.y);
+    float luma = dot(value, vec3(0.2126, 0.7152, 0.0722));
+    value = mix(vec3(luma), value, post.grade.z);
+    value *= mix(kShadowTint, kHighlightTint, smoothstep(0.12, 0.78, luma));
+    value *= clamp(1.0 - post.grade.w * dot(fromCenter, fromCenter) * 0.5, 0.0, 1.0);
+    return clamp(value, 0.0, 1.0);
+}
+
+/** Luminance of a display-referred colour, for edge detection only. */
+float FxaaLuma(vec3 color)
+{
+    return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+/**
+ * Single-pass FXAA (console variant) over the tone-mapped frame.
+ *
+ * Flat pixels pay four taps and an early-out; only pixels straddling a
+ * contrast edge pay the direction search and the blend taps. Detection runs
+ * on tone-mapped neighbours so the threshold means "visible step" rather
+ * than "radiance step", and the blend mixes linear radiance the grade then
+ * finishes -- the grade varies slowly, so blending before it does not move
+ * any edge.
+ */
+vec3 FxaaResolve(ivec2 pixel, ivec2 limit, vec3 centerRadiance)
+{
+    vec3 rgbM = ToneMap(centerRadiance);
+    float lumaM = FxaaLuma(rgbM);
+    vec3 rgbN = ToneMap(texelFetch(sourceImage, clamp(pixel + ivec2(0, 1), ivec2(0), limit), 0).rgb * post.grade.x);
+    vec3 rgbS = ToneMap(texelFetch(sourceImage, clamp(pixel - ivec2(0, 1), ivec2(0), limit), 0).rgb * post.grade.x);
+    vec3 rgbE = ToneMap(texelFetch(sourceImage, clamp(pixel + ivec2(1, 0), ivec2(0), limit), 0).rgb * post.grade.x);
+    vec3 rgbW = ToneMap(texelFetch(sourceImage, clamp(pixel - ivec2(1, 0), ivec2(0), limit), 0).rgb * post.grade.x);
+    float lumaN = FxaaLuma(rgbN);
+    float lumaS = FxaaLuma(rgbS);
+    float lumaE = FxaaLuma(rgbE);
+    float lumaW = FxaaLuma(rgbW);
+    float rangeMax = max(max(lumaM, lumaN), max(lumaS, max(lumaE, lumaW)));
+    float rangeMin = min(min(lumaM, lumaN), min(lumaS, min(lumaE, lumaW)));
+    float range = rangeMax - rangeMin;
+    // Below a visible step there is no staircase to remove, only texture the
+    // blend would smear.
+    if (range < max(1.0 / 16.0, rangeMax * (1.0 / 8.0))) {
+        return centerRadiance;
+    }
+    vec3 rgbNW = ToneMap(texelFetch(sourceImage, clamp(pixel + ivec2(-1, 1), ivec2(0), limit), 0).rgb * post.grade.x);
+    vec3 rgbNE = ToneMap(texelFetch(sourceImage, clamp(pixel + ivec2(1, 1), ivec2(0), limit), 0).rgb * post.grade.x);
+    vec3 rgbSW = ToneMap(texelFetch(sourceImage, clamp(pixel + ivec2(-1, -1), ivec2(0), limit), 0).rgb * post.grade.x);
+    vec3 rgbSE = ToneMap(texelFetch(sourceImage, clamp(pixel + ivec2(1, -1), ivec2(0), limit), 0).rgb * post.grade.x);
+    float lumaNW = FxaaLuma(rgbNW);
+    float lumaNE = FxaaLuma(rgbNE);
+    float lumaSW = FxaaLuma(rgbSW);
+    float lumaSE = FxaaLuma(rgbSE);
+    // Which way the edge runs: the direction with the smaller second
+    // difference is along the edge, so the blend walks across it.
+    float edgeH = abs(lumaN + lumaS - 2.0 * lumaM) * 2.0 +
+                  abs(lumaNE + lumaSE - 2.0 * lumaE) + abs(lumaNW + lumaSW - 2.0 * lumaW);
+    float edgeV = abs(lumaE + lumaW - 2.0 * lumaM) * 2.0 +
+                  abs(lumaNE + lumaNW - 2.0 * lumaN) + abs(lumaSE + lumaSW - 2.0 * lumaS);
+    bool horizontal = edgeH >= edgeV;
+    float lumaA = horizontal ? lumaN : lumaE;
+    float lumaB = horizontal ? lumaS : lumaW;
+    // The step's polarity decides which side owns the pixel; blending toward
+    // the nearer side is what puts the edge back where the staircase cut it.
+    bool pickA = abs(lumaM - lumaA) < abs(lumaM - lumaB);
+    float edgeLuma = pickA ? lumaA : lumaB;
+    // One tap past each end along the edge: if the far samples disagree with
+    // the edge luma, the edge ends here and the blend weakens accordingly.
+    ivec2 step = horizontal ? ivec2(0, 1) : ivec2(1, 0);
+    ivec2 endA = clamp(pixel + (pickA ? step : -step), ivec2(0), limit);
+    ivec2 endB = clamp(pixel + (pickA ? -step : step), ivec2(0), limit);
+    float lumaEndA = FxaaLuma(ToneMap(texelFetch(sourceImage, endA, 0).rgb * post.grade.x));
+    float lumaEndB = FxaaLuma(ToneMap(texelFetch(sourceImage, endB, 0).rgb * post.grade.x));
+    float reachA = abs(lumaEndA - edgeLuma) < range * 0.5 ? 1.0 : 0.0;
+    float reachB = abs(lumaEndB - edgeLuma) < range * 0.5 ? 1.0 : 0.0;
+    float blend = 0.5 * (reachA + reachB) * 0.5 + 0.25;
+    // Blend in radiance, not in display-referred values: the caller adds
+    // bloom and tone-maps afterwards, and un-tonemapping by dividing would
+    // smear the ACES shoulder into every edge. One raw fetch of the side the
+    // pixel belongs to is all that costs.
+    ivec2 edgePixel =
+        clamp(pixel + (pickA ? (horizontal ? ivec2(0, 1) : ivec2(1, 0))
+                             : (horizontal ? ivec2(0, -1) : ivec2(-1, 0))),
+              ivec2(0), limit);
+    vec3 edgeRadiance = texelFetch(sourceImage, edgePixel, 0).rgb * post.grade.x;
+    return mix(centerRadiance, edgeRadiance, clamp(blend, 0.0, 0.75) * 0.85);
+}
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = ivec2(post.resolution.xy);
+    if (pixel.x >= size.x || pixel.y >= size.y || post.resolution.x < 1.0) {
+        return;
+    }
+    ivec2 limit = size - ivec2(1);
+    vec2 uv = (vec2(pixel) + vec2(0.5)) * post.resolution.zw;
+    vec2 fromCenter = uv * 2.0 - 1.0;
+
+    vec3 color = SampleAberrated(uv, fromCenter) * post.grade.x;
+
+    // The trace has no multisampling, so edges arrive as staircases and an
+    // upscale blit only blurs them. FXAA runs here, on the tone-mapped frame,
+    // before the grade: the grade's S-curve is smooth, so grading the blended
+    // result is the same picture as blending graded neighbours.
+    color = FxaaResolve(pixel, limit, color);
+
+    // Bloom is a highlight scatter, not a soft outline. A threshold that sits
+    // in the middle of a lit diffuse surface smears that surface onto every
+    // neighbour -- the halo around a yellow cube -- so the gather only runs
+    // when a title asked for it and the threshold can actually exclude body
+    // colour.
+    if (post.bloom.y > 0.001 && post.bloom.z > 0.5) {
+        vec3 bloom =
+            GatherRing(pixel, limit, post.bloom.z * 0.35, post.grade.x, post.bloom.x) * 0.6 +
+            GatherRing(pixel, limit, post.bloom.z, post.grade.x, post.bloom.x) * 0.4;
+        color += bloom * (post.bloom.y / max(post.grade.x, 0.0001));
+    }
+
+    imageStore(gradedImage, pixel, vec4(Grade(ToneMap(color), fromCenter), 1.0));
+}
