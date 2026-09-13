@@ -9,12 +9,6 @@
 namespace Concord {
 namespace {
 
-std::string MakeKey(std::string_view uri,
-                    const std::filesystem::path& baseDirectory)
-{
-    return baseDirectory.lexically_normal().generic_string() + "\n" + std::string(uri);
-}
-
 bool CreateFallback(const VulkanContext& context, VulkanTexture& texture,
                     std::shared_ptr<const ImageAsset>& source)
 {
@@ -57,14 +51,14 @@ bool VulkanTextureCache::Ensure(const VulkanContext& context, std::string_view u
 {
     if (uri.empty()) return IsReady();
     if (!IsReady() && !Initialize(context)) return false;
-    std::string key;
-    try {
-        key = MakeKey(uri, baseDirectory);
-    } catch (...) {
+    const std::string key = MakeVulkanTextureCacheKey(uri, baseDirectory);
+    if (key.empty()) {
         return false;
     }
-    for (const VulkanTextureCacheEntry& entry : entries) {
-        if (entry.key == key && entry.texture.IsReady()) return true;
+    const auto known = index.find(key);
+    if (known != index.end() && known->second < entries.size() &&
+        entries[known->second].texture.IsReady()) {
+        return true;
     }
     ImageLoadResult decoded = ImageLoader::LoadUri(uri, baseDirectory);
     if (!decoded.Succeeded()) return false;
@@ -77,8 +71,12 @@ bool VulkanTextureCache::Ensure(const VulkanContext& context, std::string_view u
     if (!CreateVulkanTexture(context, *entry.source, entry.texture)) return false;
     entry.key = key;
     try {
+        // Index first: a later throw must not leave a key pointing past the
+        // end of the entry array.
+        index.emplace(key, entries.size());
         entries.emplace_back(std::move(entry));
     } catch (...) {
+        index.erase(key);
         DestroyVulkanTexture(context, entry.texture);
         return false;
     }
@@ -106,9 +104,11 @@ const VulkanTexture* VulkanTextureCache::Find(
     const VulkanTexture* fallback = Fallback();
     if (uri.empty()) return fallback;
     try {
-        const std::string key = MakeKey(uri, baseDirectory);
-        for (const VulkanTextureCacheEntry& entry : entries) {
-            if (entry.key == key && entry.texture.IsUploaded()) return &entry.texture;
+        const std::string key = MakeVulkanTextureCacheKey(uri, baseDirectory);
+        const auto found = index.find(key);
+        if (found != index.end() && found->second < entries.size() &&
+            entries[found->second].texture.IsUploaded()) {
+            return &entries[found->second].texture;
         }
     } catch (...) {
         return fallback;
@@ -138,6 +138,7 @@ void VulkanTextureCache::Clear(const VulkanContext& context) noexcept
         DestroyVulkanTexture(context, entry.texture);
     }
     entries.clear();
+    index.clear();
     device = VK_NULL_HANDLE;
 }
 

@@ -36,11 +36,6 @@ VulkanModelPushConstants MakePush(const RenderObjectSnapshot& object,
     }
     return push;
 }
-std::filesystem::path AssetDirectory(const ModelAsset& asset)
-{
-    if (asset.sourcePath.empty()) return {};
-    return asset.sourcePath.has_extension() ? asset.sourcePath.parent_path() : asset.sourcePath;
-}
 const VulkanTexture* ResolveTexture(const VulkanTextureCache& textureCache,
                                    const VulkanModelAsset& asset,
                                    const ModelAsset& source,
@@ -49,7 +44,7 @@ const VulkanTexture* ResolveTexture(const VulkanTextureCache& textureCache,
     if (range.materialIndex >= asset.baseColorTextures.size()) {
         return textureCache.Fallback();
     }
-    return textureCache.Find(asset.baseColorTextures[range.materialIndex], AssetDirectory(source));
+    return textureCache.Find(asset.baseColorTextures[range.materialIndex], VulkanModelAssetDirectory(source));
 }
 
 void DrawObject(VkCommandBuffer commandBuffer, const VulkanModelPipeline& pipeline,

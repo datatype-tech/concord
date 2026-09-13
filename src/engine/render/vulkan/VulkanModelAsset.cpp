@@ -31,15 +31,63 @@ bool ReserveCounts(const ModelAsset& asset, usize& vertexCount, usize& indexCoun
     return vertexCount != 0 && indexCount != 0;
 }
 
+/**
+ * Packs one authored water surface into the shader's std430 block.
+ *
+ * Sources with no strength are compacted out rather than left as holes in the
+ * array, and the surviving count lands in `surface.z`: that is what bounds the
+ * hit shader's ripple loop, so an unused source costs nothing at all.
+ */
+VulkanWaterMaterial ConvertWater(const WaterMaterial& source) noexcept
+{
+    WaterMaterial material = source;
+    // The shader has no way to reject an out-of-range value, so the block is
+    // clamped on the way to the GPU. ConvertMaterial reports nothing; the
+    // explicit SanitizeWaterMaterial call a caller makes first does.
+    (void)SanitizeWaterMaterial(material);
+    VulkanWaterMaterial packed{};
+    packed.optics = {material.ior, material.opacity, material.absorptionDistance,
+                     material.refraction};
+    // absorbance.w carries the scattering strength; the three channels are the
+    // extinction the scattering colour is derived from.
+    packed.absorbance = {material.absorption.x, material.absorption.y,
+                         material.absorption.z, material.scattering};
+    packed.wave = {material.waveAmplitude, material.waveScale, material.waveSpeed,
+                   material.choppiness};
+    packed.flow = {material.heading.x, material.heading.y, material.spread, material.drift};
+    u32 active = 0;
+    for (const WaterRipple& ripple : material.ripples) {
+        if (ripple.strength <= 0.0f || active >= kMaxWaterRipples) {
+            continue;
+        }
+        packed.rippleShape[active] = {ripple.centre.x, ripple.centre.y,
+                                      ripple.wavelength, ripple.strength};
+        // Negative age marks an authored source: it repeats on its own period
+        // rather than having been dropped at an instant.
+        packed.rippleMotion[active] = {ripple.speed, ripple.falloff, ripple.reach, -1.0f};
+        ++active;
+    }
+    packed.surface = {material.foamThreshold, material.foamIntensity,
+                      static_cast<f32>(active), material.fall};
+    return packed;
+}
+
 VulkanModelMaterial ConvertMaterial(const ModelMaterial& material) noexcept
 {
     const Vec3 baseColor = ToLinear(material.baseColor);
-    return VulkanModelMaterial{
+    VulkanModelMaterial converted{
         .baseColor = {baseColor.x, baseColor.y, baseColor.z,
                       static_cast<f32>(ColorA(material.baseColor)) / 255.0f},
-        .emissive = {material.emissive.x, material.emissive.y, material.emissive.z, 0.0f},
+        // emissive.w is unused by the shading math, so the water mask rides
+        // along in it instead of widening the material struct.
+        .emissive = {material.emissive.x, material.emissive.y, material.emissive.z,
+                     material.water.has_value() ? 1.0f : 0.0f},
         .surface = {material.metallic, material.roughness, 0.0f, 0.0f},
     };
+    if (material.water.has_value()) {
+        converted.water = ConvertWater(*material.water);
+    }
+    return converted;
 }
 
 } // namespace

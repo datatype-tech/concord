@@ -6,6 +6,7 @@
 #define CONCORD_VULKANRAYTRACINGMODEL_H
 
 #include "engine/render/vulkan/VulkanBuffer.h"
+#include "engine/render/vulkan/VulkanWaterMaterial.h"
 #include "engine/core/Vec4.h"
 
 #include <vulkan/vulkan.h>
@@ -31,7 +32,15 @@ struct alignas(16) VulkanRayTracingModelVertex {
     Vec4 texcoord{};
 };
 
-/** std430-compatible range and material payload for one model primitive. */
+/**
+ * std430-compatible range and material payload for one model primitive.
+ *
+ * The colour half is spelled out field by field, exactly as before; the water
+ * block is embedded as one named struct instead, so the raster material and
+ * this mirror cannot drift apart one field at a time. `VulkanWaterMaterial.h`
+ * is what both of them include, and it is the only place the std430 layout of
+ * the water block is written down.
+ */
 struct alignas(16) VulkanRayTracingModelPrimitiveInfo {
     u32 firstVertex = 0;
     u32 firstIndex = 0;
@@ -40,6 +49,7 @@ struct alignas(16) VulkanRayTracingModelPrimitiveInfo {
     Vec4 baseColor{};
     Vec4 emissive{};
     Vec4 surface{};
+    VulkanWaterMaterial water{};
 };
 
 static_assert(sizeof(VulkanRayTracingModelVertex) == sizeof(Vec4) * 3);
@@ -49,7 +59,7 @@ static_assert(std::is_standard_layout_v<VulkanRayTracingModelVertex> &&
 static_assert(offsetof(VulkanRayTracingModelVertex, position) == 0);
 static_assert(offsetof(VulkanRayTracingModelVertex, normal) == sizeof(Vec4));
 static_assert(offsetof(VulkanRayTracingModelVertex, texcoord) == sizeof(Vec4) * 2);
-static_assert(sizeof(VulkanRayTracingModelPrimitiveInfo) == sizeof(Vec4) * 4);
+static_assert(sizeof(VulkanRayTracingModelPrimitiveInfo) == sizeof(Vec4) * 17);
 static_assert(alignof(VulkanRayTracingModelPrimitiveInfo) == 16);
 static_assert(std::is_standard_layout_v<VulkanRayTracingModelPrimitiveInfo> &&
               std::is_trivially_copyable_v<VulkanRayTracingModelPrimitiveInfo>);
@@ -60,10 +70,17 @@ static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, materialIndex) == siz
 static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, baseColor) == sizeof(Vec4));
 static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, emissive) == sizeof(Vec4) * 2);
 static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, surface) == sizeof(Vec4) * 3);
+static_assert(offsetof(VulkanRayTracingModelPrimitiveInfo, water) == sizeof(Vec4) * 4);
+static_assert(sizeof(VulkanRayTracingModelPrimitiveInfo) ==
+              sizeof(Vec4) * 4 + sizeof(VulkanWaterMaterial));
 
-/** Device-side BLAS metadata for one static imported-model primitive. */
+/** Device-side BLAS metadata for one imported-model primitive. */
 struct VulkanRayTracingModelPrimitive {
     const ModelAsset* source = nullptr;
+    /** Whether this BLAS is refit from CPU-skinned geometry every frame. */
+    bool skinned = false;
+    /** Vertex stride of the BLAS input; the asset and hit-shader layouts differ. */
+    u32 vertexStride = 0;
     u32 primitiveIndex = 0;
     u32 meshIndex = 0;
     u32 materialIndex = 0;
@@ -87,7 +104,7 @@ struct VulkanRayTracingModelPrimitive {
     /** Whether the BLAS and its source geometry are ready for a TLAS instance. */
     [[nodiscard]] bool IsReady() const noexcept
     {
-        return source != nullptr && vertexBuffer != VK_NULL_HANDLE &&
+        return source != nullptr && vertexStride != 0 && vertexBuffer != VK_NULL_HANDLE &&
                indexBuffer != VK_NULL_HANDLE && vertexAddress != 0 && indexAddress != 0 &&
                vertexAddress % kVulkanRayTracingModelAddressAlignment == 0 &&
                indexAddress % kVulkanRayTracingModelAddressAlignment == 0 &&

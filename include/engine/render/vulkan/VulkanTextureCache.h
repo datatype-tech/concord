@@ -6,10 +6,12 @@
 #define CONCORD_VULKANTEXTURECACHE_H
 
 #include "engine/render/vulkan/VulkanTexture.h"
+#include "engine/render/vulkan/VulkanTextureKey.h"
 
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace Concord {
@@ -24,6 +26,14 @@ struct VulkanTextureCacheEntry {
 /** Caches imported base-color textures for one Vulkan device lifetime. */
 struct VulkanTextureCache {
     std::vector<VulkanTextureCacheEntry> entries;
+    /**
+     * Cache key to index into \p entries.
+     *
+     * Every model draw resolves its material texture once per frame, so a
+     * linear scan here would compare the whole cache for every material of
+     * every object in the scene.
+     */
+    std::unordered_map<std::string, usize> index;
     std::shared_ptr<const ImageAsset> fallbackSource{};
     VulkanTexture fallbackTexture{};
     VkDevice device = VK_NULL_HANDLE;

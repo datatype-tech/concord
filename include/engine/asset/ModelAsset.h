@@ -7,11 +7,13 @@
 
 #include "Concord/CExport.h"
 #include "engine/asset/Animation.h"
+#include "engine/asset/WaterMaterial.h"
 #include "engine/core/Color.h"
 #include "engine/core/Vec2.h"
 
 #include <array>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -34,6 +36,18 @@ struct ModelMaterial {
     f32 metallic = 0.0f;
     f32 roughness = 0.8f;
     Vec3 emissive{};
+
+    /**
+     * Authored water appearance, or nothing for a dry surface.
+     *
+     * Presence is the mask: a material either is water or is not, and every
+     * control the surface has lives on the material rather than in a shader
+     * constant. Shading only -- the mesh stays exactly where it was authored
+     * and the detail comes from the hit position, so a flat plane is enough
+     * and no per-frame vertex or simulation buffer is needed.
+     */
+    std::optional<WaterMaterial> water{};
+
     std::string baseColorTexture;
 };
 
