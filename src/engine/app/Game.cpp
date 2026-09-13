@@ -10,10 +10,38 @@
 #include "engine/window/Window.h"
 
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <thread>
 #include <utility>
 
 namespace Concord {
+namespace {
+
+/**
+ * Loop period, in milliseconds, above which a frame is reported as a stall.
+ *
+ * Read from `CONCORD_HITCH_MS` once; zero, which is the default, disables the
+ * check entirely. A hitch is the one performance defect an average cannot
+ * show -- a single 90 ms frame inside a second of 8 ms ones moves the mean by
+ * a tenth of a millisecond and is the only thing anybody actually notices --
+ * so it needs its own measurement rather than a smaller number in the same
+ * counter.
+ */
+f32 HitchThresholdSeconds() noexcept
+{
+    static const f32 threshold = [] {
+        const char* value = std::getenv("CONCORD_HITCH_MS");
+        if (value == nullptr || *value == '\0') {
+            return 0.0f;
+        }
+        const double parsed = std::strtod(value, nullptr);
+        return parsed > 0.0 ? static_cast<f32>(parsed / 1000.0) : 0.0f;
+    }();
+    return threshold;
+}
+
+} // namespace
 
 Game::Game(GameConfig config) : m_impl(std::make_unique<Impl>())
 {
@@ -131,6 +159,22 @@ void Game::Run()
                 const f32 frameSeconds = std::chrono::duration<f32>(Clock::now() - now).count();
                 impl.debugOverlay.Update(frameSeconds, cpuSeconds, renderScene.EntityCount(),
                                          impl.renderer->LastFrameStats());
+                const f32 hitch = HitchThresholdSeconds();
+                if (hitch > 0.0f && frameSeconds > hitch) {
+                    // Both halves, because they point at different culprits.
+                    // Time inside the simulation and the command recording is
+                    // the engine's own; time only the full period saw is the
+                    // present call, which means the swapchain or the driver.
+                    std::fprintf(stderr,
+                                 "[hitch] frame %llu  total %.1f ms  cpu %.1f ms  present %.1f ms"
+                                 "  entities %llu  particles %u\n",
+                                 static_cast<unsigned long long>(impl.frameCount),
+                                 static_cast<double>(frameSeconds) * 1000.0,
+                                 static_cast<double>(cpuSeconds) * 1000.0,
+                                 static_cast<double>(frameSeconds - cpuSeconds) * 1000.0,
+                                 static_cast<unsigned long long>(renderScene.EntityCount()),
+                                 impl.renderer->LastFrameStats().particles);
+                }
             }
 
             ++impl.frameCount;
@@ -149,6 +193,74 @@ void Game::Run()
         throw;
     }
     impl.FinishRun();
+}
+
+bool Game::RenderStill(const char* path, const StillRenderDesc& desc)
+{
+    Impl& impl = *m_impl;
+    if (path == nullptr || *path == '\0' || !impl.window || !impl.renderer || impl.running) {
+        return false;
+    }
+
+    impl.running = true;
+    bool captured = false;
+    try {
+        impl.ApplyPendingScene();
+        impl.StartSystems();
+        impl.deltaTime = desc.deltaTime;
+
+        // One pass more than the warm-up asks for: the last one is the frame
+        // that gets kept, and it is stepped like every other so that nothing in
+        // the picture is a half-updated version of what the warm-up settled.
+        for (u32 index = 0; index <= desc.warmupFrames; ++index) {
+            const bool keeping = index == desc.warmupFrames;
+            // Pumped even though nothing is watching: a window that never
+            // services its queue is a window the OS reports as hung, and a long
+            // offline render is exactly long enough for that to happen.
+            impl.window->PumpEvents();
+
+            Scene& scene = impl.scene ? *impl.scene : impl.fallbackScene;
+            impl.systems.Update(scene, desc.deltaTime);
+            scene.FlushDeferred();
+            impl.ApplyPendingScene();
+            impl.StartSystems();
+
+            Scene& renderScene = impl.scene ? *impl.scene : impl.fallbackScene;
+            impl.renderer->SetDebugOverlay(
+                desc.includeOverlay && impl.debugOverlay.showDebugInfo ? &impl.debugOverlay.Frame()
+                                                                       : nullptr);
+            impl.renderer->SetUi(nullptr);
+            // Armed before the frame rather than after it, because the copy is
+            // recorded inside that frame's own command buffer.
+            bool armed = keeping && impl.renderer->CaptureStill(path);
+            // A refused BeginFrame is a dropped frame in a live loop and the
+            // entire result here, so the kept frame is retried. The request
+            // survives a frame that never recorded it, so retrying is just
+            // another attempt at the same frame rather than a second request.
+            for (u32 attempt = 0; attempt < (keeping ? 8u : 1u); ++attempt) {
+                if (impl.renderer->BeginFrame()) {
+                    impl.renderer->DrawScene(renderScene);
+                    impl.renderer->EndFrame();
+                    captured = captured || armed;
+                    break;
+                }
+                if (!keeping) {
+                    break;
+                }
+                impl.window->PumpEvents();
+                // The swapchain may have been rebuilt at a different size while
+                // this was failing, which retires a request armed against the
+                // old one.
+                armed = impl.renderer->CaptureStill(path);
+            }
+            ++impl.frameCount;
+        }
+    } catch (...) {
+        impl.AbortRun();
+        throw;
+    }
+    impl.FinishRun();
+    return captured;
 }
 
 void Game::Quit() noexcept { m_impl->quitRequested = true; }

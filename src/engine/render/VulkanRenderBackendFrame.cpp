@@ -128,10 +128,38 @@ void VulkanRenderBackend::EndFrame()
     if (PresentFrame(impl.context, impl.swapchain, impl.imageIndex)) {
         impl.swapchainDirty = true;
     }
+    // A still is written before this call returns, which costs a full device
+    // wait. That is the right trade for a frame somebody asked for by name:
+    // the alternative is handing back control while the copy is still in
+    // flight, and every caller would then have to invent the same wait.
+    if (impl.frameProbe.stillRecorded) {
+        const VkResult idle = vkDeviceWaitIdle(impl.context.device);
+        if (idle == VK_SUCCESS) {
+            ResolveVulkanFrameProbeStill(impl.frameProbe);
+        } else {
+            VulkanFailed("vkDeviceWaitIdle", idle);
+            impl.frameProbe.stillRecorded = false;
+            impl.frameProbe.stillPath.clear();
+        }
+    }
     if (impl.swapchainDirty && !impl.RecreateSwapchain()) {
         impl.swapchainDirty = true;
     }
     impl.frames.Advance();
+}
+
+bool VulkanRenderBackend::CaptureStill(const char* path)
+{
+    Impl& impl = *m_impl;
+    if (impl.context.device == VK_NULL_HANDLE) {
+        return false;
+    }
+    // Armed against the traced extent rather than the window's: the graded
+    // image the copy reads lives at the resolution the ray tracer ran at, and
+    // a buffer sized for the swapchain would be the wrong one every time the
+    // render scale is not exactly one.
+    return RequestVulkanFrameProbeStill(
+        impl.context, ResolveVulkanRenderExtent(impl.swapchain.extent), impl.frameProbe, path);
 }
 
 void VulkanRenderBackend::WaitIdle()

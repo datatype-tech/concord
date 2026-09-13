@@ -38,6 +38,7 @@ public:
     void WaitIdle() override;
     void SetDebugOverlay(const DebugOverlayFrame* overlay) override;
     void SetUi(const UiDrawList* ui) override;
+    bool CaptureStill(const char* path) override;
     [[nodiscard]] RenderBackendStats LastFrameStats() const override;
 
 private:

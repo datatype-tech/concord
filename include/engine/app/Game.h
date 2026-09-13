@@ -7,6 +7,7 @@
 
 #include "Concord/CExport.h"
 #include "engine/app/GameConfig.h"
+#include "engine/app/StillRender.h"
 #include "engine/core/Types.h"
 #include "engine/ecs/SystemSchedule.h"
 
@@ -100,6 +101,26 @@ public:
      * does not spin.
      */
     void Run();
+
+    /**
+     * Renders one frame to `path` as a PNG and returns, without running a loop.
+     *
+     * This is the engine used as a renderer rather than as a game: there is no
+     * loop to quit, nothing is presented for a user to look at, and what lands
+     * on disk is exactly the image the renderer produced -- not a grab of a
+     * window, which carries whatever the desktop had in front of it and is
+     * capped at the size of a monitor. Attach a window built with
+     * `.visible = false` and nothing appears on screen at all; the window is
+     * there because the graphics device is reached through one, and its
+     * resolution is the resolution of the still.
+     *
+     * Safe to call more than once -- to walk a camera through a scene, say --
+     * and safe to call on a Game that is otherwise only ever used this way.
+     *
+     * @return False when no window or renderer is attached, when a frame loop
+     *         is already running, or when the backend cannot read frames back.
+     */
+    bool RenderStill(const char* path, const StillRenderDesc& desc = {});
 
     /** Requests that the loop started by Run() finish after the current frame. */
     void Quit() noexcept;

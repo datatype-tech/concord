@@ -37,6 +37,30 @@ u32 ProbeIntervalFromEnvironment() noexcept
 
 } // namespace
 
+namespace {
+
+/** Allocates the readback buffer for one frame of `extent`, if it can. */
+bool AllocateProbeStaging(const VulkanContext& context, VkExtent2D extent,
+                          VulkanFrameProbe& probe)
+{
+    if (context.device == VK_NULL_HANDLE || extent.width == 0 || extent.height == 0) {
+        return false;
+    }
+    const VkDeviceSize pixels = static_cast<VkDeviceSize>(extent.width) * extent.height;
+    if (pixels > (std::numeric_limits<VkDeviceSize>::max() / kProbeBytesPerPixel)) {
+        return false;
+    }
+    VulkanBufferCreateInfo info{};
+    info.size = pixels * kProbeBytesPerPixel;
+    info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    info.requiredMemoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    info.preferredMemoryProperties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    info.persistentMap = true;
+    return CreateVulkanBuffer(context, info, probe.staging);
+}
+
+} // namespace
+
 bool CreateVulkanFrameProbe(const VulkanContext& context, VkExtent2D extent,
                             VulkanFrameProbe& probe)
 {
@@ -45,28 +69,43 @@ bool CreateVulkanFrameProbe(const VulkanContext& context, VkExtent2D extent,
     DestroyVulkanFrameProbe(context, probe);
     probe.interval = ProbeIntervalFromEnvironment();
     probe.extent = extent;
-    if (probe.interval == 0 || context.device == VK_NULL_HANDLE || extent.width == 0 ||
-        extent.height == 0) {
+    if (probe.interval == 0) {
+        // Left unallocated rather than merely unused. The periodic probe is off
+        // in every frame an application ships, and a readback buffer for a 4K
+        // still is a hundred megabytes nobody asked for; a still allocates it
+        // on the frame it is requested and this stays free until then.
         return true;
     }
-    const VkDeviceSize pixels = static_cast<VkDeviceSize>(extent.width) * extent.height;
-    if (pixels > (std::numeric_limits<VkDeviceSize>::max() / kProbeBytesPerPixel)) {
-        probe.interval = 0;
-        return true;
-    }
-    VulkanBufferCreateInfo info{};
-    info.size = pixels * kProbeBytesPerPixel;
-    info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    info.requiredMemoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    info.preferredMemoryProperties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    info.persistentMap = true;
-    if (!CreateVulkanBuffer(context, info, probe.staging)) {
+    if (!AllocateProbeStaging(context, extent, probe)) {
         probe.interval = 0;
         return true;
     }
     std::fprintf(stderr,
                  "[Concord] frame probe armed: %ux%u every %u frames\n",
                  extent.width, extent.height, probe.interval);
+    return true;
+}
+
+bool RequestVulkanFrameProbeStill(const VulkanContext& context, VkExtent2D extent,
+                                  VulkanFrameProbe& probe, const char* path)
+{
+    if (path == nullptr || *path == '\0') {
+        return false;
+    }
+    // The extent is the caller's rather than the probe's own, because a still
+    // may be asked for before the probe has ever been armed and because a
+    // resize re-arms it: matching here is what keeps the copy below from
+    // reading a frame into a buffer sized for a different one.
+    if (!probe.staging.IsReady() || probe.extent.width != extent.width ||
+        probe.extent.height != extent.height) {
+        DestroyVulkanBuffer(context, probe.staging);
+        probe.extent = extent;
+        if (!AllocateProbeStaging(context, extent, probe)) {
+            return false;
+        }
+    }
+    probe.stillPath = path;
+    probe.stillRecorded = false;
     return true;
 }
 
@@ -80,16 +119,27 @@ bool RecordVulkanFrameProbe(VkCommandBuffer commandBuffer, VulkanFrameProbe& pro
                             VkImage image, VkExtent2D extent) noexcept
 {
     ++probe.frameIndex;
-    if (probe.interval == 0 || !probe.staging.IsReady() || image == VK_NULL_HANDLE ||
+    const bool still = !probe.stillPath.empty() && !probe.stillRecorded;
+    if (!probe.staging.IsReady() || image == VK_NULL_HANDLE ||
         extent.width != probe.extent.width || extent.height != probe.extent.height) {
         return false;
     }
-    // A capture already in flight is resolved first, so a second one cannot
-    // overwrite the buffer before the first has been read.
-    if (probe.awaitingResolve || ++probe.framesSinceCapture < probe.interval) {
+    if (still) {
+        // Takes the buffer ahead of the periodic probe. Both cannot have it,
+        // and the schedule can wait a frame where a caller blocked on a file
+        // cannot: dropping the still instead would hang that caller on an
+        // image that is never written.
+        probe.awaitingResolve = false;
+        probe.framesSinceCapture = 0;
+    } else if (probe.interval == 0) {
         return false;
+    } else if (probe.awaitingResolve || ++probe.framesSinceCapture < probe.interval) {
+        // A capture already in flight is resolved first, so a second one cannot
+        // overwrite the buffer before the first has been read.
+        return false;
+    } else {
+        probe.framesSinceCapture = 0;
     }
-    probe.framesSinceCapture = 0;
     // The image is already a blit source by the time this runs, so the barrier
     // is an access ordering rather than a layout change.
     VkBufferImageCopy region{};
@@ -99,7 +149,8 @@ bool RecordVulkanFrameProbe(VkCommandBuffer commandBuffer, VulkanFrameProbe& pro
     vkCmdCopyImageToBuffer(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                            probe.staging.buffer, 1, &region);
     probe.captureFrame = probe.frameIndex;
-    probe.awaitingResolve = true;
+    probe.awaitingResolve = !still;
+    probe.stillRecorded = still;
     return true;
 }
 
@@ -110,6 +161,17 @@ void ResolveVulkanFrameProbe(VulkanFrameProbe& probe) noexcept
     }
     probe.awaitingResolve = false;
     ReportVulkanFrameProbe(probe);
+}
+
+bool ResolveVulkanFrameProbeStill(VulkanFrameProbe& probe) noexcept
+{
+    if (!probe.stillRecorded) {
+        return false;
+    }
+    const std::string path = std::move(probe.stillPath);
+    probe.stillPath.clear();
+    probe.stillRecorded = false;
+    return WriteVulkanFrameProbeImage(probe, path.c_str());
 }
 
 } // namespace Concord

@@ -30,6 +30,7 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanBackendRegistration.cpp
     src/engine/render/vulkan/VulkanBoxPipeline.cpp
     src/engine/render/vulkan/VulkanBoxMaterial.cpp
+    src/engine/render/vulkan/StbImageWrite.cpp
     src/engine/render/vulkan/VulkanFrameProbe.cpp
     src/engine/render/vulkan/VulkanFrameProbeReport.cpp
     src/engine/render/vulkan/VulkanPostProcess.cpp

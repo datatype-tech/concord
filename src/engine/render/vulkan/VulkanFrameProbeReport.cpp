@@ -4,10 +4,14 @@
 
 #include "engine/render/vulkan/VulkanFrameProbe.h"
 
+#include <stb_image_write.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <string>
 #include <vector>
 
 namespace Concord {
@@ -97,7 +101,88 @@ f32 Percentile(const std::vector<f32>& sorted, f32 fraction) noexcept
     return sorted[std::min(index, sorted.size() - 1)];
 }
 
+/**
+ * Writes the captured frame to disk when `CONCORD_FRAME_PROBE_PNG` names a path.
+ *
+ * The statistics above answer whether a frame is crushed, blown or flat. They
+ * cannot answer what it looks like, and a screen grab cannot be trusted to
+ * answer that either: whatever the desktop puts in front of the window lands in
+ * the file, and the one time it matters is the one time something is in front
+ * of it. This is the only capture that sees exactly the image the renderer
+ * produced and nothing else.
+ *
+ * The frame index is spliced in ahead of the extension rather than one path
+ * being overwritten, because what is worth looking at is often transient -- a
+ * splash outlives its own screenshot by less than a second -- and a sequence is
+ * the only way to catch it.
+ */
+bool EncodeProbeImage(bool displayReferred, const u16* words, u32 width, u32 height,
+                      const char* path)
+{
+    const usize pixels = static_cast<usize>(width) * height;
+    std::vector<unsigned char> image;
+    try {
+        image.resize(pixels * 3u);
+    } catch (...) {
+        return false;
+    }
+    for (usize index = 0; index < pixels; ++index) {
+        for (u32 channel = 0; channel < 3u; ++channel) {
+            f32 value = HalfToFloat(words[index * 4u + channel]);
+            // An ungraded frame is scene referred, so it has to cross the
+            // display transform before it means anything as a pixel value.
+            if (!displayReferred) {
+                value = std::pow(std::max(value, 0.0f), 1.0f / 2.2f);
+            }
+            image[index * 3u + channel] =
+                static_cast<unsigned char>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+        }
+    }
+    return stbi_write_png(path, static_cast<int>(width), static_cast<int>(height), 3,
+                          image.data(), static_cast<int>(width) * 3) != 0;
+}
+
+void WriteProbeImage(const VulkanFrameProbe& probe, const u16* words, u32 width, u32 height)
+{
+    const char* pattern = std::getenv("CONCORD_FRAME_PROBE_PNG");
+    if (pattern == nullptr || *pattern == '\0') {
+        return;
+    }
+    char stamp[32];
+    std::snprintf(stamp, sizeof(stamp), "-%06llu",
+                  static_cast<unsigned long long>(probe.captureFrame));
+    std::string path(pattern);
+    const usize dot = path.find_last_of('.');
+    const usize separator = path.find_last_of("/\\");
+    if (dot != std::string::npos && (separator == std::string::npos || dot > separator)) {
+        path.insert(dot, stamp);
+    } else {
+        path.append(stamp).append(".png");
+    }
+    const bool written =
+        EncodeProbeImage(probe.displayReferred, words, width, height, path.c_str());
+    std::fprintf(stderr, "[probe]   %s %s\n", written ? "wrote" : "FAILED to write",
+                 path.c_str());
+}
+
 } // namespace
+
+bool WriteVulkanFrameProbeImage(const VulkanFrameProbe& probe, const char* path) noexcept
+{
+    const u32 width = probe.extent.width;
+    const u32 height = probe.extent.height;
+    const usize pixels = static_cast<usize>(width) * height;
+    if (path == nullptr || *path == '\0' || pixels == 0 || !probe.staging.IsMapped() ||
+        probe.staging.size < pixels * 8u) {
+        std::fprintf(stderr, "[Concord] still: nothing staged to write\n");
+        return false;
+    }
+    const bool written = EncodeProbeImage(
+        probe.displayReferred, static_cast<const u16*>(probe.staging.mapped), width, height, path);
+    std::fprintf(stderr, "[Concord] still: %s %s (%ux%u)\n", written ? "wrote" : "FAILED to write",
+                 path, width, height);
+    return written;
+}
 
 void ReportVulkanFrameProbe(VulkanFrameProbe& probe) noexcept
 {
@@ -198,6 +283,7 @@ void ReportVulkanFrameProbe(VulkanFrameProbe& probe) noexcept
                  static_cast<f64>(water.mean), static_cast<f64>(water.deviation),
                  red * inverse, green * inverse, blue * inverse, bandRed * bandScale,
                  bandGreen * bandScale, bandBlue * bandScale);
+    WriteProbeImage(probe, words, width, height);
 }
 
 } // namespace Concord

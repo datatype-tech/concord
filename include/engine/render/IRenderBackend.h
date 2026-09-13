@@ -99,6 +99,29 @@ public:
         (void)ui;
     }
 
+    /**
+     * Asks for the next frame this backend completes to be written to `path`.
+     *
+     * What is written is the graded image the renderer produced, at the traced
+     * resolution, and nothing else -- no window, no compositor, no overlay from
+     * whatever else the desktop had in front of it. That distinction is the
+     * whole reason this exists rather than a screen grab, and it is also what
+     * makes the engine usable as an offline renderer rather than only as a
+     * game loop.
+     *
+     * The frame is written before EndFrame() returns, so a caller that draws
+     * one frame and then reads the file cannot race it.
+     *
+     * @return Whether the request was armed. A backend that cannot read frames
+     *         back says so here instead of leaving a caller waiting on a file
+     *         that will never appear.
+     */
+    virtual bool CaptureStill(const char* path)
+    {
+        (void)path;
+        return false;
+    }
+
     /** Statistics of the most recently completed frame; zeroed before one. */
     [[nodiscard]] virtual RenderBackendStats LastFrameStats() const = 0;
 };
