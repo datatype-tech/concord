@@ -1,12 +1,14 @@
-# Build trees
-build/
-build-*/
-*-build/
-*-build-*/
-*-build*/
-out/
-cmake-build-*/
-review-build/
+# Build trees (anchored to the repo root: unanchored patterns like `build/`
+# also match case-insensitively on Windows, which was silently swallowing
+# src/3rd/Jolt/Build/ -- the vendored CMake glue ConcordJolt.cmake requires).
+/build/
+/build-*/
+/*-build/
+/*-build-*/
+/*-build*/
+/out/
+/cmake-build-*/
+/review-build/
 
 # IDE / editor state
 .idea/
