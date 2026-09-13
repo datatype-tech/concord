@@ -9,8 +9,10 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -200,13 +202,61 @@ bool TestWavRoundTrip()
     return clip && clip->IsValid() && clip->SampleRate() == kRate && clip->FrameCount() > 100;
 }
 
+bool TestPresetLoopsAreValidAndSeamless()
+{
+    const std::shared_ptr<Concord::AudioClip> waterfall = Concord::AudioClip::WaterfallLoop();
+    const std::shared_ptr<Concord::AudioClip> wind = Concord::AudioClip::WindLoop();
+    const std::shared_ptr<Concord::AudioClip> fire = Concord::AudioClip::FireLoop();
+    if (!waterfall || !waterfall->IsValid() || !wind || !wind->IsValid() || !fire ||
+        !fire->IsValid()) {
+        return false;
+    }
+    // Default durations render at the mix rate with no resampling involved.
+    if (waterfall->FrameCount() != 4u * kRate || wind->FrameCount() != 6u * kRate ||
+        fire->FrameCount() != 3u * kRate) {
+        return false;
+    }
+    const std::shared_ptr<Concord::AudioClip> clips[] = {waterfall, wind, fire};
+    for (const auto& clip : clips) {
+        float peak = 0.0f;
+        for (float sample : clip->Samples()) {
+            if (!std::isfinite(sample)) {
+                return false;
+            }
+            peak = std::max(peak, std::fabs(sample));
+        }
+        // Normalized with headroom, and carrying real energy rather than hush.
+        if (peak > 0.501f || peak < 0.2f) {
+            return false;
+        }
+        const std::span<const float> samples = clip->Samples();
+        // The loop point joins two adjacently generated samples inside one
+        // continuous stream, so the step across it must look like the signal's
+        // own sample-to-sample steps, not like an edit: compare against the
+        // loop's own average step rather than an absolute threshold, because
+        // noise is made of large steps and a hum is made of tiny ones.
+        double stepSum = 0.0;
+        for (Concord::u32 index = 0; index + 1 < samples.size(); ++index) {
+            stepSum += std::fabs(samples[index + 1] - samples[index]);
+        }
+        const double meanStep = stepSum / static_cast<double>(samples.size() - 1);
+        const double seamStep =
+            std::fabs(samples.back() - samples.front());
+        if (seamStep > 8.0 * meanStep + 0.005) {
+            return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 int main()
 {
     return TestSourceOnRightIsLouderOnRight() && TestSourceOnLeftIsLouderOnLeft() &&
                    TestStopSilencesVoice() && TestFindReturnsBoundWorld() &&
-                   TestCameraFallbackListens() && TestWavRoundTrip()
+                   TestCameraFallbackListens() && TestWavRoundTrip() &&
+                   TestPresetLoopsAreValidAndSeamless()
                ? 0
                : 1;
 }

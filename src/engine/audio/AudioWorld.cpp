@@ -165,6 +165,8 @@ struct AudioWorld::Impl {
     bool buffersReady = false;
     SDL_AudioStream* stream = nullptr;
     bool audioSubsystem = false;
+    /** Reused mix buffer for the device callback; never allocated on it. */
+    std::vector<f32> pullScratch{};
     Scene* scene = nullptr;
     std::mutex mixMutex;
     Transform listener{};
@@ -259,9 +261,20 @@ struct AudioWorld::Impl {
         if (frames <= 0) {
             return;
         }
-        std::vector<f32> buffer(static_cast<std::size_t>(frames) * 2);
-        impl->Mix(buffer.data(), static_cast<u32>(frames));
-        SDL_PutAudioStreamData(stream, buffer.data(), frames * static_cast<int>(sizeof(f32) * 2));
+        // Reused across callbacks: allocating a mix buffer per callback faults
+        // pages on the audio thread, which is exactly the kind of hitch that
+        // reads as a dropout once a scene gets busy.
+        const std::size_t needed = static_cast<std::size_t>(frames) * 2;
+        if (impl->pullScratch.size() < needed) {
+            try {
+                impl->pullScratch.resize(needed);
+            } catch (...) {
+                return;
+            }
+        }
+        impl->Mix(impl->pullScratch.data(), static_cast<u32>(frames));
+        SDL_PutAudioStreamData(stream, impl->pullScratch.data(),
+                               frames * static_cast<int>(sizeof(f32) * 2));
     }
 
     void DestroyEffects()
@@ -382,7 +395,7 @@ struct AudioWorld::Impl {
                 }
                 IPLBinauralEffectParams params{};
                 params.direction = direction;
-                params.interpolation = IPL_HRTFINTERPOLATION_NEAREST;
+                params.interpolation = IPL_HRTFINTERPOLATION_BILINEAR;
                 params.spatialBlend = 1.0f;
                 params.hrtf = hrtf;
                 steam.binauralApply(effect, &params, &monoBuffer, &stereoBuffer);

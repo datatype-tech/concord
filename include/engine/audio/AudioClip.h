@@ -41,6 +41,31 @@ public:
     [[nodiscard]] static std::shared_ptr<AudioClip> FromPcm16(std::span<const i16> interleaved,
                                                               u32 channels, u32 sampleRate);
 
+    /**
+     * Synthesizes a seamless waterfall loop: a low rumble bed, a mid hiss
+     * band, and sparse droplet transients, crossfaded so the loop point is
+     * inaudible. Deterministic: the same duration replays identically.
+     *
+     * @param seconds Loop length; clamped to 1..12.
+     */
+    [[nodiscard]] static std::shared_ptr<AudioClip> WaterfallLoop(f32 seconds = 4.0f);
+
+    /**
+     * Synthesizes a seamless wind loop: filtered noise under slow swells with
+     * a faint whistle. Deterministic like the other presets.
+     *
+     * @param seconds Loop length; clamped to 1..12.
+     */
+    [[nodiscard]] static std::shared_ptr<AudioClip> WindLoop(f32 seconds = 6.0f);
+
+    /**
+     * Synthesizes a seamless fire loop: a low bed under density-modulated
+     * crackle pops. Deterministic like the other presets.
+     *
+     * @param seconds Loop length; clamped to 1..12.
+     */
+    [[nodiscard]] static std::shared_ptr<AudioClip> FireLoop(f32 seconds = 3.0f);
+
     [[nodiscard]] bool IsValid() const noexcept;
     [[nodiscard]] u32 FrameCount() const noexcept;
     [[nodiscard]] u32 SampleRate() const noexcept;
