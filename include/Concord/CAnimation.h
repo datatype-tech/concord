@@ -6,9 +6,12 @@
 #define CONCORD_CANIMATION_H
 
 #include "engine/asset/Animation.h"
+#include "engine/asset/SkinnedGeometry.h"
 #include "engine/asset/SkinningPalette.h"
 #include "engine/asset/Skeleton.h"
 #include "engine/animation/AnimationBlend.h"
+#include "engine/animation/AnimationBlendSpace.h"
+#include "engine/animation/AnimationBlendSpace2D.h"
 #include "engine/animation/AnimationController.h"
 #include "engine/animation/AnimationGraph.h"
 #include "engine/animation/AnimationRetarget.h"

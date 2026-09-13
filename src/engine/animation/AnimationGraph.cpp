@@ -15,8 +15,10 @@ bool AnimationGraph::IsValid(const ModelAsset& asset) const noexcept
     if (states.empty() || initialState >= states.size()) return false;
     for (usize index = 0; index < states.size(); ++index) {
         const AnimationState& state = states[index];
-        if (state.name.empty() || state.clipIndex >= asset.animations.size() ||
-            !std::isfinite(state.speed)) {
+        const bool hasClip = state.clipIndex < asset.animations.size();
+        const bool hasBlend = state.blendSpaceIndex < blendSpaces.size() &&
+                              blendSpaces[state.blendSpaceIndex].IsValid();
+        if (state.name.empty() || !std::isfinite(state.speed) || !(hasClip || hasBlend)) {
             return false;
         }
         for (usize other = 0; other < index; ++other) {

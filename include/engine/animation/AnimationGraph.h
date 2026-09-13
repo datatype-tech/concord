@@ -6,6 +6,7 @@
 #define CONCORD_ANIMATIONGRAPH_H
 
 #include "Concord/CExport.h"
+#include "engine/animation/AnimationBlendSpace.h"
 #include "engine/core/Types.h"
 
 #include <string>
@@ -16,10 +17,12 @@ namespace Concord {
 
 struct ModelAsset;
 
-/** One named state that samples an animation clip. */
+/** One named state that samples an animation clip or a 1D blend space. */
 struct AnimationState {
     std::string name;
     u32 clipIndex = 0xFFFFFFFFu;
+    /** When set, the state samples `AnimationGraph::blendSpaces` instead of a clip. */
+    u32 blendSpaceIndex = 0xFFFFFFFFu;
     f32 speed = 1.0f;
     bool loop = true;
 };
@@ -38,6 +41,7 @@ struct AnimationTransition {
 struct CENGINE_API AnimationGraph {
     std::vector<AnimationState> states;
     std::vector<AnimationTransition> transitions;
+    std::vector<BlendSpace1D> blendSpaces;
     u32 initialState = 0;
 
     /** Validates state indices, transition ranges and referenced clips. */

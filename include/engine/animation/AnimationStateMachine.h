@@ -6,6 +6,7 @@
 #define CONCORD_ANIMATIONSTATEMACHINE_H
 
 #include "Concord/CExport.h"
+#include "engine/animation/AnimationBlendSpace.h"
 #include "engine/animation/AnimationGraph.h"
 #include "engine/asset/Skeleton.h"
 
@@ -22,6 +23,10 @@ struct AnimationStateMachineState {
     f32 nextTime = 0.0f;
     f32 transitionTime = 0.0f;
     f32 transitionDuration = 0.0f;
+    /** Parameter fed to a state's blend space, typically a locomotion speed. */
+    f32 blendValue = 0.0f;
+    BlendSpaceState blendRuntime{};
+    BlendSpaceState nextBlendRuntime{};
     bool started = false;
     bool finished = false;
 };

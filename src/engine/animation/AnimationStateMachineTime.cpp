@@ -73,6 +73,7 @@ bool StartStateTransition(const AnimationGraph& graph, u32 target,
     }
     runtime.nextState = target;
     runtime.nextTime = 0.0f;
+    runtime.nextBlendRuntime = {};
     runtime.transitionTime = 0.0f;
     runtime.transitionDuration = std::max(transition->duration, 0.0f);
     return true;

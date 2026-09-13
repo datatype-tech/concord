@@ -144,6 +144,26 @@ bool TestExitTimeTransition()
     return true;
 }
 
+bool TestBlendSpaceState()
+{
+    const auto asset = MakeTwoClipAsset();
+    Concord::BlendSpace1D space{};
+    space.samples.push_back({.position = 0.0f, .clip = &asset->animations[0]});
+    space.samples.push_back({.position = 1.0f, .clip = &asset->animations[1]});
+    Concord::AnimationGraph graph{};
+    graph.blendSpaces.push_back(space);
+    graph.states.push_back({.name = "locomotion", .blendSpaceIndex = 0});
+    graph.initialState = 0;
+    Concord::AnimationStateMachineState runtime;
+    runtime.blendValue = 0.0f;
+    Concord::SkeletonPose pose;
+    if (!Concord::EvaluateAnimationStateMachine(*asset, graph, 0, 0.25f, runtime, pose)) {
+        std::printf("  blend-space: evaluate failed\n");
+        return false;
+    }
+    return Near(pose.local[0].translation.x, 0.5f);
+}
+
 bool TestInvalidGraphFails()
 {
     const auto asset = MakeTwoClipAsset();
@@ -217,6 +237,7 @@ int main()
     const Case cases[] = {
         {"crossfade", TestCrossfade},
         {"exit-time", TestExitTimeTransition},
+        {"blend-space", TestBlendSpaceState},
         {"invalid-graph", TestInvalidGraphFails},
         {"controller-end-to-end", TestControllerComponentEndToEnd},
         {"controller-overrides-legacy", TestControllerOverridesLegacyComponent},
