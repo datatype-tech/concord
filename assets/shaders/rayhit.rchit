@@ -574,7 +574,7 @@ vec3 EnvironmentRadiance(vec3 direction)
     // The same analytic dome the miss stage draws, so a rough surface and the
     // sky above it cannot disagree about which way is up. The sun disc is the
     // high-frequency content widening washes out, so only the sky itself.
-    vec3 sky = AnalyticSky(normalize(direction), TowardSun(), SunRadiance() * 20.0, zenith, horizon);
+    vec3 sky = AnalyticSky(normalize(direction), TowardSun(), SunRadiance(), zenith, horizon);
     // Below the horizon the lobe is looking at the ground, which is neither
     // dome colour: it receives the frame's own ambient instead.
     vec3 ground = frame.ambientColorIntensity.rgb * frame.ambientColorIntensity.w;
@@ -663,6 +663,39 @@ struct SurfaceLight {
     vec3 specular;
 };
 
+/**
+ * GGX microfacet distribution.
+ *
+ * The lobe this produces is the whole difference between a sun on water and a
+ * sheen on plastic. A Blinn-Phong exponent, which is what stood here, has no
+ * tail: it falls to nothing within a few degrees of the mirror direction and
+ * carries almost no energy at its peak, so a surface smooth enough to glitter
+ * gets a small dull spot where it should get a hard point of light with a long
+ * skirt of scattered highlights around it.
+ */
+float DistributionGgx(float nDotH, float roughness)
+{
+    float alpha = roughness * roughness;
+    float alphaSquared = alpha * alpha;
+    float denominator = nDotH * nDotH * (alphaSquared - 1.0) + 1.0;
+    return alphaSquared / max(kPi * denominator * denominator, 0.0000001);
+}
+
+/** Smith height-correlated visibility, already carrying the 1/(4 NdotL NdotV). */
+float VisibilitySmith(float nDotV, float nDotL, float roughness)
+{
+    float alpha = roughness * roughness;
+    float k = alpha * 0.5;
+    float view = nDotL * (nDotV * (1.0 - k) + k);
+    float light = nDotV * (nDotL * (1.0 - k) + k);
+    return 0.5 / max(view + light, 0.00001);
+}
+
+vec3 FresnelSchlick(vec3 f0, float cosine)
+{
+    return f0 + (vec3(1.0) - f0) * pow(clamp(1.0 - cosine, 0.0, 1.0), 5.0);
+}
+
 SurfaceLight ShadeLight(FrameLightData light, vec3 baseColor, vec3 normal,
                         vec3 position, vec3 viewDirection, float metallic, float roughness)
 {
@@ -690,17 +723,28 @@ SurfaceLight ShadeLight(FrameLightData light, vec3 baseColor, vec3 normal,
             return result;
         }
     }
-    float diffuse = max(dot(normal, toLight), 0.0);
+    float nDotL = max(dot(normal, toLight), 0.0);
+    if (nDotL <= 0.0) {
+        return result;
+    }
+    float nDotV = max(dot(normal, viewDirection), 0.0001);
     vec3 halfVector = NormalizeOrUp(toLight + viewDirection);
-    float power = mix(10.0, 140.0, 1.0 - roughness);
-    float specular = pow(max(dot(normal, halfVector), 0.0), power);
+    float nDotH = max(dot(normal, halfVector), 0.0);
+    float vDotH = max(dot(viewDirection, halfVector), 0.0);
+    // Clamped away from a perfect mirror. A zero-roughness GGX lobe is a delta
+    // function, and a delta function sampled by one light direction is either
+    // missed entirely or returns an unbounded value in a single pixel.
+    float clampedRoughness = clamp(roughness, 0.035, 1.0);
     vec3 f0 = mix(vec3(0.04), baseColor, metallic);
-    float fresnel = pow(1.0 - max(dot(viewDirection, halfVector), 0.0), 5.0);
-    vec3 specularColor = mix(f0, baseColor + vec3(0.08), fresnel * 0.28);
-    vec3 diffuseColor = baseColor * mix(0.36, 1.0, 1.0 - metallic) * diffuse;
+    vec3 fresnel = FresnelSchlick(f0, vDotH);
+    float distribution = DistributionGgx(nDotH, clampedRoughness);
+    float visibility = VisibilitySmith(nDotV, nDotL, clampedRoughness);
+    // A metal has no body colour to scatter: what would have been diffuse is
+    // already in its f0. The dielectric share is what Fresnel did not reflect.
+    vec3 diffuseColor = baseColor * (1.0 - metallic) * (vec3(1.0) - fresnel) * nDotL;
     vec3 scale = light.colorIntensity.rgb * intensity * attenuation;
     result.diffuse = scale * diffuseColor;
-    result.specular = scale * specularColor * specular * 0.22;
+    result.specular = scale * fresnel * distribution * visibility * nDotL;
     return result;
 }
 
@@ -799,7 +843,7 @@ WaterSurfaceEval EvaluateBasinSurface(vec3 position, float time, RtWaterMaterial
  * and a painted slat.
  */
 WaterSurfaceEval EvaluateWaterfallSurface(vec3 position, vec3 geometricNormal, vec2 uv,
-                                          float time, RtWaterMaterial water)
+                                          float time, RtWaterMaterial water, vec3 rayDirection)
 {
     WaterSurfaceEval ev;
     ev.falling = true;
@@ -822,34 +866,96 @@ WaterSurfaceEval EvaluateWaterfallSurface(vec3 position, vec3 geometricNormal, v
     }
 
     float speed = max(water.wave.z, 0.4);
-    // UE waterfall card: a few persistent columns, fast downward streaks
-    // inside them, and empty UV everywhere else so the rock reads through.
+    // How far the chart slides per unit of depth stepped into the sheet.
+    //
+    // This is what turns a card into a volume. A flat sheet shaded from one
+    // sample of a 2D field has no interior: every strand of water in it lies
+    // in exactly one plane, so moving the camera slides the whole pattern
+    // rigidly and the eye reads a painted slat. Stepping the chart along the
+    // view direction projected into the sheet's own frame, and compositing a
+    // few samples taken that way, gives the strands different depths -- and
+    // strands at different depths move past each other as the camera moves,
+    // which is the only cue that says "this has a front and a back".
+    vec2 slide = vec2(dot(rayDirection, across), dot(rayDirection, along));
+
     float columns = WaterFractalNoise2(vec2(chart.x * 6.4, 0.16), 2);
     float columnMask = smoothstep(0.38, 0.60, columns);
-    vec2 flowUv = vec2(chart.x * 5.8 + columns * 0.45, chart.y * 14.0 + time * speed * 0.58);
-    float flow = WaterFractalNoise2(flowUv, 4);
-    float streaks = pow(smoothstep(0.36, 0.70, flow), 1.15) * columnMask;
+    float ragged = 0.05 + (1.0 - columnMask) * 0.16;
+    float edge = smoothstep(0.0, ragged, chart.x) * smoothstep(1.0, 1.0 - ragged, chart.x);
+    float lip = pow(smoothstep(0.86, 1.0, chart.y), 0.65);
+    float splash = pow(1.0 - smoothstep(0.0, 0.14, chart.y), 1.15);
+
+    const int kFallLayers = 3;
+    // Sheets deeper in are narrower, slower to reveal and progressively
+    // dimmer, which is what depth inside a translucent body does to it.
+    const float kLayerDepth[3] = float[](0.0, 0.085, 0.185);
+    const float kLayerWeight[3] = float[](1.0, 0.62, 0.34);
+    float opacity = 0.0;
+    float streaks = 0.0;
+    vec2 frontFlowUv = vec2(0.0);
+    float frontFlow = 0.0;
+    for (int layer = 0; layer < kFallLayers; ++layer) {
+        vec2 layerChart = chart + slide * kLayerDepth[layer];
+        // Each sheet is a different part of the same fall rather than a copy
+        // of it offset in depth: without the phase the three read as one
+        // pattern printed on three panes of glass.
+        vec2 flowUv = vec2(layerChart.x * 5.8 + columns * 0.45 + float(layer) * 3.7,
+                           layerChart.y * 14.0 + time * speed * (0.58 + float(layer) * 0.07));
+        float flow = WaterFractalNoise2(flowUv, 4);
+        float layerStreaks = pow(smoothstep(0.36, 0.70, flow), 1.15) * columnMask;
+        // Composited back to front through what is already in front of it, so
+        // three sheets cannot sum past opaque.
+        opacity += (1.0 - opacity) * clamp(layerStreaks * kLayerWeight[layer], 0.0, 1.0);
+        streaks = max(streaks, layerStreaks * kLayerWeight[layer]);
+        if (layer == 0) {
+            frontFlowUv = flowUv;
+            frontFlow = flow;
+        }
+    }
     float threads = pow(smoothstep(0.72, 0.90,
                                    WaterFractalNoise2(vec2(chart.x * 16.0,
                                                            chart.y * 10.0 + time * speed * 0.80),
                                                       2)),
                         1.5);
-    float ragged = 0.05 + (1.0 - columnMask) * 0.16;
-    float edge = smoothstep(0.0, ragged, chart.x) * smoothstep(1.0, 1.0 - ragged, chart.x);
-    float lip = pow(smoothstep(0.86, 1.0, chart.y), 0.65);
-    float splash = pow(1.0 - smoothstep(0.0, 0.14, chart.y), 1.15);
-    ev.opacity = clamp((streaks + threads * 0.55 + lip * 0.80 + splash * 0.42) * edge, 0.0, 1.0);
+    ev.opacity = clamp((opacity + threads * 0.42 + lip * 0.80 + splash * 0.42) * edge, 0.0, 1.0);
 
     float eps = 0.010;
-    float gradientX = WaterFractalNoise2(flowUv + vec2(eps, 0.0), 3) - flow;
-    float gradientY = WaterFractalNoise2(flowUv + vec2(0.0, eps), 3) - flow;
+    float gradientX = WaterFractalNoise2(frontFlowUv + vec2(eps, 0.0), 3) - frontFlow;
+    float gradientY = WaterFractalNoise2(frontFlowUv + vec2(0.0, eps), 3) - frontFlow;
     float fall = max(water.surface.w, 0.35);
     ev.normal = NormalizeOrUp(geom + across * gradientX * fall * 3.8 + along * gradientY * fall * 3.0);
     ev.roughness = 0.16;
     ev.crest = streaks;
-    ev.foam = clamp(streaks * water.surface.y * 0.90 + lip * 0.85 + splash * 0.50, 0.0, 1.0);
-    ev.albedo = mix(vec3(0.10, 0.28, 0.38), vec3(0.90, 0.94, 0.98), ev.foam);
+    ev.foam = clamp(streaks * water.surface.y * 1.30 + lip * 0.85 + splash * 0.55, 0.0, 1.0);
+    // Falling water is aerated water, and aerated water is white. The dark
+    // teal this used to start from is the colour of a still body seen into --
+    // a volume deep enough to absorb -- which is the one thing a sheet a few
+    // centimetres thick is not.
+    ev.albedo = mix(vec3(0.62, 0.74, 0.80), vec3(0.96, 0.98, 1.0), ev.foam);
     return ev;
+}
+
+/**
+ * Ratio of refractive indices for a ray about to cross the surface.
+ *
+ * Which way it is crossing decides the ratio, and only the ray's own side says
+ * which way. Both directions used to be handed the air-to-water ratio, which
+ * is right going in and wrong coming out by the square of it -- and the thing
+ * that goes missing when it is wrong is the entire behaviour of a surface seen
+ * from underneath. Water to air is the dense-to-thin direction, so it bends
+ * away from the normal and stops transmitting at all past about forty-nine
+ * degrees from vertical: everything above the water crowds into a circle
+ * overhead and the rest of the surface turns into a mirror of the bottom.
+ * Given the wrong ratio there is no circle and no mirror, just a flat window
+ * onto an undistorted world that happens to be above the water.
+ *
+ * `normal` is the surface's own outward normal, not the one already flipped to
+ * face the ray -- flipping it is what discards the side.
+ */
+float WaterEta(vec3 rayDirection, vec3 normal, RtWaterMaterial water)
+{
+    float ior = max(water.optics.x, 1.0);
+    return dot(rayDirection, normal) > 0.0 ? ior : 1.0 / ior;
 }
 
 /**
@@ -858,11 +964,11 @@ WaterSurfaceEval EvaluateWaterfallSurface(vec3 position, vec3 geometricNormal, v
  * This is the window a basin is. A waterfall must not call it: refracting
  * through a vertical card copies the courtyard beside the column.
  */
-vec3 TraceWaterRefraction(vec3 position, vec3 rayDirection, vec3 facingNormal,
+vec3 TraceWaterRefraction(vec3 position, vec3 rayDirection, vec3 facingNormal, float eta,
                           vec3 viewDirection, vec3 towardSun, vec3 volumeLight,
                           RtWaterMaterial water, float depth)
 {
-    vec3 bent = refract(rayDirection, facingNormal, 1.0 / max(water.optics.x, 1.0));
+    vec3 bent = refract(rayDirection, facingNormal, eta);
     if (dot(bent, bent) <= 0.5 || depth >= 1.0) {
         return vec3(0.0);
     }
@@ -876,14 +982,33 @@ vec3 TraceWaterRefraction(vec3 position, vec3 rayDirection, vec3 facingNormal,
     vec3 extinction = absorption + vec3(scatterRate);
     vec3 transmittance = exp(-extinction * payload.w);
     vec3 albedo = vec3(scatterRate) / max(extinction, vec3(0.0001));
-    float phase = PhaseHG(dot(viewDirection, towardSun), 0.42);
+    // Normalized so that isotropic scattering is one, the same convention the
+    // cloud layer uses. The bare Henyey-Greenstein carries a 1/4pi, which made
+    // this term about thirty times smaller than the albedo in front of it
+    // implies -- and a volume that scatters nothing is a tinted window, which
+    // is exactly how the water read: whatever was behind it dimmed, and where
+    // nothing was behind it the surface went black. The light a body of water
+    // sends back out of itself is most of its colour.
+    //
+    // Evaluated along the direction the light is actually travelling through
+    // the volume rather than back toward the eye: forward scattering is what
+    // lights water up when the sun is ahead of the camera, and reading the
+    // angle backwards put that brightening behind the viewer instead.
+    float phase = PhaseHG(dot(through, towardSun), 0.42) * 4.0 * kPi;
     vec3 scattered = volumeLight * albedo * phase;
     return payload.rgb * transmittance + scattered * (vec3(1.0) - transmittance);
 }
 
-bool WaterRefracts(vec3 rayDirection, vec3 facingNormal, RtWaterMaterial water)
+/**
+ * Whether the surface transmits at this angle at all.
+ *
+ * False is total internal reflection, which `refract` reports by returning the
+ * zero vector. A caller that sees it must fall back to reflection alone --
+ * that is not an error path, it is the mirrored underside of every pool.
+ */
+bool WaterRefracts(vec3 rayDirection, vec3 facingNormal, float eta)
 {
-    vec3 bent = refract(rayDirection, facingNormal, 1.0 / max(water.optics.x, 1.0));
+    vec3 bent = refract(rayDirection, facingNormal, eta);
     return dot(bent, bent) > 0.5;
 }
 
@@ -907,6 +1032,78 @@ const float kWetnessBand = 0.55;
  * summing every one, so two footprints close together do not double-wet the
  * ground between them.
  */
+/**
+ * Extinction of the water a submerged camera is looking through, per unit.
+ *
+ * A constant rather than the material of whichever body the camera is in. The
+ * frame block carries every water surface's footprint but none of their optics,
+ * and adding a second parallel list to answer one question about one body would
+ * cost every pixel a search for a value that is very nearly the same for every
+ * body a scene contains. These are clear water's own coefficients: red gone
+ * within a couple of metres, green within ten, blue carrying much further,
+ * which is the gradient that makes depth readable.
+ */
+const vec3 kUnderwaterExtinction = vec3(0.42, 0.10, 0.035);
+
+/** How much of the light scattered back out of that water is the sun's. */
+const float kUnderwaterScatter = 0.055;
+
+/**
+ * How deep under a water surface a point is, or zero when it is not under one.
+ *
+ * Reuses the wetness footprints rather than asking the host for a flag: those
+ * already say where every body of water is and how high its surface sits, which
+ * is the whole question. The nearest surface above the point wins.
+ */
+float SubmergedDepth(vec3 position)
+{
+    float depth = 0.0;
+    for (int index = 0; index < frame.wetnessBodies.length(); ++index) {
+        vec4 body = frame.wetnessBodies[index];
+        if (body.w <= 0.0) {
+            continue;
+        }
+        if (length(position.xz - vec2(body.x, body.z)) > body.w) {
+            continue;
+        }
+        depth = max(depth, body.y - position.y);
+    }
+    return max(depth, 0.0);
+}
+
+/**
+ * Attenuates a surface by the water between it and a submerged camera.
+ *
+ * Without this, going under the surface changes nothing about how far anything
+ * can be seen: the far wall of a basin arrives at full contrast, the ocean
+ * floor recedes to a crisp horizon, and the only cue that the camera is in
+ * water at all is that the sky has a surface across it. Water is about a
+ * thousand times more absorbing than air, so what it really does is close
+ * visibility down to metres and drain the red out of everything first -- and
+ * that foreshortening is most of what being underwater looks like.
+ *
+ * Applied only to the primary ray. A reflection or a refraction crossing the
+ * same water has already been attenuated by the surface that spawned it.
+ */
+vec3 ApplyUnderwater(vec3 color, vec3 origin, float distance, vec3 volumeLight, bool primary)
+{
+    if (!primary || distance <= 0.0) {
+        return color;
+    }
+    float submerged = SubmergedDepth(origin);
+    if (submerged <= 0.0) {
+        return color;
+    }
+    vec3 transmittance = exp(-kUnderwaterExtinction * distance);
+    // What the volume itself sends back, dimmed by the depth the light had to
+    // reach through to get here. This is why deep water is not black: the haze
+    // it closes visibility down to is lit, and its colour is whatever survived
+    // the descent, which is blue.
+    vec3 inscattered =
+        volumeLight * kUnderwaterScatter * exp(-kUnderwaterExtinction * submerged);
+    return color * transmittance + inscattered * (vec3(1.0) - transmittance);
+}
+
 float Wetness(vec3 position)
 {
     float wetness = 0.0;
@@ -1016,7 +1213,7 @@ void main()
         float footprint = gl_HitTEXT * frame.surfaceInfo.z;
         WaterSurfaceEval ev = water.surface.w > 0.001
                                   ? EvaluateWaterfallSurface(position, geometricNormal, texcoord,
-                                                             frame.frameTime.x, water)
+                                                             frame.frameTime.x, water, rayDirection)
                                   : EvaluateBasinSurface(position, frame.frameTime.x, water,
                                                          footprint);
         normal = ev.normal;
@@ -1055,9 +1252,10 @@ void main()
             }
         } else {
             baseColor = mix(baseColor, ev.albedo, foamAmount);
-            bool refracts = WaterRefracts(rayDirection, facingNormal, water);
+            const float eta = WaterEta(rayDirection, normal, water);
+            bool refracts = WaterRefracts(rayDirection, facingNormal, eta);
             if (refracts) {
-                transmission = TraceWaterRefraction(position, rayDirection, facingNormal,
+                transmission = TraceWaterRefraction(position, rayDirection, facingNormal, eta,
                                                     viewDirection, towardSun, volumeLight, water,
                                                     depth);
             }
@@ -1067,9 +1265,20 @@ void main()
     // The 6.5% floor used to ignore the clock: after sunset every surface
     // still carried a daylight fill, which is why Night looked like dusk.
     float dayFill = DayAmount();
-    vec3 color = baseColor * (vec3(0.010 + 0.055 * dayFill) + frame.ambientColorIntensity.rgb *
+    // A basin gets almost none of this. Its body is the transmission below and
+    // its face is the reflection further down, and an ambient diffuse term on
+    // top of those is a third surface -- opaque, flat, and painted across the
+    // same plane. That term is what makes a pond read as sheet plastic the
+    // colour of water rather than as water: it survives every viewing angle
+    // unchanged, so nothing about the surface responds to where it is seen
+    // from, which is the one thing water always does. A falling sheet keeps it,
+    // because aerated water genuinely is a scattering white body.
+    float ambientShare = (waterMask > 0.5 && water.surface.w <= 0.001) ? 0.05 : 1.0;
+    vec3 color = baseColor * ambientShare *
+                 (vec3(0.010 + 0.055 * dayFill) + frame.ambientColorIntensity.rgb *
                  frame.ambientColorIntensity.w * (0.7 + 0.3 * max(normal.y, 0.0)));
-    color += baseColor * MoonRadiance() * max(dot(normal, TowardMoon()), 0.0) * 0.55;
+    color += baseColor * ambientShare * MoonRadiance() *
+             max(dot(normal, TowardMoon()), 0.0) * 0.55;
     if (transmissionWeight > 0.0) {
         // What came through the surface replaces the body in proportion to what
         // the surface let past. The light loop below still adds the specular
@@ -1164,9 +1373,22 @@ void main()
         // the sky those waves average out to rather than a sharp copy of every
         // object afloat.
         reflectivity = waterReflectance;
-        // A sharp scene copy sitting next to every object on the water is the
-        // ghost. The sky the waves actually average to does not carry one.
-        mirrorFraction = 0.0;
+        // Water gets its mirror ray back. It was switched off here to stop a
+        // sharp scene copy appearing beside every object afloat -- but a sharp
+        // scene copy beside every object afloat is what a water surface *is*,
+        // and removing it left the one term that makes water read as water:
+        // the sky, the clouds and the far shore arriving off the surface
+        // instead of a flat gradient standing in for them.
+        //
+        // The ghost the switch was aimed at is a different failure, and it
+        // belongs to rough dry surfaces whose lobe is far wider than one ray.
+        // Water's lobe is not: the wave slope already carries the reflection
+        // wherever the surface points, and the roughness below is the slope
+        // this pixel's footprint could not resolve. So the same ramp that
+        // governs every other surface governs this one, and it retires the
+        // mirror exactly where the swell stops being resolvable and the
+        // reflection genuinely does average out to sky.
+        mirrorFraction = 1.0 - smoothstep(0.05, 0.34, roughness);
     }
     if (depth < 1.0 && reflectivity > 0.004) {
         vec3 reflected = NormalizeOrUp(reflect(rayDirection, normal));
@@ -1190,8 +1412,15 @@ void main()
     // The medium sits in front of everything this invocation produced, so it
     // is applied once, last, to the finished radiance rather than to each
     // contribution on the way in.
-    color = ApplyMedium(color, gl_WorldRayOriginEXT, rayDirection, gl_HitTEXT,
-                        depth < 0.5 && !isTransmission);
+    const bool primaryRay = depth < 0.5 && !isTransmission;
+    color = ApplyMedium(color, gl_WorldRayOriginEXT, rayDirection, gl_HitTEXT, primaryRay);
+    // Water in front of the eye, as against air. Ordered after the air because
+    // a submerged camera has no air between it and anything, so whichever of
+    // the two applies the other one has already declined to.
+    color = ApplyUnderwater(color, gl_WorldRayOriginEXT, gl_HitTEXT,
+                            SunRadiance() + frame.ambientColorIntensity.rgb *
+                                                frame.ambientColorIntensity.w,
+                            primaryRay);
     // Radiance leaves this shader uncompressed so a surface that reflects it
     // can keep accumulating light; raygen maps the final value once. A
     // transmission ray is answered with the distance it covered instead, which
