@@ -7,7 +7,10 @@
 #include "Concord/CCamera.h"
 #include "Concord/CScene.h"
 #include "engine/render/RenderModelSnapshot.h"
+#include "engine/render/RenderParticleSnapshot.h"
+#include "engine/render/RenderRippleSnapshot.h"
 #include "engine/render/RenderSkinningSnapshot.h"
+#include "engine/render/RenderWaterBodySnapshot.h"
 
 #include <algorithm>
 #include <cmath>
@@ -130,6 +133,9 @@ RenderSceneSnapshot ExtractRenderScene(const Scene& scene, f32 aspect)
         });
 
     AppendSkinningSnapshots(snapshot, world);
+    AppendParticleSnapshots(snapshot.particles, world, snapshot.camera.view);
+    AppendRippleSnapshots(snapshot.ripples, world);
+    AppendWaterBodySnapshots(snapshot.waterBodies, world);
 
     world.Query<LightComponent>([&](Entity entity, const LightComponent& light) {
         RenderLightSnapshot result{};

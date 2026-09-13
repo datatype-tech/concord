@@ -7,10 +7,12 @@
 
 #include "engine/core/Mat4.h"
 #include "engine/core/Transform.h"
+#include "engine/core/Vec2.h"
 #include "engine/asset/SkinningPalette.h"
 #include "engine/ecs/Components.h"
 #include "engine/ecs/Entity.h"
 #include "engine/scene/EnvironmentSettings.h"
+#include "engine/render/RenderParticleSnapshot.h"
 #include "engine/scene/Material.h"
 #include "engine/scene/ModelRenderer.h"
 
@@ -20,6 +22,24 @@
 namespace Concord {
 
 inline constexpr u32 kInvalidRenderNode = 0xFFFFFFFFu;
+
+/**
+ * Disturbances one frame can hand to the shader.
+ *
+ * Bounded because the hit shader loops over them for every water pixel: a list
+ * that could grow without limit would let a busy scene quietly cost more per
+ * pixel than the whole rest of the shading.
+ */
+inline constexpr u32 kMaxRenderRipples = 64;
+
+/**
+ * Water surfaces one frame hands the hit shader for the "wet near water" look.
+ *
+ * Bounded for the same reason ripples are: every dry fragment tests itself
+ * against this list, so its size has to be a constant rather than however
+ * many water bodies a scene happens to contain.
+ */
+inline constexpr u32 kMaxWetnessBodies = 8;
 
 class Scene;
 
@@ -55,6 +75,39 @@ struct RenderObjectSnapshot {
     SkinningPaletteRange skinningRange{};
 };
 
+/**
+ * One live water disturbance, ready to be packed for the hit shader.
+ *
+ * The strength is already scaled by how far through its life the ripple is, so
+ * the shader sees the ring at the amplitude it should be drawn at and never
+ * has to know that anything is fading.
+ */
+struct RenderRippleSnapshot {
+    Vec2 centre{};
+    f32 wavelength = 3.0f;
+    f32 speed = 1.8f;
+    f32 strength = 0.4f;
+    f32 falloff = 0.18f;
+    f32 reach = 24.0f;
+    /** Seconds since it was dropped; this is what places the wavefront. */
+    f32 age = 0.0f;
+};
+
+/**
+ * One water surface's footprint, ready to be packed for the hit shader.
+ *
+ * Approximated as a circle rather than the exact rectangle
+ * `WaterBodyComponent` authors: a rendering-only proximity test does not need
+ * the precision `WaterSplashSystem`'s collision test does, and a circle costs
+ * one scalar per fragment instead of a min/max pair per axis.
+ */
+struct RenderWaterBodySnapshot {
+    Vec2 centre{};
+    f32 worldY = 0.0f;
+    /** Covers the surface's longer half extent, so the circle never falls short. */
+    f32 radius = 0.0f;
+};
+
 /** One light and its placement copied from the scene store. */
 struct RenderLightSnapshot {
     Entity entity{};
@@ -71,6 +124,12 @@ struct RenderSceneSnapshot {
     std::vector<RenderLightSnapshot> lights;
     /** Concatenated joint matrices referenced by `RenderObjectSnapshot`s. */
     SkinningPaletteUpload skinningPalette{};
+    /** Camera-facing billboards expanded from every live particle emitter. */
+    RenderParticleSnapshot particles{};
+    /** Live water disturbances, newest last and bounded by kMaxRenderRipples. */
+    std::vector<RenderRippleSnapshot> ripples;
+    /** Water surfaces for the wetness look, bounded by kMaxWetnessBodies. */
+    std::vector<RenderWaterBodySnapshot> waterBodies;
 };
 
 /** Builds a render snapshot using the supplied viewport aspect ratio. */

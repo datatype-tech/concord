@@ -67,6 +67,68 @@ struct alignas(16) RenderFrameData {
     std::array<RenderFrameLightData, kMaxRenderLights> lights{};
     /** World-to-light clip transform used by the optional directional shadow pass. */
     Mat4 shadowViewProjection{};
+    /**
+     * x is seconds since the backend started; the rest is reserved.
+     *
+     * Appended last on purpose: the shaders declare only the prefix they read,
+     * so growing the block this way leaves every existing offset untouched.
+     */
+    Vec4 frameTime{};
+    /**
+     * x exposure, y contrast, z saturation, w vignette.
+     *
+     * Appended after `frameTime` for the same reason it was: only the shaders
+     * that read the grade declare this far into the block, so every plain
+     * forward-shading shader keeps its existing offsets.
+     */
+    Vec4 grade{};
+    /** x bloom threshold, y bloom intensity, z bloom radius, w chromatic aberration. */
+    Vec4 postFx{};
+    /**
+     * Per-frame context for shading a water surface.
+     *
+     * x is the live disturbance count, y is 1 when the camera sits below a
+     * water surface, z is the angular size of one pixel in radians, w reserved.
+     * Carried as floats so the block needs no second integer vector, and read
+     * back with a cast where a count is wanted.
+     */
+    Vec4 surfaceInfo{};
+    /** x density, y height falloff, z base height, w anisotropy. */
+    Vec4 fog{};
+    /** x sun scattering, y ambient scattering, z march steps, w march distance. */
+    Vec4 fogLight{};
+    /** rgb linear sky overhead; w the clock in hours, which clouds drift on. */
+    Vec4 zenithColor{};
+    /** rgb linear sky at the horizon. */
+    Vec4 horizonColor{};
+    /** x coverage, y density, z floor altitude, w weather cell size. */
+    Vec4 cloud{};
+    /** x fine march steps, y drift speed, z seconds since start, w light gain. */
+    Vec4 cloudDetail{};
+    /**
+     * Shape of the layer itself.
+     *
+     * x thickness, y detail cell size, z detail strength, w cloud type. Appended
+     * after cloudDetail rather than merged into it, because every offset before
+     * this one is pinned by the shaders that declare less than the whole block:
+     * a stage reading up to c cloudDetail cannot be moved by a field that was
+     * added later.
+     */
+    Vec4 cloudShape{};
+    /** x coarse steps, y light steps, z ambient gain, w reserved. */
+    Vec4 cloudMarch{};
+    /** xyz unit direction toward the moon; w how brightly it lights the night. */
+    Vec4 celestial{};
+    /**
+     * Water surfaces a dry fragment shades itself against for the "wet near
+     * water" look, each packed as xy centre, z world-space surface height, w
+     * radius (see RenderWaterBodySnapshot). A radius of zero is an empty slot.
+     *
+     * Appended last, after celestial, for the same append-only reason as
+     * everything above it: only rayhit.rchit declares this far into the
+     * block, so every plain forward-shading shader keeps its existing offsets.
+     */
+    std::array<Vec4, kMaxWetnessBodies> wetnessBodies{};
 };
 
 static_assert(sizeof(RenderFrameHeaderData) == 16);
@@ -78,11 +140,30 @@ static_assert(offsetof(RenderFrameData, camera) == 16);
 static_assert(offsetof(RenderFrameData, ambientColorIntensity) == 144);
 static_assert(offsetof(RenderFrameData, lights) == 160);
 static_assert(offsetof(RenderFrameData, shadowViewProjection) == 160 + kMaxRenderLights * 64);
-static_assert(sizeof(RenderFrameData) == 160 + kMaxRenderLights * 64 + 64);
+static_assert(offsetof(RenderFrameData, frameTime) == 160 + kMaxRenderLights * 64 + 64);
+static_assert(offsetof(RenderFrameData, grade) == 160 + kMaxRenderLights * 64 + 64 + 16);
+static_assert(offsetof(RenderFrameData, postFx) == 160 + kMaxRenderLights * 64 + 64 + 32);
+static_assert(offsetof(RenderFrameData, surfaceInfo) ==
+              160 + kMaxRenderLights * 64 + 64 + 48);
+static_assert(offsetof(RenderFrameData, fog) == 160 + kMaxRenderLights * 64 + 64 + 64);
+static_assert(offsetof(RenderFrameData, cloud) == 160 + kMaxRenderLights * 64 + 64 + 128);
+static_assert(offsetof(RenderFrameData, cloudShape) == 160 + kMaxRenderLights * 64 + 64 + 160);
+static_assert(offsetof(RenderFrameData, cloudMarch) == 160 + kMaxRenderLights * 64 + 64 + 176);
+static_assert(offsetof(RenderFrameData, celestial) == 160 + kMaxRenderLights * 64 + 64 + 192);
+static_assert(offsetof(RenderFrameData, wetnessBodies) == 160 + kMaxRenderLights * 64 + 64 + 208);
+static_assert(sizeof(RenderFrameData) ==
+              160 + kMaxRenderLights * 64 + 64 + 208 + kMaxWetnessBodies * 16);
 static_assert(alignof(RenderFrameData) == 16);
 
-/** Builds a bounded, GPU-layout-compatible block from a render snapshot. */
-RenderFrameData BuildRenderFrameData(const RenderSceneSnapshot& snapshot);
+/**
+ * Builds a bounded, GPU-layout-compatible block from a render snapshot.
+ *
+ * @param timeSeconds Seconds since start, driving time-based shading such as
+ *        the analytic water surface. Defaulted so callers that do not animate
+ *        anything need not thread a clock through.
+ */
+RenderFrameData BuildRenderFrameData(const RenderSceneSnapshot& snapshot,
+                                     f32 timeSeconds = 0.0f);
 
 /** Returns a borrowed byte view suitable for the current frame-buffer upload. */
 [[nodiscard]] std::span<const std::byte> RenderFrameDataBytes(

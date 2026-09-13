@@ -15,6 +15,7 @@
 
 #include "engine/asset/WaterMaterial.h"
 #include "engine/ecs/WaterRippleSystem.h"
+#include "engine/ecs/WaterSplashSystem.h"
 #include "engine/scene/Water.h"
 #include "engine/scene/WaterRipple.h"
 

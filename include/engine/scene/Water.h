@@ -8,7 +8,9 @@
 #include "engine/asset/ModelAsset.h"
 #include "engine/asset/WaterMaterial.h"
 #include "engine/core/Transform.h"
+#include "engine/core/Vec2.h"
 #include "engine/ecs/Entity.h"
+#include "engine/ecs/WaterBodyComponent.h"
 #include "engine/ecs/World.h"
 #include "engine/scene/Model.h"
 #include "engine/scene/ModelRenderer.h"
@@ -31,6 +33,15 @@ struct WaterDesc {
     bool visible = true;
     /** Whether the body contributes to shadow maps. */
     bool castShadow = true;
+    /**
+     * Half extent of the surface's horizontal footprint, in local X/Z before
+     * scale, for `WaterSplashSystem` to test dynamic bodies against.
+     *
+     * Left at zero, which is the right default for a vertical sheet -- a
+     * falling `Object::Waterfall` card has no horizontal footprint to land on
+     * and should never register as something a box could sink into.
+     */
+    Vec2 splashExtent{};
 };
 
 /**
@@ -61,6 +72,7 @@ struct Water {
             .visible = desc.visible,
             .castShadow = desc.castShadow,
         });
+        world.Add<WaterBodyComponent>(entity, WaterBodyComponent{.extent = desc.splashExtent});
     }
 };
 
@@ -72,6 +84,8 @@ struct OceanDesc {
     u32 meshIndex = kAllModelMeshes;
     bool visible = true;
     bool castShadow = true;
+    /** See `WaterDesc::splashExtent`. */
+    Vec2 splashExtent{};
 };
 
 struct Ocean {
@@ -85,7 +99,8 @@ struct Ocean {
                                .transform = desc.transform,
                                .meshIndex = desc.meshIndex,
                                .visible = desc.visible,
-                               .castShadow = desc.castShadow});
+                               .castShadow = desc.castShadow,
+                               .splashExtent = desc.splashExtent});
     }
 };
 
@@ -97,6 +112,8 @@ struct RiverDesc {
     u32 meshIndex = kAllModelMeshes;
     bool visible = true;
     bool castShadow = true;
+    /** See `WaterDesc::splashExtent`. */
+    Vec2 splashExtent{};
 };
 
 struct River {
@@ -110,7 +127,8 @@ struct River {
                                .transform = desc.transform,
                                .meshIndex = desc.meshIndex,
                                .visible = desc.visible,
-                               .castShadow = desc.castShadow});
+                               .castShadow = desc.castShadow,
+                               .splashExtent = desc.splashExtent});
     }
 };
 
