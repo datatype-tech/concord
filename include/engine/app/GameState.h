@@ -9,6 +9,7 @@
 #include "engine/debug/DebugOverlay.h"
 #include "engine/render/IRenderBackend.h"
 #include "engine/scene/Scene.h"
+#include "engine/ui/UiCanvas.h"
 
 #include <exception>
 #include <functional>
@@ -24,6 +25,7 @@ struct Game::Impl {
     Scene* pendingScene = nullptr;
     std::unique_ptr<IRenderBackend> renderer;
     DebugOverlay debugOverlay{};
+    UiCanvas ui{};
     std::function<void(f32)> onUpdate;
     SystemSchedule systems;
     bool systemsStarted = false;

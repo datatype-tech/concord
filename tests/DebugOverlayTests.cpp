@@ -20,10 +20,20 @@ bool TestReportsMeasuredFrameRate()
                                             .lights = 2,
                                             .rayTracingActive = false};
     for (Concord::u32 i = 0; i < 400; ++i) {
-        overlay.Update(1.0f / 60.0f, 12, stats);
+        overlay.Update(1.0f / 60.0f, 1.0f / 200.0f, 12, stats);
     }
-    const char* fpsLine = overlay.Frame().lines[0].text;
-    if (std::strstr(fpsLine, "fps") == nullptr || std::strstr(fpsLine, "60.0") == nullptr) {
+    // The headline rate is the engine's own 200, not the paced 60. Reporting
+    // the paced rate as "fps" is what made the readout look fake: under vsync
+    // it is one divided by the refresh interval, a constant.
+    const char* sceneLine = overlay.Frame().lines[0].text;
+    if (std::strstr(sceneLine, "entities 12") == nullptr ||
+        std::strstr(sceneLine, "objects 7") == nullptr ||
+        std::strstr(sceneLine, "lights 2") == nullptr) {
+        std::printf("scene line wrong: %s\n", sceneLine);
+        return false;
+    }
+    const char* fpsLine = overlay.Frame().lines[1].text;
+    if (std::strstr(fpsLine, "200") == nullptr || std::strstr(fpsLine, "fps") == nullptr) {
         std::printf("fps line wrong: %s\n", fpsLine);
         return false;
     }
@@ -33,14 +43,12 @@ bool TestReportsMeasuredFrameRate()
         std::printf("average frame time off: %f\n", averageMs);
         return false;
     }
-    if (std::strstr(overlay.Frame().lines[2].text, "1600x900") == nullptr ||
-        std::strstr(overlay.Frame().lines[2].text, "ray tracing off") == nullptr) {
-        std::printf("render line wrong: %s\n", overlay.Frame().lines[2].text);
+    if (overlay.AverageCpuTime() < 0.0049f || overlay.AverageCpuTime() > 0.0051f) {
+        std::printf("average cpu time off: %f\n", overlay.AverageCpuTime());
         return false;
     }
-    if (std::strstr(overlay.Frame().lines[3].text, "entities 12") == nullptr ||
-        std::strstr(overlay.Frame().lines[3].text, "lights 2") == nullptr) {
-        std::printf("scene line wrong: %s\n", overlay.Frame().lines[3].text);
+    if (overlay.Frame().lineCount != 2) {
+        std::printf("overlay line count wrong: %u\n", overlay.Frame().lineCount);
         return false;
     }
     return true;
@@ -53,10 +61,10 @@ bool TestAverageFollowsNewRate()
     overlay.showDebugInfo = true;
     const Concord::RenderBackendStats stats{};
     for (Concord::u32 i = 0; i < 200; ++i) {
-        overlay.Update(1.0f / 120.0f, 1, stats);
+        overlay.Update(1.0f / 120.0f, 1.0f / 120.0f, 1, stats);
     }
     for (Concord::u32 i = 0; i < 400; ++i) {
-        overlay.Update(1.0f / 30.0f, 1, stats);
+        overlay.Update(1.0f / 30.0f, 1.0f / 30.0f, 1, stats);
     }
     const Concord::f32 averageMs = overlay.AverageFrameTime() * 1000.0f;
     if (averageMs < 33.3f - 1.0f || averageMs > 33.3f + 1.0f) {
@@ -71,7 +79,7 @@ bool TestHiddenOverlayStaysEmpty()
 {
     Concord::DebugOverlay overlay;
     const Concord::RenderBackendStats stats{.width = 640, .height = 480};
-    overlay.Update(1.0f / 60.0f, 5, stats);
+    overlay.Update(1.0f / 60.0f, 1.0f / 60.0f, 5, stats);
     if (overlay.Frame().visible || overlay.Frame().lineCount != 0) {
         std::printf("hidden overlay produced lines\n");
         return false;
@@ -81,7 +89,7 @@ bool TestHiddenOverlayStaysEmpty()
         return false;
     }
     overlay.showDebugInfo = true;
-    overlay.Update(1.0f / 60.0f, 5, stats);
+    overlay.Update(1.0f / 60.0f, 1.0f / 60.0f, 5, stats);
     if (!overlay.Frame().visible || overlay.Frame().lineCount == 0) {
         std::printf("enabled overlay stayed hidden\n");
         return false;

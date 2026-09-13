@@ -17,6 +17,7 @@ namespace Concord {
 
 class DebugOverlay;
 class Scene;
+class UiCanvas;
 class Window;
 
 /**
@@ -84,6 +85,13 @@ public:
      * nothing while it is off.
      */
     [[nodiscard]] DebugOverlay& Overlay() noexcept;
+
+    /**
+     * Immediate-mode UI canvas owned by this Game.
+     *
+     * Begin/End are driven by the frame loop; emit widgets from OnUpdate.
+     */
+    [[nodiscard]] UiCanvas& Ui() noexcept;
 
     /**
      * Runs the frame loop until the attached window is closed.

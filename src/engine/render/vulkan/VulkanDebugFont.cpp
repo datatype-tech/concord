@@ -116,6 +116,16 @@ DebugFontBake BakeBitmapFont(f32 pixelHeight)
     bake.lineAdvance = static_cast<f32>(8 * scale + 4);
     bake.smooth = false;
     bake.loaded = true;
+    bake.whiteX = 0;
+    bake.whiteY = 0;
+    bake.whiteW = 2;
+    bake.whiteH = 2;
+    bake.hasWhite = bake.width >= 2 && bake.height >= 2;
+    if (bake.hasWhite) {
+        for (u32 row = 0; row < 2; ++row) {
+            std::memset(bake.texels.data() + static_cast<std::size_t>(row) * bake.width, 255, 2);
+        }
+    }
     return bake;
 }
 
@@ -191,6 +201,23 @@ DebugFontBake BakeDebugFont(f32 pixelHeight)
     if (cursorX == kGlyphPadding && cursorY == kGlyphPadding) {
         return BakeBitmapFont(pixelHeight);
     }
+    if (cursorX + 2 + kGlyphPadding > bake.width) {
+        cursorX = kGlyphPadding;
+        cursorY += rowHeight + kGlyphPadding;
+        rowHeight = 0;
+    }
+    bake.whiteX = static_cast<u16>(cursorX);
+    bake.whiteY = static_cast<u16>(cursorY);
+    bake.whiteW = 2;
+    bake.whiteH = 2;
+    bake.hasWhite = true;
+    for (u32 row = 0; row < 2; ++row) {
+        unsigned char* dest = bake.texels.data() +
+                              (static_cast<std::size_t>(cursorY + row) * bake.width) + cursorX;
+        dest[0] = 255;
+        dest[1] = 255;
+    }
+    rowHeight = std::max(rowHeight, 2u);
     bake.height = cursorY + rowHeight + kGlyphPadding;
     bake.texels.resize(static_cast<std::size_t>(bake.width) * bake.height);
     bake.smooth = true;

@@ -8,6 +8,7 @@
 #include "engine/core/Types.h"
 #include "engine/debug/DebugOverlayFrame.h"
 #include "engine/render/vulkan/VulkanBuffer.h"
+#include "engine/ui/UiDrawList.h"
 #include "engine/render/vulkan/VulkanContext.h"
 #include "engine/render/vulkan/VulkanDebugFont.h"
 #include "engine/render/vulkan/VulkanFrameLimits.h"
@@ -21,8 +22,7 @@ namespace Concord {
  *
  * The glyphs live in a one-time-uploaded 8x8 font atlas; each visible line
  * becomes six vertices per character in a per-frame-slot host buffer, drawn
- * twice through one dedicated alpha-blended pipeline (a black offset pass
- * for readability, then the text itself). Creation fails silently to an
+ * once through an alpha-blended pipeline. Creation fails silently to an
  * unusable state whenever the shader artifacts or the format are missing, so
  * the overlay degrades to "not drawn" instead of failing the backend.
  */
@@ -74,7 +74,7 @@ void DestroyVulkanDebugOverlay(const VulkanContext& context, VulkanDebugOverlay&
  */
 void RecordVulkanDebugOverlay(VkCommandBuffer commandBuffer, VulkanDebugOverlay& overlay,
                               u32 frameSlot, VkExtent2D extent, VkImageView colorView,
-                              const DebugOverlayFrame& frame);
+                              const DebugOverlayFrame* frame, const UiDrawList* ui);
 
 } // namespace Concord
 

@@ -16,6 +16,7 @@
 #include "engine/app/Game.h"
 #include "engine/app/GameConfig.h"
 #include "engine/debug/DebugOverlay.h"
+#include "Concord/CUi.h"
 #include "engine/window/Resolution.h"
 #include "engine/window/Window.h"
 #include "engine/window/WindowDesc.h"

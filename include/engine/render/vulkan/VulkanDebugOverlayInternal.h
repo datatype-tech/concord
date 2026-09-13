@@ -13,10 +13,8 @@ namespace Concord {
 constexpr u32 kOverlayLineSpacing = 6;
 /** Distance from the window edges, in device pixels. */
 constexpr u32 kOverlayMargin = 10;
-/** Drop shadow distance behind the white text, in device pixels. */
-constexpr f32 kOverlayShadowOffset = 2.0f;
 /** Baked size of the overlay font, in pixels. */
-constexpr f32 kOverlayFontPixelHeight = 20.0f;
+constexpr f32 kOverlayFontPixelHeight = 16.0f;
 
 /** Host-side vertex fed to the overlay pipeline; positions are NDC. */
 struct OverlayVertex {

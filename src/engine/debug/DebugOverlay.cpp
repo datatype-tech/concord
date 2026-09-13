@@ -4,6 +4,9 @@
 
 #include "engine/debug/DebugOverlay.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <cstdarg>
 #include <cstdio>
 
@@ -32,12 +35,18 @@ void FormatLine(DebugOverlayFrame& frame, u32 index, const char* format, ...)
 
 } // namespace
 
-void DebugOverlay::Update(f32 deltaTime, usize entityCount, const RenderBackendStats& renderStats)
+void DebugOverlay::Update(f32 frameSeconds, f32 cpuSeconds, usize entityCount,
+                          const RenderBackendStats& renderStats)
 {
-    m_lastFrameTime = deltaTime > kMinimumFrameTime ? deltaTime : 0.0f;
+    m_lastFrameTime = frameSeconds > kMinimumFrameTime ? frameSeconds : 0.0f;
     m_averageFrameTime =
         m_averageFrameTime <= 0.0f ? m_lastFrameTime
                                    : m_averageFrameTime + (m_lastFrameTime - m_averageFrameTime) * kSmoothing;
+
+    const f32 lastCpu = cpuSeconds > kMinimumFrameTime ? cpuSeconds : 0.0f;
+    m_averageCpuTime = m_averageCpuTime <= 0.0f
+                           ? lastCpu
+                           : m_averageCpuTime + (lastCpu - m_averageCpuTime) * kSmoothing;
     m_entityCount = entityCount;
     m_stats = renderStats;
 
@@ -47,21 +56,21 @@ void DebugOverlay::Update(f32 deltaTime, usize entityCount, const RenderBackendS
         return;
     }
 
-    const f32 averageMs = m_averageFrameTime * 1000.0f;
-    const f32 fps = m_averageFrameTime > 0.0f ? 1.0f / m_averageFrameTime : 0.0f;
+    // Engine cost, not the paced present. Under vsync the full frame time is
+    // the refresh interval, and printing that as fps is a constant.
+    const f32 engineFps = m_averageCpuTime > 0.0f ? 1.0f / m_averageCpuTime : 0.0f;
     m_frame.lineCount = 0;
-    FormatLine(m_frame, 0, "fps %5.1f  (%.2f ms avg)", fps, averageMs);
-    FormatLine(m_frame, 1, "frame %.2f ms", m_lastFrameTime * 1000.0f);
-    FormatLine(m_frame, 2, "render %ux%u  ray tracing %s", m_stats.width, m_stats.height,
-               m_stats.rayTracingActive ? "on" : "off");
-    FormatLine(m_frame, 3, "entities %llu  objects %u  lights %u",
+    FormatLine(m_frame, 0, "entities %llu  objects %u  lights %u",
                static_cast<unsigned long long>(m_entityCount), m_stats.visibleObjects,
                m_stats.lights);
+    FormatLine(m_frame, 1, "%.0f fps", engineFps);
 }
 
 const DebugOverlayFrame& DebugOverlay::Frame() const noexcept { return m_frame; }
 
 f32 DebugOverlay::AverageFrameTime() const noexcept { return m_averageFrameTime; }
+
+f32 DebugOverlay::AverageCpuTime() const noexcept { return m_averageCpuTime; }
 
 f32 DebugOverlay::LastFrameTime() const noexcept { return m_lastFrameTime; }
 

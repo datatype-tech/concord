@@ -29,17 +29,26 @@ public:
     /**
      * Records one frame and refreshes the overlay text.
      *
-     * @param deltaTime Seconds elapsed since the previous Update call.
+     * @param frameSeconds Full loop period. With vsync on this is pinned to
+     *        the refresh rate, so it reports the paced rate rather than the
+     *        engine's cost.
+     * @param cpuSeconds Time the frame cost up to the present call, before a
+     *        vsync-locked swapchain blocks inside it. This is the number that
+     *        actually moves when the engine gets heavier.
      * @param entityCount Entities alive in the scene being rendered.
      * @param renderStats What the backend actually drew last frame.
      */
-    void Update(f32 deltaTime, usize entityCount, const RenderBackendStats& renderStats);
+    void Update(f32 frameSeconds, f32 cpuSeconds, usize entityCount,
+                const RenderBackendStats& renderStats);
 
     /** The frame to submit to the render backend; valid until next Update. */
     [[nodiscard]] const DebugOverlayFrame& Frame() const noexcept;
 
     /** Exponentially smoothed frame time in seconds; zero before Update. */
     [[nodiscard]] f32 AverageFrameTime() const noexcept;
+
+    /** Smoothed per-frame cost excluding the present wait, in seconds. */
+    [[nodiscard]] f32 AverageCpuTime() const noexcept;
 
     /** Frame time most recently passed to Update, in seconds. */
     [[nodiscard]] f32 LastFrameTime() const noexcept;
@@ -48,6 +57,7 @@ private:
     DebugOverlayFrame m_frame{};
     f32 m_averageFrameTime = 0.0f;
     f32 m_lastFrameTime = 0.0f;
+    f32 m_averageCpuTime = 0.0f;
     usize m_entityCount = 0;
     RenderBackendStats m_stats{};
 };

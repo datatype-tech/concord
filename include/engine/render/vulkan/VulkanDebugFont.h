@@ -50,6 +50,12 @@ struct DebugFontBake {
     bool smooth = false;
     /** True when texels and metrics were produced by a successful bake. */
     bool loaded = false;
+    /** Atlas rectangle of a solid white patch used to draw UI panels. */
+    u16 whiteX = 0;
+    u16 whiteY = 0;
+    u16 whiteW = 2;
+    u16 whiteH = 2;
+    bool hasWhite = false;
 
     /** Horizontal pixel width of a NUL-terminated ASCII line. */
     [[nodiscard]] f32 LineWidth(const char* text) const noexcept;
