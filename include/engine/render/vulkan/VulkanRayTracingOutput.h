@@ -63,13 +63,21 @@ struct VulkanRayTracingOutputRing {
  *
  * Every pixel of the traced image costs at least one traversal of the scene
  * and most of them cost several, so native resolution prices the whole frame
- * at the heaviest pixel. The default is 0.8: the composite blits the graded
- * image up, which reads as a slight uniform softness rather than as
- * displaced duplicates, while buying back roughly half the trace cost.
- * `CONCORD_RENDER_SCALE` still trades pixels for frame time when a title
- * wants a different bargain, up to native.
+ * at the heaviest pixel.
+ *
+ * Native, after the cloud layer's march bound was cut. The 0.8 this used to be
+ * bought back a third of the trace, and it charged for it twice over in edge
+ * quality: anti-aliasing runs on the traced image, so every edge was resolved
+ * at four fifths of display resolution and *then* stretched back up by a
+ * quarter. A blit cannot put back a sample that was never taken, so what
+ * reached the screen was a staircase with a soft edge on it -- which is worse
+ * than either a sharp staircase or an honestly soft image.
+ *
+ * `CONCORD_RENDER_SCALE` still trades pixels for frame time when a title wants
+ * a different bargain; it is the right lever for a machine that needs one, and
+ * the wrong default for every machine that does not.
  */
-inline constexpr f32 kVulkanDefaultRenderScale = 0.8f;
+inline constexpr f32 kVulkanDefaultRenderScale = 1.0f;
 
 /**
  * Extent the traced and graded images are allocated at, for a given output.
