@@ -53,6 +53,9 @@ bool RecordVulkanRayTracingSceneBuildInternal(
         scene.scratchBuffer.GetDeviceAddress() % scene.scratchAlignment != 0) {
         return false;
     }
+    if (!UploadVulkanRayTracingRipples(scene, snapshot)) {
+        return false;
+    }
     const u32 instanceCount = UploadVulkanRayTracingInstances(scene, snapshot);
     if (instanceCount == 0) {
         return false;

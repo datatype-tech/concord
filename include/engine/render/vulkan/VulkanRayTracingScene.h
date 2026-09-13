@@ -5,9 +5,14 @@
 #ifndef CONCORD_VULKANRAYTRACINGSCENE_H
 #define CONCORD_VULKANRAYTRACINGSCENE_H
 
+#include "engine/asset/ModelAsset.h"
+#include "engine/asset/SkinnedGeometry.h"
 #include "engine/core/Types.h"
+#include "engine/render/RayTracingTextureSlots.h"
 #include "engine/render/RenderSceneSnapshot.h"
+#include "engine/render/vulkan/VulkanBoxMaterial.h"
 #include "engine/render/vulkan/VulkanBuffer.h"
+#include "engine/render/vulkan/VulkanRippleSource.h"
 #include "engine/render/vulkan/VulkanRayTracingModel.h"
 
 #include <vulkan/vulkan.h>
@@ -37,11 +42,47 @@ inline constexpr u32 kVulkanRayTracingBoxVertexCount = 8;
 inline constexpr u32 kVulkanRayTracingBoxIndexCount = 36;
 inline constexpr u32 kVulkanRayTracingBoxPrimitiveCount = 12;
 inline constexpr u32 kVulkanRayTracingMaxInstances = 256;
+/**
+ * Bits of a TLAS instance mask, which decides what a ray is allowed to hit.
+ *
+ * One acceleration structure serves both the camera and the sun, so the two
+ * are separated by mask rather than by building two trees: an object authored
+ * with `castShadow = false` stays visible to primary rays while it stops
+ * blocking the shadow rays. Without this the promise was empty on the ray
+ * traced path -- a water surface spanning a basin occluded every point under
+ * it from a low sun, which left the whole floor on ambient light alone.
+ */
+inline constexpr u32 kVulkanRayTracingMaskVisible = 0x02u;
+inline constexpr u32 kVulkanRayTracingMaskLightBlocker = 0x01u;
 inline constexpr u32 kVulkanRayTracingDescriptorSet = 2;
 inline constexpr VkDeviceSize kVulkanRayTracingVertexAddressAlignment = 4;
 inline constexpr VkDeviceSize kVulkanRayTracingInstanceAddressAlignment = 16;
 
-/** Optional hardware ray-tracing structures for Box and static model geometry. */
+/**
+ * Bind-pose geometry and palette binding for one per-frame skinned BLAS.
+ *
+ * A skinned primitive cannot share one BLAS across instances the way a static
+ * primitive does, because every animated entity deforms the same rest mesh
+ * differently. Each source therefore owns its own metadata range and is
+ * refit every frame from CPU-solved vertices.
+ */
+struct VulkanRayTracingSkinnedSource {
+    /** Rest-pose geometry, carrying the joint indices and weights to deform by. */
+    ModelPrimitive rest{};
+    /** Entity whose animated pose drives this geometry. */
+    Entity entity{};
+    /** Index of this source's BLAS entry inside scene.modelPrimitives. */
+    u32 modelPrimitiveIndex = 0;
+    /** Index into the hit-shader primitive metadata SSBO. */
+    u32 metadataIndex = 0;
+    /** First vertex of this primitive inside the packed model vertex SSBO. */
+    u32 metadataFirstVertex = 0;
+    u32 vertexCount = 0;
+    /** Reused deformation scratch, so a frame allocates nothing here. */
+    std::vector<SkinnedVertex> scratch;
+};
+
+/** Optional hardware ray-tracing structures for Box and imported-model geometry. */
 struct VulkanRayTracingScene {
     VkDevice device = VK_NULL_HANDLE;
     VulkanRayTracingDispatch dispatch{};
@@ -54,6 +95,10 @@ struct VulkanRayTracingScene {
     VulkanBuffer modelVertexBuffer{};
     VulkanBuffer modelIndexBuffer{};
     VulkanBuffer modelPrimitiveBuffer{};
+    /** Authored material of every Box instance, indexed by its custom index. */
+    VulkanBuffer boxMaterialBuffer{};
+    /** Live water disturbances, rewritten every frame. */
+    VulkanBuffer rippleSourceBuffer{};
     VkAccelerationStructureKHR bottomLevel = VK_NULL_HANDLE;
     VkAccelerationStructureKHR topLevel = VK_NULL_HANDLE;
     VkDeviceAddress bottomLevelAddress = 0;
@@ -71,6 +116,10 @@ struct VulkanRayTracingScene {
     /** Packed CPU geometry consumed by the model hit-shader SSBOs. */
     std::vector<VulkanRayTracingModelVertex> modelVertices;
     std::vector<u32> modelIndices;
+    /** Per-frame skinned primitives, each refit from its entity's pose. */
+    std::vector<VulkanRayTracingSkinnedSource> skinnedSources;
+    /** Sampler slot per material's base-colour texture, read by the hit shader. */
+    RayTracingTextureSlots textureSlots;
     /** Includes non-shadow-casting meshes when this scene feeds primary RT rays. */
     bool includeNonShadowCasters = false;
 
@@ -85,7 +134,8 @@ struct VulkanRayTracingScene {
                instanceBuffer.GetDeviceAddress() % kVulkanRayTracingInstanceAddressAlignment == 0 &&
                bottomLevelBuffer.HasDeviceAddress() &&
                topLevelBuffer.HasDeviceAddress() && scratchBuffer.HasDeviceAddress() &&
-               modelPrimitiveBuffer.IsReady() &&
+               modelPrimitiveBuffer.IsReady() && boxMaterialBuffer.IsReady() &&
+               rippleSourceBuffer.IsReady() &&
                bottomLevel != VK_NULL_HANDLE && topLevel != VK_NULL_HANDLE &&
                bottomLevelAddress != 0 && topLevelAddress != 0 && scratchAlignment != 0 &&
                descriptorLayout != VK_NULL_HANDLE && descriptorPool != VK_NULL_HANDLE &&

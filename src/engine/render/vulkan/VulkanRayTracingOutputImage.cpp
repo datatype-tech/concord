@@ -53,7 +53,13 @@ bool CreateVulkanRayTracingOutputImage(const VulkanContext& context, VkExtent2D 
     VkFormatProperties formatProperties{};
     vkGetPhysicalDeviceFormatProperties(context.physicalDevice,
                                         kVulkanRayTracingOutputFormat, &formatProperties);
+    // Sampled as well as stored: the post-processing stage reads the traced
+    // frame through a sampler, because a bloom gather has to look at
+    // neighbouring pixels and an image store cannot. An image created without
+    // this bit reads back as zero when it is sampled, which is a silent black
+    // frame rather than an error.
     constexpr VkFormatFeatureFlags requiredFeatures = VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT |
+                                                       VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
                                                        VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
                                                        VK_FORMAT_FEATURE_BLIT_SRC_BIT;
     if ((formatProperties.optimalTilingFeatures & requiredFeatures) != requiredFeatures) {
@@ -68,7 +74,8 @@ bool CreateVulkanRayTracingOutputImage(const VulkanContext& context, VkExtent2D 
     imageInfo.arrayLayers = 1;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                      VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkResult result = vkCreateImage(context.device, &imageInfo, nullptr, &output.image);
     if (result != VK_SUCCESS) {

@@ -1,4 +1,4 @@
-﻿// This Source Code Form is subject to the terms of the Mozilla Public
+// This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
@@ -31,6 +31,18 @@ VkResult CreateLogicalDevice(VulkanContext& context, const VulkanRayTracingSuppo
     VkPhysicalDeviceFeatures2 features{};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features.pNext = &dynamic;
+
+    // Base features are all disabled unless asked for, and the draw path only
+    // needs this one: the closest-hit stage indexes its sampler array by the
+    // material slot the hit resolved. Enabling it conditionally keeps a
+    // device without the bit usable, just untextured.
+    VkPhysicalDeviceFeatures2 supported{};
+    supported.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    vkGetPhysicalDeviceFeatures2(context.physicalDevice, &supported);
+    context.samplerArrayIndexing =
+        supported.features.shaderSampledImageArrayDynamicIndexing == VK_TRUE;
+    features.features.shaderSampledImageArrayDynamicIndexing =
+        supported.features.shaderSampledImageArrayDynamicIndexing;
 
     VkPhysicalDeviceBufferDeviceAddressFeatures address{};
     VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration{};

@@ -72,17 +72,47 @@ bool VulkanRenderBackend::Init(Window& window, const RenderBackendInit& init)
             std::fprintf(stderr,
                          "[Concord] texture resources unavailable; imported models disabled\n");
         }
+        // Built before the pipeline on purpose: the pipeline layout decides
+        // its set count from whether the sampler array exists, and the
+        // dispatch must then bind exactly that many sets.
+        if (impl.context.rayTracing.IsUsable() &&
+            !CreateVulkanRayTracingTextures(impl.context, impl.rayTracingTextures)) {
+            std::fprintf(stderr, "[Concord] ray tracing sampler array unavailable; "
+                                 "model textures stay unsampled\n");
+        }
+        // The probe reads the graded image, which lives at the traced extent
+        // rather than the window's. Arming it against the swapchain would leave
+        // it staging a frame larger than the one copied into it, and the probe
+        // would refuse every capture without saying why.
+        const VkExtent2D tracedExtent = ResolveVulkanRenderExtent(impl.swapchain.extent);
+        std::fprintf(stderr, "[Concord] tracing at %ux%u, scale %.2f of %ux%u\n",
+                     tracedExtent.width, tracedExtent.height,
+                     static_cast<f64>(VulkanRenderScale()), impl.swapchain.extent.width,
+                     impl.swapchain.extent.height);
+        CreateVulkanFrameProbe(impl.context, tracedExtent, impl.frameProbe);
         if (rayPipelineShaderAvailable && impl.rayTracing.IsReady() &&
             CreateVulkanRayTracingPipeline(impl.context, impl.frameData.layout,
                                            impl.rayTracing.scenes[0].descriptorLayout,
-                                           impl.rayTracingPipeline)) {
+                                           impl.rayTracingPipeline,
+                                           impl.rayTracingTextures.layout)) {
             if (!impl.swapchain.transferDestinationSupported ||
                 !SupportsVulkanRayTracingComposite(impl.context, impl.swapchain.format) ||
                 !CreateVulkanRayTracingOutputRing(impl.context,
                                                   impl.rayTracingPipeline.outputLayout,
-                                                  impl.swapchain.extent, impl.rayTracingOutput)) {
+                                                  ResolveVulkanRenderExtent(impl.swapchain.extent),
+                                                  impl.rayTracingOutput) ||
+                !CreateVulkanPostProcessRing(impl.context,
+                                             ResolveVulkanRenderExtent(impl.swapchain.extent),
+                                             impl.postProcess)) {
                 DestroyVulkanRayTracingPipeline(impl.context, impl.rayTracingPipeline);
+                std::fprintf(stderr, "[Concord] ray tracing output unavailable; "
+                                     "falling back to the raster path\n");
             }
+        } else {
+            // Falling back silently here would leave no way to tell a working
+            // raster frame from a ray-traced one that never came up.
+            std::fprintf(stderr, "[Concord] ray tracing pipeline unavailable; "
+                                 "falling back to the raster path\n");
         }
         bool shadowsReady = true;
         for (u32 i = 0; i < kMaxFramesInFlight; ++i) {
@@ -131,6 +161,12 @@ bool VulkanRenderBackend::Init(Window& window, const RenderBackendInit& init)
                                                   impl.tileCulling)) {
             std::fprintf(stderr, "[Concord] tile shader unavailable; using all-light fallback\n");
         }
+        if (!CreateVulkanParticlePipeline(impl.context, impl.swapchain.format,
+                                          impl.depth[0].format, impl.frameData.layout,
+                                          impl.particlePipeline)) {
+            std::fprintf(stderr,
+                         "[Concord] particle shaders unavailable; skipping the particle pass\n");
+        }
         impl.CreateModelPipelines();
     }
     const bool extensionsReady = RunVulkanRenderExtensions(
@@ -156,6 +192,11 @@ void VulkanRenderBackend::SetDebugOverlay(const DebugOverlayFrame* overlay)
     m_impl->debugOverlayFrame = overlay;
 }
 
+void VulkanRenderBackend::SetUi(const UiDrawList* ui)
+{
+    m_impl->uiDrawList = ui;
+}
+
 RenderBackendStats VulkanRenderBackend::LastFrameStats() const
 {
     const Impl& impl = *m_impl;
@@ -164,6 +205,8 @@ RenderBackendStats VulkanRenderBackend::LastFrameStats() const
     stats.height = impl.swapchain.extent.height;
     stats.visibleObjects = static_cast<u32>(impl.visibleObjectCount);
     stats.lights = static_cast<u32>(impl.lightCount);
+    stats.particles = impl.particleCount;
+    stats.ripples = impl.rippleCount;
     stats.rayTracingActive = impl.rayTracingCompositedLastFrame;
     return stats;
 }

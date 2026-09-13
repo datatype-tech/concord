@@ -7,8 +7,32 @@
 
 #include "engine/render/vulkan/VulkanRayTracingScene.h"
 #include "engine/render/vulkan/VulkanModelAssetCache.h"
+#include "engine/render/vulkan/VulkanTextureKey.h"
 
 namespace Concord {
+
+/**
+ * Registers a material's base-colour texture and returns its sampler slot.
+ *
+ * The table arms itself on first use so a scene that never had textures still
+ * resolves everything to the fallback slot. An untextured material, or one
+ * whose key does not fit the fixed array, yields slot 0 -- the white texture
+ * the renderer always binds -- rather than an index the shader cannot use.
+ */
+[[nodiscard]] inline u32 AcquireRayTracingTextureSlot(RayTracingTextureSlots& slots,
+                                                      const ModelAsset& asset,
+                                                      const VulkanModelAsset& gpu,
+                                                      u32 materialIndex)
+{
+    if (!slots.IsReady()) {
+        ResetRayTracingTextureSlots(slots);
+    }
+    if (materialIndex >= gpu.baseColorTextures.size()) {
+        return 0;
+    }
+    return slots.Acquire(MakeVulkanTextureCacheKey(gpu.baseColorTextures[materialIndex],
+                                                   VulkanModelAssetDirectory(asset)));
+}
 
 /** Loads KHR acceleration-structure commands from one logical device. */
 bool LoadVulkanRayTracingDispatch(VkDevice device,
@@ -43,6 +67,10 @@ bool AppendVulkanRayTracingModelData(
     const VulkanModelAsset& gpu, const VulkanModelPrimitiveRange& range,
     VulkanRayTracingModelPrimitive& output);
 
+/** Writes this frame's live water disturbances into the ripple SSBO. */
+bool UploadVulkanRayTracingRipples(VulkanRayTracingScene& scene,
+                                   const RenderSceneSnapshot* snapshot) noexcept;
+
 /** Recreates packed model SSBOs and refreshes the scene descriptor set. */
 bool RebuildVulkanRayTracingModelBuffers(const VulkanContext& context,
                                          VulkanRayTracingScene& scene);
@@ -50,6 +78,22 @@ bool RebuildVulkanRayTracingModelBuffers(const VulkanContext& context,
 /** Records all imported-model BLAS builds before the TLAS build. */
 bool RecordVulkanRayTracingModelBuilds(VkCommandBuffer commandBuffer,
                                        const VulkanRayTracingScene& scene) noexcept;
+
+/** Appends one CPU-side skinned source per animated model instance. */
+bool AppendVulkanRayTracingSkinnedSources(
+    VulkanRayTracingScene& scene, const RenderSceneSnapshot& snapshot,
+    const VulkanModelAssetCache& modelAssets);
+
+/** Creates the BLAS objects skinned sources need; call after model buffers exist. */
+bool CreateVulkanRayTracingSkinnedPrimitives(const VulkanContext& context,
+                                             VulkanRayTracingScene& scene);
+
+/** Re-points skinned BLAS input at the current packed model buffers. */
+void RefreshVulkanRayTracingSkinnedAddresses(VulkanRayTracingScene& scene) noexcept;
+
+/** Deforms every skinned source from its entity pose and re-uploads the SSBO. */
+bool UpdateVulkanRayTracingSkinnedGeometry(VulkanRayTracingScene& scene,
+                                           const RenderSceneSnapshot& snapshot);
 
 /** Releases imported-model BLAS resources owned by one frame slot. */
 void DestroyVulkanRayTracingModelPrimitives(const VulkanContext& context,

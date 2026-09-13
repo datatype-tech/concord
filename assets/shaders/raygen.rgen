@@ -6,6 +6,7 @@
 #extension GL_EXT_ray_tracing : require
 
 struct FrameCameraData { mat4 view; mat4 projection; };
+/** Only the prefix this stage reads; a shader may declare less than it is given. */
 layout(std140, set = 0, binding = 0) uniform FrameDataBlock {
     uvec4 header;
     FrameCameraData camera;
@@ -13,6 +14,20 @@ layout(std140, set = 0, binding = 0) uniform FrameDataBlock {
 layout(set = 1, binding = 0, rgba16f) uniform image2D outputImage;
 layout(set = 2, binding = 0) uniform accelerationStructureEXT scene;
 layout(location = 0) rayPayloadEXT vec4 payload;
+
+/**
+ * Where the image stops being radiance and starts being a picture.
+ *
+ * This stage writes raw radiance, uncompressed and ungraded, and nothing else
+ * touches it afterwards. That is deliberate: a bloom gather has to see the
+ * whole frame to know what is bright, and a tone curve applied here would
+ * compress each pixel before its neighbours had contributed, so a highlight
+ * could never spill onto anything, and a surface that reflects this one would
+ * receive an already-compressed value and read as milky.
+ *
+ * Exposure, bloom, the ACES fit, the print grade, the colour fringing and the
+ * vignette all happen once, in `post.comp`, on the finished frame.
+ */
 
 /** Generates a primary camera ray and stores the hit or miss color. */
 void main()
@@ -28,5 +43,6 @@ void main()
     payload = vec4(0.02, 0.025, 0.04, 0.0); // w carries recursion depth
     traceRayEXT(scene, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin, 0.01,
                 direction, 10000.0, 0);
-    imageStore(outputImage, pixel, payload);
+    // Raw radiance out; the post pass decides what it looks like.
+    imageStore(outputImage, pixel, vec4(max(payload.rgb, vec3(0.0)), payload.a));
 }

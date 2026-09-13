@@ -1,4 +1,4 @@
-﻿// This Source Code Form is subject to the terms of the Mozilla Public
+// This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
@@ -33,6 +33,17 @@ struct VulkanContext {
 
     /** Optional hardware ray-tracing path enabled for this logical device. */
     VulkanRayTracingSupport rayTracing{};
+
+    /**
+     * Whether shaders may index a sampler array with a computed value.
+     *
+     * This is a base VkPhysicalDeviceFeatures bit, so it is off unless the
+     * device was created asking for it. The ray-tracing closest-hit stage
+     * needs it to pick a material's texture from the sampler array; when the
+     * device lacks it the array is simply not built and models stay
+     * untextured rather than the pipeline failing to create.
+     */
+    bool samplerArrayIndexing = false;
 };
 
 } // namespace Concord

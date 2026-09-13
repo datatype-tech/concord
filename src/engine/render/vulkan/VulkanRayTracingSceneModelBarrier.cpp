@@ -55,9 +55,10 @@ bool InsertVulkanRayTracingModelShaderBarrier(
     VkCommandBuffer commandBuffer, const VulkanRayTracingScene& scene) noexcept
 {
     if (commandBuffer == VK_NULL_HANDLE) return false;
-    VkBufferMemoryBarrier barriers[3]{};
+    VkBufferMemoryBarrier barriers[5]{};
     const VulkanBuffer* buffers[] = {&scene.modelVertexBuffer, &scene.modelIndexBuffer,
-                                     &scene.modelPrimitiveBuffer};
+                                     &scene.modelPrimitiveBuffer, &scene.boxMaterialBuffer,
+                                     &scene.rippleSourceBuffer};
     u32 count = 0;
     for (const VulkanBuffer* buffer : buffers) {
         if (buffer->buffer == VK_NULL_HANDLE) continue;

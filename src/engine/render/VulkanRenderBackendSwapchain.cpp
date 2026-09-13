@@ -54,7 +54,8 @@ bool VulkanRenderBackend::Impl::RecreateSwapchain()
     const bool outputReady =
         !outputSupported ||
         CreateVulkanRayTracingOutputRing(context, rayTracingPipeline.outputLayout,
-                                         replacement.extent, outputReplacement);
+                                         ResolveVulkanRenderExtent(replacement.extent),
+                                         outputReplacement);
     if (outputWasReady && !outputSupported) {
         std::fprintf(stderr,
                      "[Concord] swapchain recreation failed: ray tracing output unsupported\n");
@@ -111,8 +112,26 @@ bool VulkanRenderBackend::Impl::RecreateSwapchain()
     DestroyVulkanBoxPipeline(context, boxPipeline);
     DestroyVulkanModelPipeline(context, modelPipeline);
     DestroyVulkanSkinnedPipeline(context, skinnedPipeline);
+    DestroyVulkanFrameProbe(context, frameProbe);
+    DestroyVulkanPostProcessRing(context, postProcess);
     DestroyVulkanRayTracingOutputRing(context, rayTracingOutput);
     swapchain = std::move(replacement);
+    // Re-armed against the new extent, so a resize cannot leave the probe
+    // staging a frame smaller than the one being copied into it.
+    CreateVulkanFrameProbe(context, ResolveVulkanRenderExtent(replacement.extent), frameProbe);
+    if (outputWasReady &&
+        !CreateVulkanPostProcessRing(context, ResolveVulkanRenderExtent(replacement.extent),
+                                     postProcess)) {
+        // Reported rather than swallowed. This call's own failure path destroys
+        // the ring, so the graded pass then has no target, refuses, and leaves
+        // the composite with nothing to blit -- a window that keeps presenting
+        // frames and shows the clear colour of whatever came before, with no
+        // error anywhere to explain why. A resize that cannot rebuild its
+        // targets has to say so.
+        std::fprintf(stderr,
+                     "[Concord] post-process target could not be rebuilt for the new extent; "
+                     "the frame will not be graded\n");
+    }
     boxPipeline = std::move(boxReplacement);
     modelPipeline = std::move(modelReplacement);
     skinnedPipeline = std::move(skinnedReplacement);

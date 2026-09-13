@@ -59,8 +59,18 @@ bool EnsureVulkanRayTracingModelPrimitives(
                 }
             }
         }
+        if (!AppendVulkanRayTracingSkinnedSources(scene, snapshot, modelAssets)) {
+            DestroyVulkanRayTracingModelPrimitives(context, scene);
+            return false;
+        }
         if (scene.modelPrimitives.size() != primitiveStart &&
             !RebuildVulkanRayTracingModelBuffers(context, scene)) {
+            DestroyVulkanRayTracingModelPrimitives(context, scene);
+            return false;
+        }
+        // Skinned BLAS input lives in the packed SSBOs, so their acceleration
+        // structures can only be created once those buffers exist.
+        if (!CreateVulkanRayTracingSkinnedPrimitives(context, scene)) {
             DestroyVulkanRayTracingModelPrimitives(context, scene);
             return false;
         }

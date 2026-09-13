@@ -10,6 +10,7 @@
 #include "engine/render/vulkan/VulkanClearPass.h"
 #include "engine/render/vulkan/VulkanImageBarrier.h"
 #include "engine/render/vulkan/VulkanModelPipeline.h"
+#include "engine/render/vulkan/VulkanParticlePipeline.h"
 #include "engine/render/vulkan/VulkanSkinnedPipeline.h"
 #include "engine/render/vulkan/VulkanTileLightCulling.h"
 
@@ -104,6 +105,15 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
         BeginVulkanDebugLabel(context, commandBuffer, "Concord.ClearPass", {0.2f, 0.8f, 0.4f});
         RecordClearPass(commandBuffer, swapchain.views[imageIndex], swapchain.extent, skyColor,
                         depthBuffer.view);
+        EndVulkanDebugLabel(context, commandBuffer);
+    }
+    // The colour attachment is already in COLOR_ATTACHMENT_OPTIMAL here on
+    // every path, so particles compose over whichever shading path ran.
+    if (particlePipeline.IsReady() && snapshot.particles.particleCount != 0) {
+        BeginVulkanDebugLabel(context, commandBuffer, "Concord.ParticlePass", {1.0f, 0.85f, 0.3f});
+        RecordVulkanParticlePass(commandBuffer, particlePipeline, frames.currentFrame,
+                                 snapshot.particles, frameDataSet, swapchain.views[imageIndex],
+                                 depthBuffer.view, swapchain.extent);
         EndVulkanDebugLabel(context, commandBuffer);
     }
 }

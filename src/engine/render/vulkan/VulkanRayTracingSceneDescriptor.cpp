@@ -13,7 +13,7 @@ namespace Concord {
 bool CreateVulkanRayTracingSceneDescriptor(const VulkanContext& context,
                                           VulkanRayTracingScene& scene)
 {
-    std::array<VkDescriptorSetLayoutBinding, 4> bindings{};
+    std::array<VkDescriptorSetLayoutBinding, 6> bindings{};
     bindings[0].binding = 0;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     bindings[0].descriptorCount = 1;
@@ -41,7 +41,7 @@ bool CreateVulkanRayTracingSceneDescriptor(const VulkanContext& context,
     }
     VkDescriptorPoolSize poolSizes[] = {
         {VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5},
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -82,7 +82,9 @@ bool UpdateVulkanRayTracingSceneModelDescriptors(const VulkanContext& context,
                                                  VulkanRayTracingScene& scene)
 {
     if (context.device == VK_NULL_HANDLE || scene.descriptorSet == VK_NULL_HANDLE ||
-        scene.modelPrimitiveBuffer.buffer == VK_NULL_HANDLE) {
+        scene.modelPrimitiveBuffer.buffer == VK_NULL_HANDLE ||
+        scene.boxMaterialBuffer.buffer == VK_NULL_HANDLE ||
+        scene.rippleSourceBuffer.buffer == VK_NULL_HANDLE) {
         return false;
     }
     const VkBuffer vertexBuffer = scene.modelVertexBuffer.buffer != VK_NULL_HANDLE
@@ -92,12 +94,14 @@ bool UpdateVulkanRayTracingSceneModelDescriptors(const VulkanContext& context,
                                      ? scene.modelIndexBuffer.buffer
                                      : scene.indexBuffer.buffer;
     if (vertexBuffer == VK_NULL_HANDLE || indexBuffer == VK_NULL_HANDLE) return false;
-    VkDescriptorBufferInfo buffers[3]{};
+    VkDescriptorBufferInfo buffers[5]{};
     buffers[0] = {vertexBuffer, 0, VK_WHOLE_SIZE};
     buffers[1] = {indexBuffer, 0, VK_WHOLE_SIZE};
     buffers[2] = {scene.modelPrimitiveBuffer.buffer, 0, VK_WHOLE_SIZE};
-    VkWriteDescriptorSet writes[3]{};
-    for (u32 index = 0; index < 3; ++index) {
+    buffers[3] = {scene.boxMaterialBuffer.buffer, 0, VK_WHOLE_SIZE};
+    buffers[4] = {scene.rippleSourceBuffer.buffer, 0, VK_WHOLE_SIZE};
+    VkWriteDescriptorSet writes[5]{};
+    for (u32 index = 0; index < 5; ++index) {
         writes[index].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writes[index].dstSet = scene.descriptorSet;
         writes[index].dstBinding = index + 1;
@@ -105,7 +109,7 @@ bool UpdateVulkanRayTracingSceneModelDescriptors(const VulkanContext& context,
         writes[index].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         writes[index].pBufferInfo = &buffers[index];
     }
-    vkUpdateDescriptorSets(context.device, 3, writes, 0, nullptr);
+    vkUpdateDescriptorSets(context.device, 5, writes, 0, nullptr);
     return true;
 }
 

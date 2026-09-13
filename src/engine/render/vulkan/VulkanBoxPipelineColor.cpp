@@ -4,38 +4,23 @@
 
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
 
-#include "engine/core/Color.h"
+#include "engine/render/vulkan/VulkanBoxMaterial.h"
 #include "engine/render/vulkan/VulkanBoxPipelineInternal.h"
-
-#include <algorithm>
-#include <cmath>
 
 namespace Concord {
 namespace {
-
-/** Clamps a material scalar before it crosses the push-constant ABI. */
-f32 SafeMaterial(f32 value, f32 fallback, f32 minimum, f32 maximum)
-{
-    return std::isfinite(value) ? std::clamp(value, minimum, maximum) : fallback;
-}
-
-/** Keeps an emissive scalar finite without imposing an authoring ceiling. */
-f32 SafeEmissive(f32 value)
-{
-    return std::isfinite(value) ? std::max(value, 0.0f) : 0.0f;
-}
 
 /** Converts one object snapshot into the compact push-constant ABI. */
 VulkanBoxPushConstants MakePushConstants(const RenderObjectSnapshot& object)
 {
     VulkanBoxPushConstants push{};
-    const Vec3 albedo = ToLinear(object.material.albedo);
+    // One conversion shared with the ray tracing path, so the same authored
+    // material cannot land on screen as two different surfaces depending on
+    // which path happens to draw it.
+    const VulkanBoxMaterial packed = MakeVulkanBoxMaterial(object.material);
     push.model = object.model;
-    push.albedo = {albedo.x, albedo.y, albedo.z,
-                   static_cast<f32>(ColorA(object.material.albedo)) / 255.0f};
-    push.material = {SafeMaterial(object.material.metallic, 0.0f, 0.0f, 1.0f),
-                     SafeMaterial(object.material.roughness, 0.8f, 0.04f, 1.0f),
-                     SafeEmissive(object.material.emissive), 0.0f};
+    push.albedo = packed.albedo;
+    push.material = packed.surface;
     return push;
 }
 

@@ -59,6 +59,17 @@ struct VulkanBuffer {
     {
         return IsBound() && IsMapped();
     }
+
+    /**
+     * Whether the buffer owns a usable allocation, mapped or not.
+     *
+     * Device-local memory is never mapped, so anything that only needs to
+     * bind, read or build against a buffer must ask this instead of IsReady.
+     */
+    [[nodiscard]] bool HasStorage() const noexcept
+    {
+        return IsBound() && size != 0;
+    }
 };
 
 /** Creates a buffer allocation according to the supplied mapping/address policy. */

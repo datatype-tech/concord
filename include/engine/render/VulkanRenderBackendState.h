@@ -4,9 +4,12 @@
 #ifndef CONCORD_VULKANRENDERBACKENDSTATE_H
 #define CONCORD_VULKANRENDERBACKENDSTATE_H
 #include "engine/render/VulkanRenderBackend.h"
+
+#include <chrono>
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
 #include "engine/render/vulkan/VulkanDebugOverlay.h"
 #include "engine/render/vulkan/VulkanModelPipeline.h"
+#include "engine/render/vulkan/VulkanParticlePipeline.h"
 #include "engine/render/vulkan/VulkanTextureCache.h"
 #include "engine/render/vulkan/VulkanSkinningResources.h"
 #include "engine/render/vulkan/VulkanSkinnedPipeline.h"
@@ -18,7 +21,10 @@
 #include "engine/render/vulkan/VulkanShadowPipeline.h"
 #include "engine/render/vulkan/VulkanRayTracingSceneRing.h"
 #include "engine/render/vulkan/VulkanRayTracingPipeline.h"
+#include "engine/render/vulkan/VulkanFrameProbe.h"
+#include "engine/render/vulkan/VulkanPostProcess.h"
 #include "engine/render/vulkan/VulkanRayTracingOutput.h"
+#include "engine/render/vulkan/VulkanRayTracingTextures.h"
 #include "engine/render/vulkan/VulkanResult.h"
 #include "engine/render/vulkan/VulkanSwapchain.h"
 #include "engine/window/Window.h"
@@ -41,13 +47,26 @@ struct VulkanRenderBackend::Impl {
     VulkanSkinnedPipeline skinnedPipeline{};
     VulkanFrameDataResources frameData{};
     VulkanTileLightCulling tileCulling{};
+    VulkanParticlePipeline particlePipeline{};
     VulkanShadowMap shadowMaps[kMaxFramesInFlight]{};
     VulkanShadowPipeline shadowPipeline{};
     VulkanRayTracingSceneRing rayTracing{};
     VulkanRayTracingPipeline rayTracingPipeline{};
     VulkanRayTracingOutputRing rayTracingOutput{};
+    /** Optional host readback of the finished frame; inert unless requested. */
+    VulkanFrameProbe frameProbe{};
+    /** Grades the traced frame; the composite blits its output, not the trace's. */
+    VulkanPostProcessRing postProcess{};
+    /** Sampler array the closest-hit stage indexes; bound once set 3 lands. */
+    VulkanRayTracingTextures rayTracingTextures{};
+    /** Billboards the last frame's particle pass drew, for the debug overlay. */
+    u32 particleCount = 0;
+    u32 rippleCount = 0;
+    /** Set on the first frame; frameTime is the seconds elapsed since then. */
+    std::chrono::steady_clock::time_point startedAt{};
     VulkanDebugOverlay debugOverlay{};
     const DebugOverlayFrame* debugOverlayFrame = nullptr;
+    const UiDrawList* uiDrawList = nullptr;
     bool rayTracingCompositedLastFrame = false;
     VulkanFrameRing frames{};
     u32 imageIndex = 0;

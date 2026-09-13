@@ -58,6 +58,38 @@ struct VulkanRayTracingOutputRing {
     }
 };
 
+/**
+ * Fraction of the swapchain the traced and graded images are allocated at.
+ *
+ * Every pixel of the traced image costs at least one traversal of the scene
+ * and most of them cost several, so native resolution prices the whole frame
+ * at the heaviest pixel. The default is 0.8: the composite blits the graded
+ * image up, which reads as a slight uniform softness rather than as
+ * displaced duplicates, while buying back roughly half the trace cost.
+ * `CONCORD_RENDER_SCALE` still trades pixels for frame time when a title
+ * wants a different bargain, up to native.
+ */
+inline constexpr f32 kVulkanDefaultRenderScale = 0.8f;
+
+/**
+ * Extent the traced and graded images are allocated at, for a given output.
+ *
+ * Never zero. A swapchain a few pixels across would otherwise ask for a traced
+ * image with no pixels in it, and an image with no pixels is not a frame -- it
+ * is a validation error followed by a black window.
+ */
+[[nodiscard]] VkExtent2D ResolveVulkanRenderExtent(VkExtent2D output) noexcept;
+
+/**
+ * The scale ResolveVulkanRenderExtent is applying.
+ *
+ * Read from CONCORD_RENDER_SCALE once, on first use, and cached: a scale that
+ * can change between the allocation of a target and the dispatch into it is a
+ * scale that produces mismatched images, and the failure mode of a mismatched
+ * image is not a visible error but a wrong picture.
+ */
+[[nodiscard]] f32 VulkanRenderScale() noexcept;
+
 /** Creates one storage image and descriptor set per frame slot. */
 bool CreateVulkanRayTracingOutputRing(const VulkanContext& context,
                                       VkDescriptorSetLayout descriptorLayout,
@@ -71,6 +103,19 @@ void DestroyVulkanRayTracingOutputRing(const VulkanContext& context,
 /** Makes one output image writable by a ray-generation shader. */
 void PrepareVulkanRayTracingOutput(VkCommandBuffer commandBuffer,
                                    VulkanRayTracingOutput& output) noexcept;
+
+/**
+ * Blits a completed colour image into the acquired swapchain image.
+ *
+ * Separate from the ray tracing output so the post-processing stage can hand
+ * over its own result instead; the two differ only in which image is the
+ * source.
+ */
+bool CompositeVulkanColorImage(const VulkanContext& context, VkCommandBuffer commandBuffer,
+                               VkImage source, VkExtent2D sourceExtent,
+                               VkImageLayout sourceLayout, VkImage swapchainImage,
+                               VkFormat swapchainFormat, VkImageLayout swapchainLayout,
+                               VkExtent2D extent) noexcept;
 
 /** Blits one completed RT output into the acquired swapchain image. */
 bool CompositeVulkanRayTracingOutput(const VulkanContext& context,

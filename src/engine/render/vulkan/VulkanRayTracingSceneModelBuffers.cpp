@@ -12,15 +12,26 @@ namespace {
 
 template <typename T>
 bool CreateModelBuffer(const VulkanContext& context, const std::vector<T>& values,
-                       VulkanBuffer& output)
+                       VkBufferUsageFlags usage, bool deviceAddress, VulkanBuffer& output)
 {
     if (values.empty() || values.size() > std::numeric_limits<VkDeviceSize>::max() / sizeof(T)) {
         return false;
     }
     const VkDeviceSize size = static_cast<VkDeviceSize>(values.size() * sizeof(T));
-    return CreateVulkanHostBuffer(context, size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, output) &&
+    return CreateVulkanHostBuffer(context, size, usage, output, deviceAddress) &&
            UploadVulkanBuffer(output, std::as_bytes(std::span<const T>(values)));
 }
+
+/**
+ * Usage the skinned geometry path needs on top of plain storage.
+ *
+ * A skinned primitive builds its BLAS straight out of the vertex SSBO the
+ * hit shader reads, so the same allocation has to be both shader-visible and
+ * a legal acceleration-structure build input with a device address.
+ */
+constexpr VkBufferUsageFlags kModelGeometryUsage =
+    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
 } // namespace
 
@@ -30,11 +41,12 @@ bool RebuildVulkanRayTracingModelBuffers(const VulkanContext& context,
     VulkanBuffer vertex{};
     VulkanBuffer index{};
     if (!scene.modelVertices.empty() &&
-        !CreateModelBuffer(context, scene.modelVertices, vertex)) {
+        !CreateModelBuffer(context, scene.modelVertices, kModelGeometryUsage, true, vertex)) {
         DestroyVulkanBuffer(context, vertex);
         return false;
     }
-    if (!scene.modelIndices.empty() && !CreateModelBuffer(context, scene.modelIndices, index)) {
+    if (!scene.modelIndices.empty() &&
+        !CreateModelBuffer(context, scene.modelIndices, kModelGeometryUsage, true, index)) {
         DestroyVulkanBuffer(context, vertex);
         DestroyVulkanBuffer(context, index);
         return false;
@@ -64,6 +76,9 @@ bool RebuildVulkanRayTracingModelBuffers(const VulkanContext& context,
         DestroyVulkanBuffer(context, failedIndex);
         return false;
     }
+    // Skinned BLAS input points into these buffers, so their addresses have
+    // to follow the swap before anything builds against them.
+    RefreshVulkanRayTracingSkinnedAddresses(scene);
     VulkanBuffer staleVertex = oldVertex;
     VulkanBuffer staleIndex = oldIndex;
     DestroyVulkanBuffer(context, staleVertex);

@@ -82,23 +82,37 @@ struct VulkanRayTracingPipeline {
     }
 };
 
-/** Creates the optional three-stage ray-generation pipeline and SBT. */
+/**
+ * Creates the optional three-stage ray-generation pipeline and SBT.
+ *
+ * @param textureLayout Sampler array the closest-hit stage indexes. Passing
+ *        VK_NULL_HANDLE leaves the layout at three sets, which is what a
+ *        pipeline whose shaders never sample a texture needs.
+ */
 bool CreateVulkanRayTracingPipeline(const VulkanContext& context,
                                     VkDescriptorSetLayout frameDataLayout,
                                     VkDescriptorSetLayout sceneLayout,
-                                    VulkanRayTracingPipeline& pipeline);
+                                    VulkanRayTracingPipeline& pipeline,
+                                    VkDescriptorSetLayout textureLayout = VK_NULL_HANDLE);
 
 /** Releases the pipeline layout, shader binding table and descriptor layout. */
 void DestroyVulkanRayTracingPipeline(const VulkanContext& context,
                                      VulkanRayTracingPipeline& pipeline) noexcept;
 
-/** Records one ray dispatch against a frame descriptor, output image and TLAS. */
+/**
+ * Records one ray dispatch against a frame descriptor, output image and TLAS.
+ *
+ * @param textureSet Sampler array bound at set 3. It must be non-null exactly
+ *        when the pipeline was created with a texture layout, since a layout
+ *        declaring a set that the dispatch never binds is invalid.
+ */
 bool RecordVulkanRayTracingDispatch(VkCommandBuffer commandBuffer,
                                     const VulkanRayTracingPipeline& pipeline,
                                     VkDescriptorSet frameDataSet,
                                     VkDescriptorSet outputSet,
                                     const VulkanRayTracingScene& scene,
-                                    VkExtent2D extent) noexcept;
+                                    VkExtent2D extent,
+                                    VkDescriptorSet textureSet = VK_NULL_HANDLE) noexcept;
 
 } // namespace Concord
 

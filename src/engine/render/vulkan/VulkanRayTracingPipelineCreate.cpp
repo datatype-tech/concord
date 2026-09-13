@@ -32,14 +32,17 @@ VkDescriptorSetLayout CreateOutputLayout(VkDevice device)
                ? layout
                : VK_NULL_HANDLE;
 }
-/** Creates a three-set layout: frame data, output image, and TLAS. */
+/** Creates the layout: frame data, output image, TLAS, and samplers. */
 VkPipelineLayout CreatePipelineLayout(VkDevice device, VkDescriptorSetLayout frameData,
-                                      VkDescriptorSetLayout output, VkDescriptorSetLayout scene)
+                                      VkDescriptorSetLayout output, VkDescriptorSetLayout scene,
+                                      VkDescriptorSetLayout texture)
 {
-    VkDescriptorSetLayout layouts[] = {frameData, output, scene};
+    VkDescriptorSetLayout layouts[] = {frameData, output, scene, texture};
     VkPipelineLayoutCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    info.setLayoutCount = 3;
+    // The sampler array is optional, so a pipeline whose shaders never sample
+    // keeps the original three-set layout and nothing else has to change.
+    info.setLayoutCount = texture == VK_NULL_HANDLE ? 3u : 4u;
     info.pSetLayouts = layouts;
     VkPipelineLayout layout = VK_NULL_HANDLE;
     return vkCreatePipelineLayout(device, &info, nullptr, &layout) == VK_SUCCESS
@@ -113,7 +116,8 @@ bool CreatePipeline(VulkanRayTracingPipeline& pipeline, VkShaderModule modules[4
 bool CreateVulkanRayTracingPipeline(const VulkanContext& context,
                                     VkDescriptorSetLayout frameDataLayout,
                                     VkDescriptorSetLayout sceneLayout,
-                                    VulkanRayTracingPipeline& pipeline)
+                                    VulkanRayTracingPipeline& pipeline,
+                                    VkDescriptorSetLayout textureLayout)
 {
     DestroyVulkanRayTracingPipeline(context, pipeline);
     if (context.device == VK_NULL_HANDLE || frameDataLayout == VK_NULL_HANDLE ||
@@ -136,7 +140,8 @@ bool CreateVulkanRayTracingPipeline(const VulkanContext& context,
     pipeline.layout = pipeline.outputLayout == VK_NULL_HANDLE
                           ? VK_NULL_HANDLE
                           : CreatePipelineLayout(context.device, frameDataLayout,
-                                                 pipeline.outputLayout, sceneLayout);
+                                                 pipeline.outputLayout, sceneLayout,
+                                                 textureLayout);
     VkShaderModule modules[3]{};
     const bool ready = pipeline.layout != VK_NULL_HANDLE && LoadModules(context, modules) &&
                        CreatePipeline(pipeline, modules) &&

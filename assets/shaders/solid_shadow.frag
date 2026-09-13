@@ -106,7 +106,8 @@ vec3 EvaluateLight(FrameLightData light, uint lightIndex, vec3 baseColor, vec3 n
 /** Compresses HDR lighting before it reaches the 8-bit swapchain. */
 vec3 ToneMap(vec3 color)
 {
-    vec3 value = max(color, vec3(0.0));
+    // The 0.6 pre-exposure is part of the Narkowicz ACES fit, not a taste knob.
+    vec3 value = max(color, vec3(0.0)) * 0.6;
     return clamp((value * (2.51 * value + 0.03)) /
                  (value * (2.43 * value + 0.59) + 0.14), 0.0, 1.0);
 }

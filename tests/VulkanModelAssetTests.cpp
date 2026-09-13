@@ -8,6 +8,11 @@
 
 namespace {
 
+bool Near(float left, float right)
+{
+    return std::abs(left - right) < 0.0001f;
+}
+
 Concord::ModelPrimitive Triangle(float z, Concord::u32 material)
 {
     return Concord::ModelPrimitive{
@@ -46,6 +51,63 @@ bool TestFlattening()
            std::abs(material.surface.x - 0.25f) < 0.001f;
 }
 
+/**
+ * The water block is what the hit shader shades from, so the packing rules that
+ * matter are pinned here: a dry material must carry a zero mask, and a water
+ * material must compact its disabled ripple sources out rather than leave holes
+ * the shader would loop over.
+ */
+bool TestWaterPacking()
+{
+    Concord::ModelAsset asset{};
+    Concord::ModelMaterial dry{};
+    dry.name = "dry";
+    Concord::ModelMaterial wet{};
+    wet.name = "wet";
+    wet.water = Concord::WaterMaterial{};
+    wet.water->opacity = 0.4f;
+    wet.water->ior = 1.2f;
+    wet.water->absorptionDistance = 9.0f;
+    wet.water->refraction = 0.5f;
+    wet.water->waveAmplitude = 2.0f;
+    wet.water->heading = {0.0f, 2.0f};
+    wet.water->ripples[1] = Concord::WaterRipple{
+        .centre = {3.0f, -4.0f}, .wavelength = 2.5f, .speed = 1.1f,
+        .strength = 0.8f, .falloff = 0.3f};
+    wet.water->ripples[3] = Concord::WaterRipple{
+        .centre = {-1.0f, 2.0f}, .wavelength = 5.0f, .strength = 0.2f};
+    asset.materials.push_back(dry);
+    asset.materials.push_back(wet);
+    asset.meshes.push_back(Concord::ModelMesh{.name = "first", .primitives = {Triangle(0.0f, 0)}});
+    asset.meshes.push_back(Concord::ModelMesh{.name = "second", .primitives = {Triangle(1.0f, 1)}});
+
+    Concord::VulkanModelUploadData upload{};
+    if (!Concord::BuildVulkanModelUpload(asset, upload) || upload.materials.size() != 2) {
+        return false;
+    }
+    const Concord::VulkanWaterMaterial& dryPacked = upload.materials[0].water;
+    const Concord::VulkanModelMaterial& packed = upload.materials[1];
+    if (upload.materials[0].emissive.w != 0.0f || dryPacked.surface.z != 0.0f ||
+        packed.emissive.w != 1.0f) {
+        return false;
+    }
+    return Near(packed.water.optics.x, 1.2f) && Near(packed.water.optics.y, 0.4f) &&
+           Near(packed.water.optics.z, 9.0f) && Near(packed.water.optics.w, 0.5f) &&
+           Near(packed.water.wave.x, 2.0f) &&
+           // A heading is a direction, so it reaches the shader unit length.
+           Near(packed.water.flow.x, 0.0f) && Near(packed.water.flow.y, 1.0f) &&
+           Near(packed.water.surface.z, 2.0f) &&
+           Near(packed.water.rippleShape[0].x, 3.0f) &&
+           Near(packed.water.rippleShape[0].y, -4.0f) &&
+           Near(packed.water.rippleShape[0].z, 2.5f) &&
+           Near(packed.water.rippleShape[0].w, 0.8f) &&
+           Near(packed.water.rippleMotion[0].x, 1.1f) &&
+           Near(packed.water.rippleMotion[0].y, 0.3f) &&
+           Near(packed.water.rippleShape[1].x, -1.0f) &&
+           Near(packed.water.rippleShape[1].y, 2.0f) &&
+           Near(packed.water.rippleShape[2].w, 0.0f);
+}
+
 bool TestRejectsInvalidAsset()
 {
     Concord::ModelAsset asset{};
@@ -58,5 +120,5 @@ bool TestRejectsInvalidAsset()
 
 int main()
 {
-    return TestFlattening() && TestRejectsInvalidAsset() ? 0 : 1;
+    return TestFlattening() && TestWaterPacking() && TestRejectsInvalidAsset() ? 0 : 1;
 }

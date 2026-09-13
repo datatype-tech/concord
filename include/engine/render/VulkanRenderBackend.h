@@ -37,6 +37,7 @@ public:
     void EndFrame() override;
     void WaitIdle() override;
     void SetDebugOverlay(const DebugOverlayFrame* overlay) override;
+    void SetUi(const UiDrawList* ui) override;
     [[nodiscard]] RenderBackendStats LastFrameStats() const override;
 
 private:

@@ -8,6 +8,7 @@
 #include "Concord/CExport.h"
 #include "engine/core/Types.h"
 #include "engine/debug/DebugOverlayFrame.h"
+#include "engine/ui/UiDrawList.h"
 
 namespace Concord {
 
@@ -28,6 +29,16 @@ struct RenderBackendStats {
     u32 height = 0;
     u32 visibleObjects = 0;
     u32 lights = 0;
+    /**
+     * Billboards the particle pass drew, after the fixed vertex-budget cap.
+     *
+     * Reported because a scene can exceed that cap and have emitters silently
+     * truncated; without this number there is no way to tell a working emitter
+     * from one whose particles never fit.
+     */
+    u32 particles = 0;
+    /** Live water disturbances this frame, before the per-frame bound. */
+    u32 ripples = 0;
     /** True when the last frame was produced by the ray-tracing path. */
     bool rayTracingActive = false;
 };
@@ -77,6 +88,16 @@ public:
      * per frame, before BeginFrame(); reading it happens during DrawScene.
      */
     virtual void SetDebugOverlay(const DebugOverlayFrame* overlay) = 0;
+
+    /**
+     * Supplies the immediate-mode UI draw list, or nullptr to skip it.
+     *
+     * The pointed-to list must stay valid through DrawScene.
+     */
+    virtual void SetUi(const UiDrawList* ui)
+    {
+        (void)ui;
+    }
 
     /** Statistics of the most recently completed frame; zeroed before one. */
     [[nodiscard]] virtual RenderBackendStats LastFrameStats() const = 0;

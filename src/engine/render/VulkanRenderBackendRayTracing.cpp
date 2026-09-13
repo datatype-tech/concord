@@ -17,17 +17,15 @@ bool RecordVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer c
                                  const VulkanBoxPipeline& boxPipeline,
                                  VkDescriptorSet frameDataSet, u32 frameIndex,
                                  bool& sceneBuilt,
-                                 const VulkanModelAssetCache* modelAssets) noexcept
+                                 const VulkanModelAssetCache* modelAssets,
+                                 VulkanRayTracingTextures& textures,
+                                 const VulkanTextureCache& textureCache) noexcept
 {
     sceneBuilt = false;
-    bool hasSkinnedModels = false;
-    for (const RenderObjectSnapshot& object : snapshot.objects) {
-        hasSkinnedModels = hasSkinnedModels ||
-                           (object.shape == PrimitiveShape::Model &&
-                            (object.modelSkin >= 0 || object.skinningRange.jointCount != 0));
-    }
-    const bool pipelineConsumer = pipeline.IsReady() && outputRing.IsReady() &&
-                                  !hasSkinnedModels;
+    // Skinned models refit their own per-frame BLAS, so an animated frame no
+    // longer downgrades the whole image to the raster path.
+    const bool pipelineConsumer =
+        pipeline.IsReady() && outputRing.IsReady();
     const bool queryConsumer = context.rayTracing.IsRayQueryUsable() &&
                                boxPipeline.HasRayQuery();
     if (commandBuffer == VK_NULL_HANDLE || !scene.IsReady() || !snapshot.hasCamera ||
@@ -37,6 +35,19 @@ bool RecordVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer c
     if (modelAssets != nullptr &&
         !EnsureVulkanRayTracingModelPrimitives(context, scene, snapshot, *modelAssets)) {
         return false;
+    }
+    if (!UpdateVulkanRayTracingSkinnedGeometry(scene, snapshot)) {
+        return false;
+    }
+    // The sampler slots are filled by the ensure call above, so the array has
+    // to be resolved after it. A pipeline built without a texture layout owns
+    // only three sets and must not be handed a fourth.
+    VkDescriptorSet textureSet = VK_NULL_HANDLE;
+    if (textures.IsReady()) {
+        if (!UpdateVulkanRayTracingTextures(context, textures, textureCache, scene.textureSlots)) {
+            return false;
+        }
+        textureSet = textures.set;
     }
     scene.includeNonShadowCasters = pipelineConsumer;
     BeginVulkanDebugLabel(context, commandBuffer, "Concord.RayTracingBuild", {0.2f, 0.9f, 0.8f});
@@ -60,9 +71,24 @@ bool RecordVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer c
     PrepareVulkanRayTracingOutput(commandBuffer, output);
     BeginVulkanDebugLabel(context, commandBuffer, "Concord.RayTracingTrace", {0.9f, 0.2f, 0.8f});
     const bool traced = RecordVulkanRayTracingDispatch(commandBuffer, pipeline, frameDataSet,
-                                                       output.descriptorSet, scene, output.extent);
+                                                       output.descriptorSet, scene, output.extent,
+                                                       textureSet);
     EndVulkanDebugLabel(context, commandBuffer);
     return traced;
+}
+
+bool CompositeVulkanPostProcessFrame(const VulkanContext& context, VkCommandBuffer commandBuffer,
+                                     const VulkanPostProcessRing& postProcess, u32 frameIndex,
+                                     VkImage swapchainImage, VkFormat swapchainFormat,
+                                     VkImageLayout swapchainLayout, VkExtent2D extent) noexcept
+{
+    if (!postProcess.IsReady() || frameIndex >= kMaxFramesInFlight) {
+        return false;
+    }
+    const VulkanPostProcess& graded = postProcess.items[frameIndex];
+    return CompositeVulkanColorImage(context, commandBuffer, graded.image, graded.extent,
+                                     graded.layout, swapchainImage, swapchainFormat,
+                                     swapchainLayout, extent);
 }
 
 bool CompositeVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer commandBuffer,

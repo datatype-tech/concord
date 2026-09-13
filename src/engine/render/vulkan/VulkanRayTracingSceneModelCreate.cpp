@@ -125,6 +125,7 @@ bool CreateVulkanRayTracingModelPrimitive(
         return false;
     }
     output.source = source;
+    output.vertexStride = static_cast<u32>(sizeof(ModelVertex));
     output.primitiveIndex = primitiveIndex;
     output.meshIndex = range.meshIndex;
     output.materialIndex = range.materialIndex;

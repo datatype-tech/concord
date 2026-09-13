@@ -38,13 +38,30 @@ Mat4 Orthographic(f32 radius, f32 nearPlane, f32 farPlane) noexcept
     return result;
 }
 
-/** Estimates a conservative radius around the camera's shadow focus point. */
-f32 SceneRadius(const RenderSceneSnapshot& snapshot, Vec3 center) noexcept
-{
+/** Axis-aligned world bounds of everything the shadow pass draws. */
+struct ShadowBounds {
+    Vec3 center{};
     f32 radius = 12.0f;
+};
+
+/**
+ * Fits the shadow volume to the scene instead of to the camera.
+ *
+ * A shadow is a world-space projection: it must land in the same place, at
+ * the same size, no matter where the viewer stands. Sizing the orthographic
+ * box from a camera-relative focus point makes its centre slide and its
+ * extent rescale every time the camera turns, so the same object appears to
+ * cast a differently shaped shadow from a different angle.
+ */
+ShadowBounds ComputeShadowBounds(const RenderSceneSnapshot& snapshot) noexcept
+{
+    ShadowBounds bounds{};
+    bool started = false;
+    Vec3 minimum{};
+    Vec3 maximum{};
     for (const RenderObjectSnapshot& object : snapshot.objects) {
-        const Vec3 objectCenter = SafeVector({object.model.col[3].x, object.model.col[3].y,
-                                              object.model.col[3].z});
+        const Vec3 center = SafeVector({object.model.col[3].x, object.model.col[3].y,
+                                        object.model.col[3].z});
         const f32 x = Length({object.model.col[0].x, object.model.col[0].y,
                               object.model.col[0].z});
         const f32 y = Length({object.model.col[1].x, object.model.col[1].y,
@@ -52,9 +69,25 @@ f32 SceneRadius(const RenderSceneSnapshot& snapshot, Vec3 center) noexcept
         const f32 z = Length({object.model.col[2].x, object.model.col[2].y,
                               object.model.col[2].z});
         const f32 extent = 0.5f * std::sqrt(x * x + y * y + z * z);
-        radius = std::max(radius, Length(objectCenter - center) + extent);
+        const Vec3 low = center - Vec3{extent, extent, extent};
+        const Vec3 high = center + Vec3{extent, extent, extent};
+        if (!started) {
+            minimum = low;
+            maximum = high;
+            started = true;
+            continue;
+        }
+        minimum = {std::min(minimum.x, low.x), std::min(minimum.y, low.y),
+                   std::min(minimum.z, low.z)};
+        maximum = {std::max(maximum.x, high.x), std::max(maximum.y, high.y),
+                   std::max(maximum.z, high.z)};
     }
-    return std::clamp(radius * 1.25f, 12.0f, 160.0f);
+    if (!started) {
+        return bounds;
+    }
+    bounds.center = (minimum + maximum) * 0.5f;
+    bounds.radius = std::clamp(Length((maximum - minimum) * 0.5f) * 1.15f, 12.0f, 200.0f);
+    return bounds;
 }
 
 } // namespace
@@ -86,8 +119,9 @@ VulkanDirectionalShadowState BuildVulkanDirectionalShadowState(
     if (Length(direction) < 0.001f) {
         return result;
     }
-    const Vec3 center = SafeVector(snapshot.camera.target);
-    const f32 radius = SceneRadius(snapshot, center);
+    const ShadowBounds bounds = ComputeShadowBounds(snapshot);
+    const Vec3 center = bounds.center;
+    const f32 radius = bounds.radius;
     const Vec3 eye = center - direction * (radius * 2.0f);
     const Vec3 up = std::abs(Dot(direction, {0.0f, 1.0f, 0.0f})) > 0.95f
                         ? Vec3{0.0f, 0.0f, 1.0f}

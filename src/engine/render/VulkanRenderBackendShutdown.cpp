@@ -45,6 +45,7 @@ void VulkanRenderBackend::Shutdown()
                 std::fprintf(stderr, "[Concord] one or more Vulkan shutdown passes failed\n");
             }
         }
+        DestroyVulkanParticlePipeline(impl.context, impl.particlePipeline);
         DestroyVulkanTileLightCulling(impl.context, impl.tileCulling);
         DestroyVulkanBoxPipeline(impl.context, impl.boxPipeline);
         DestroyVulkanDebugOverlay(impl.context, impl.debugOverlay);
@@ -53,6 +54,9 @@ void VulkanRenderBackend::Shutdown()
         DestroyVulkanShadowPipeline(impl.context, impl.shadowPipeline);
         DestroyVulkanSkinningResources(impl.context, impl.skinningResources);
         impl.textureCache.Clear(impl.context);
+        DestroyVulkanRayTracingTextures(impl.context, impl.rayTracingTextures);
+        DestroyVulkanFrameProbe(impl.context, impl.frameProbe);
+        DestroyVulkanPostProcessRing(impl.context, impl.postProcess);
         DestroyVulkanRayTracingOutputRing(impl.context, impl.rayTracingOutput);
         DestroyVulkanRayTracingPipeline(impl.context, impl.rayTracingPipeline);
         DestroyVulkanRayTracingSceneRing(impl.context, impl.rayTracing);

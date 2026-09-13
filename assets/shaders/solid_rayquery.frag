@@ -60,8 +60,10 @@ bool RayOccluded(vec3 origin, vec3 direction, float distanceToLight)
         isinf(distanceToLight) || distanceToLight <= 0.003) return false;
     rayQueryEXT query;
     float maxDistance = min(distanceToLight, 100000.0);
+    // Mirrors kVulkanRayTracingMaskLightBlocker: geometry authored not to cast
+    // a shadow is still visible to the camera and must not occlude the sun.
     rayQueryInitializeEXT(query, scene, gl_RayFlagsTerminateOnFirstHitEXT |
-                          gl_RayFlagsOpaqueEXT, 0xff, origin, 0.002, direction,
+                          gl_RayFlagsOpaqueEXT, 0x01, origin, 0.002, direction,
                           max(maxDistance, 0.003));
     while (rayQueryProceedEXT(query)) { }
     return rayQueryGetIntersectionTypeEXT(query, true) !=
@@ -112,7 +114,8 @@ vec3 EvaluateLight(FrameLightData light, uint lightIndex, vec3 baseColor, vec3 n
 /** Compresses HDR lighting before it reaches the 8-bit swapchain. */
 vec3 ToneMap(vec3 color)
 {
-    vec3 value = max(color, vec3(0.0));
+    // The 0.6 pre-exposure is part of the Narkowicz ACES fit, not a taste knob.
+    vec3 value = max(color, vec3(0.0)) * 0.6;
     return clamp((value * (2.51 * value + 0.03)) /
                      (value * (2.43 * value + 0.59) + 0.14), 0.0, 1.0);
 }

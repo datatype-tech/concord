@@ -130,6 +130,8 @@ void DestroyVulkanRayTracingScene(const VulkanContext& context,
         }
     }
     DestroyVulkanRayTracingModelPrimitives(context, scene);
+    DestroyVulkanBuffer(context, scene.rippleSourceBuffer);
+    DestroyVulkanBuffer(context, scene.boxMaterialBuffer);
     DestroyVulkanBuffer(context, scene.modelPrimitiveBuffer);
     DestroyVulkanRayTracingSceneDescriptor(context, scene);
     DestroyVulkanBuffer(context, scene.scratchBuffer);

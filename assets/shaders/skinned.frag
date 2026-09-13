@@ -89,10 +89,17 @@ vec3 EvaluateLight(FrameLightData light, vec3 baseColor, vec3 normal, vec3 posit
            (baseColor * (1.0 - metallic) * diffuse + specularColor * specular * 0.35);
 }
 
-/** Compresses HDR lighting before it reaches the 8-bit swapchain. */
+/**
+ * Compresses HDR lighting into display range with the Narkowicz ACES fit.
+ *
+ * The 0.6 pre-exposure is part of the fit rather than a taste knob: the
+ * rational curve was solved for radiance scaled that way, so feeding it raw
+ * radiance leaves mid-tones lifted and moves the highlight roll-off past the
+ * point it was fitted at, which reads as a washed-out image.
+ */
 vec3 ToneMap(vec3 color)
 {
-    vec3 value = max(color, vec3(0.0));
+    vec3 value = max(color, vec3(0.0)) * 0.6;
     return clamp((value * (2.51 * value + 0.03)) /
                      (value * (2.43 * value + 0.59) + 0.14),
                  0.0, 1.0);

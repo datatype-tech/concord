@@ -29,6 +29,9 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
         impl.AbortFrame();
         return;
     }
+    // A capture recorded two frames ago has had its fence waited on by now, so
+    // this is the first point at which its contents are safe to read.
+    ResolveVulkanFrameProbe(impl.frameProbe);
     VulkanFrame& frame = impl.frames.Current();
     VulkanRayTracingScene& rayTracing = impl.rayTracing.At(impl.frames.currentFrame);
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
@@ -54,7 +57,28 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const bool skinningUploadReady =
         impl.UploadSkinningFrame(snapshot, impl.frames.currentFrame);
     impl.visibleObjectCount = snapshot.objects.size();
-    frame.renderData = BuildRenderFrameData(snapshot);
+    // A steady clock rather than a frame counter: the wave phase has to keep
+    // advancing at the same rate whatever the frame rate does, or the water
+    // would visibly speed up and slow down as the scene load changes.
+    if (impl.startedAt == std::chrono::steady_clock::time_point{}) {
+        impl.startedAt = std::chrono::steady_clock::now();
+    }
+    const f32 elapsedSeconds =
+        std::chrono::duration<f32>(std::chrono::steady_clock::now() - impl.startedAt).count();
+    frame.renderData = BuildRenderFrameData(snapshot, elapsedSeconds);
+    // Angular size of one pixel. The wave sum fades any octave finer than this,
+    // so the shader needs the number rather than a guess: it is the projection's
+    // vertical scale and the viewport height, both of which only exist here.
+    // The height that matters is the one the picture is traced at, not the one
+    // it is presented at. Sizing the footprint from the swapchain would tell
+    // every wave octave that it is being sampled finer than it is, and the
+    // detail that the fade exists to remove would come back as sparkle.
+    const VkExtent2D tracedExtent = ResolveVulkanRenderExtent(impl.swapchain.extent);
+    if (frame.renderData.camera.projection.col[1][1] != 0.0f && tracedExtent.height != 0) {
+        frame.renderData.surfaceInfo.z =
+            2.0f / (frame.renderData.camera.projection.col[1][1] *
+                    static_cast<f32>(tracedExtent.height));
+    }
     const bool tileInBounds = impl.swapchain.extent.width <= kMaxTileColumns * kTileSizePixels &&
                               impl.swapchain.extent.height <= kMaxTileRows * kTileSizePixels;
     const bool tileEnabled = snapshot.hasCamera && impl.frameData.IsTileReady() &&
@@ -87,16 +111,43 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const bool rayTracingRendered = RecordVulkanRayTracingFrame(
         impl.context, commandBuffer, rayTracing, snapshot, impl.rayTracingPipeline,
         impl.rayTracingOutput, impl.boxPipeline, frameDataSet, impl.frames.currentFrame,
-        rayTracingBuilt, hasModelObjects ? &impl.modelAssets : nullptr);
+        rayTracingBuilt, hasModelObjects ? &impl.modelAssets : nullptr,
+        impl.rayTracingTextures, impl.textureCache);
     TransitionToColorAttachment(commandBuffer, image,
                                 impl.swapchain.imageLayouts[impl.imageIndex]);
     impl.swapchain.imageLayouts[impl.imageIndex] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     TransitionToDepthAttachment(commandBuffer, depth.image, depth.layout);
     depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    // The trace left raw radiance; everything that turns radiance into a
+    // picture happens here, on the whole frame at once.
+    VulkanPostProcessConstants postConstants{};
+    if (rayTracingRendered) {
+        postConstants.grade = frame.renderData.grade;
+        postConstants.bloom = frame.renderData.postFx;
+        postConstants.resolution = {static_cast<f32>(tracedExtent.width),
+                                    static_cast<f32>(tracedExtent.height),
+                                    tracedExtent.width != 0
+                                        ? 1.0f / static_cast<f32>(tracedExtent.width)
+                                        : 0.0f,
+                                    tracedExtent.height != 0
+                                        ? 1.0f / static_cast<f32>(tracedExtent.height)
+                                        : 0.0f};
+    }
+    const bool postProcessed =
+        rayTracingRendered &&
+        RecordVulkanPostProcess(commandBuffer, impl.postProcess, impl.frames.currentFrame,
+                                impl.rayTracingOutput.At(impl.frames.currentFrame),
+                                postConstants);
+    // The probe reads the graded frame, which is what actually reaches the
+    // monitor, and leaves it where the composite expects it.
+    if (postProcessed) {
+        const VulkanPostProcess& graded = impl.postProcess.At(impl.frames.currentFrame);
+        RecordVulkanFrameProbe(commandBuffer, impl.frameProbe, graded.image, graded.extent);
+    }
     const bool rayTracingComposited =
-        rayTracingRendered && impl.swapchain.transferDestinationSupported &&
-        CompositeVulkanRayTracingFrame(
-            impl.context, commandBuffer, impl.rayTracingOutput, impl.frames.currentFrame, image,
+        postProcessed && impl.swapchain.transferDestinationSupported &&
+        CompositeVulkanPostProcessFrame(
+            impl.context, commandBuffer, impl.postProcess, impl.frames.currentFrame, image,
             impl.swapchain.format, impl.swapchain.imageLayouts[impl.imageIndex],
             impl.swapchain.extent);
     RunVulkanRenderExtensions(impl.context, impl.swapchain, depth, frame,
@@ -109,6 +160,8 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const Vec3 skyColor = ToLinear(snapshot.environment.skyColor);
     impl.hasCamera = frame.renderData.header.cameraValid != 0;
     impl.lightCount = frame.renderData.header.lightCount;
+    impl.particleCount = snapshot.particles.particleCount;
+    impl.rippleCount = static_cast<u32>(snapshot.ripples.size());
     const bool canDrawBoxes = !rayTracingComposited && snapshot.hasCamera &&
                               hasBoxObjects && impl.boxPipeline.HasDepth() &&
                               impl.boxPipeline.HasColor() && frameDataSet != VK_NULL_HANDLE;
@@ -126,10 +179,12 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
                               impl.swapchainGeneration,
                               VulkanPassPhase::AfterScene);
     impl.rayTracingCompositedLastFrame = rayTracingComposited;
-    if (impl.debugOverlayFrame != nullptr && impl.debugOverlay.IsReady()) {
+    if (impl.debugOverlay.IsReady() &&
+        (impl.debugOverlayFrame != nullptr || impl.uiDrawList != nullptr)) {
         RecordVulkanDebugOverlay(commandBuffer, impl.debugOverlay, impl.frames.currentFrame,
                                  impl.swapchain.extent,
-                                 impl.swapchain.views[impl.imageIndex], *impl.debugOverlayFrame);
+                                 impl.swapchain.views[impl.imageIndex], impl.debugOverlayFrame,
+                                 impl.uiDrawList);
     }
     TransitionToPresent(commandBuffer, image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     impl.swapchain.imageLayouts[impl.imageIndex] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;

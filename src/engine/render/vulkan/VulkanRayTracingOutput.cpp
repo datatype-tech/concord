@@ -7,8 +7,43 @@
 #include "engine/render/vulkan/VulkanRayTracingOutputInternal.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 
 namespace Concord {
+f32 VulkanRenderScale() noexcept
+{
+    static const f32 scale = [] {
+        const char* value = std::getenv("CONCORD_RENDER_SCALE");
+        if (value == nullptr || *value == '\0') {
+            return kVulkanDefaultRenderScale;
+        }
+        const f64 parsed = std::strtod(value, nullptr);
+        // A value outside the range is reported rather than silently clamped,
+        // because a caller who asked for half resolution and got full
+        // resolution has no other way to find out why nothing got faster.
+        if (!(parsed > 0.0) || parsed > 1.0) {
+            std::fprintf(stderr,
+                         "[Concord] CONCORD_RENDER_SCALE=%s is outside 0..1; using %.2f\n",
+                         value, static_cast<f64>(kVulkanDefaultRenderScale));
+            return kVulkanDefaultRenderScale;
+        }
+        return static_cast<f32>(parsed);
+    }();
+    return scale;
+}
+
+VkExtent2D ResolveVulkanRenderExtent(VkExtent2D output) noexcept
+{
+    const f32 scale = VulkanRenderScale();
+    VkExtent2D extent{};
+    extent.width = static_cast<u32>(static_cast<f32>(output.width) * scale + 0.5f);
+    extent.height = static_cast<u32>(static_cast<f32>(output.height) * scale + 0.5f);
+    extent.width = extent.width != 0 ? extent.width : 1u;
+    extent.height = extent.height != 0 ? extent.height : 1u;
+    return extent;
+}
+
 bool CreateVulkanRayTracingOutputRing(const VulkanContext& context,
                                       VkDescriptorSetLayout descriptorLayout,
                                       VkExtent2D extent,

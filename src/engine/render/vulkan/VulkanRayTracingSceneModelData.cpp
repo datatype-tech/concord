@@ -80,10 +80,13 @@ bool AppendVulkanRayTracingModelData(
             .firstVertex = static_cast<u32>(vertexStart),
             .firstIndex = static_cast<u32>(indexStart),
             .indexCount = range.indexCount,
-            .materialIndex = range.materialIndex,
+            // The hit shader reads this as a sampler slot, not a material id.
+            .materialIndex = AcquireRayTracingTextureSlot(scene.textureSlots, *source, gpu,
+                                                          range.materialIndex),
             .baseColor = material.baseColor,
             .emissive = material.emissive,
             .surface = material.surface,
+            .water = material.water,
         });
     } catch (...) {
         scene.modelVertices.resize(vertexStart);

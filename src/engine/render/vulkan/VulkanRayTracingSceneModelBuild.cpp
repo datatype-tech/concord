@@ -16,7 +16,7 @@ VkAccelerationStructureGeometryKHR MakeGeometry(
     triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
     triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
     triangles.vertexData.deviceAddress = primitive.vertexAddress;
-    triangles.vertexStride = sizeof(ModelVertex);
+    triangles.vertexStride = primitive.vertexStride;
     triangles.maxVertex = primitive.firstVertex + primitive.vertexCount - 1;
     triangles.indexType = VK_INDEX_TYPE_UINT32;
     triangles.indexData.deviceAddress = primitive.indexAddress;

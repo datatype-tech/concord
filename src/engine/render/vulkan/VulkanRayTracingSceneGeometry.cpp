@@ -47,6 +47,13 @@ bool CreateVulkanRayTracingSceneGeometry(const VulkanContext& context,
 {
     std::array<VulkanRayTracingModelPrimitiveInfo,
                kVulkanRayTracingModelMetadataCapacity> metadata{};
+    // One slot per placeable instance, since every Box gets its own material.
+    // Zeroed, so an instance that never receives one shades from the fallback
+    // palette rather than from whatever the allocation happened to contain.
+    std::array<VulkanBoxMaterial, kVulkanRayTracingMaxInstances> boxMaterials{};
+    // One slot per disturbance a frame may carry; zeroed, so an unused slot is
+    // a source of no strength rather than whatever the allocation held.
+    std::array<VulkanRippleSource, kMaxRenderRipples> ripples{};
     if (!UploadArray(context, kBoxVertices, scene.vertexBuffer)) {
         return false;
     }
@@ -55,6 +62,19 @@ bool CreateVulkanRayTracingSceneGeometry(const VulkanContext& context,
         return false;
     }
     if (!UploadArray(context, metadata, scene.modelPrimitiveBuffer)) {
+        DestroyVulkanBuffer(context, scene.indexBuffer);
+        DestroyVulkanBuffer(context, scene.vertexBuffer);
+        return false;
+    }
+    if (!UploadArray(context, boxMaterials, scene.boxMaterialBuffer)) {
+        DestroyVulkanBuffer(context, scene.modelPrimitiveBuffer);
+        DestroyVulkanBuffer(context, scene.indexBuffer);
+        DestroyVulkanBuffer(context, scene.vertexBuffer);
+        return false;
+    }
+    if (!UploadArray(context, ripples, scene.rippleSourceBuffer)) {
+        DestroyVulkanBuffer(context, scene.boxMaterialBuffer);
+        DestroyVulkanBuffer(context, scene.modelPrimitiveBuffer);
         DestroyVulkanBuffer(context, scene.indexBuffer);
         DestroyVulkanBuffer(context, scene.vertexBuffer);
         return false;

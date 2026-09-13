@@ -14,7 +14,7 @@ namespace {
 bool AppendInstance(std::array<VkAccelerationStructureInstanceKHR,
                                 kVulkanRayTracingMaxInstances>& instances,
                     u32& count, const Mat4& model, VkDeviceAddress address,
-                    u32 customIndex) noexcept
+                    u32 customIndex, bool blocksLight = true) noexcept
 {
     if (address == 0 || count >= kVulkanRayTracingMaxInstances) return false;
     VkAccelerationStructureInstanceKHR& instance = instances[count];
@@ -24,7 +24,8 @@ bool AppendInstance(std::array<VkAccelerationStructureInstanceKHR,
         }
     }
     instance.instanceCustomIndex = customIndex;
-    instance.mask = 0xff;
+    instance.mask = kVulkanRayTracingMaskVisible |
+                    (blocksLight ? kVulkanRayTracingMaskLightBlocker : 0u);
     instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR |
                      VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
     instance.accelerationStructureReference = address;
@@ -32,20 +33,41 @@ bool AppendInstance(std::array<VkAccelerationStructureInstanceKHR,
     return true;
 }
 
+/** Whether this skinned BLAS entry belongs to the entity being placed. */
+bool SkinnedPrimitiveBelongsTo(const VulkanRayTracingScene& scene, u32 primitiveIndex,
+                               Entity entity) noexcept
+{
+    for (const VulkanRayTracingSkinnedSource& source : scene.skinnedSources) {
+        if (source.modelPrimitiveIndex == primitiveIndex && source.entity == entity) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void AppendModelInstances(
     const VulkanRayTracingScene& scene, const RenderObjectSnapshot& object,
     std::array<VkAccelerationStructureInstanceKHR, kVulkanRayTracingMaxInstances>& instances,
     u32& count) noexcept
 {
-    if (object.shape != PrimitiveShape::Model || !object.modelAsset || object.modelSkin >= 0 ||
-        object.skinningRange.jointCount != 0) return;
-    for (const VulkanRayTracingModelPrimitive& primitive : scene.modelPrimitives) {
-        if (primitive.source != object.modelAsset.get() || !primitive.IsReady() ||
-            (object.modelMesh != kAllModelMeshes && primitive.meshIndex != object.modelMesh)) {
+    if (object.shape != PrimitiveShape::Model || !object.modelAsset) return;
+    // A skinned draw shares its rest mesh with every other instance of the
+    // same asset, so its BLAS is keyed by entity instead of by asset.
+    const bool skinned = object.modelSkin >= 0 || object.skinningRange.jointCount != 0;
+    for (u32 index = 0; index < scene.modelPrimitives.size(); ++index) {
+        const VulkanRayTracingModelPrimitive& primitive = scene.modelPrimitives[index];
+        if (!primitive.IsReady() || primitive.skinned != skinned) continue;
+        if (skinned) {
+            if (!SkinnedPrimitiveBelongsTo(scene, index, object.entity)) continue;
+        } else if (primitive.source != object.modelAsset.get()) {
+            continue;
+        }
+        if (object.modelMesh != kAllModelMeshes && primitive.meshIndex != object.modelMesh) {
             continue;
         }
         if (!AppendInstance(instances, count, object.model, primitive.address,
-                            kVulkanRayTracingModelInstanceBit | primitive.metadataIndex)) {
+                            kVulkanRayTracingModelInstanceBit | primitive.metadataIndex,
+                            object.castShadow)) {
             return;
         }
     }
@@ -58,13 +80,20 @@ u32 UploadVulkanRayTracingInstances(VulkanRayTracingScene& scene,
                                     const RenderSceneSnapshot* snapshot) noexcept
 {
     std::array<VkAccelerationStructureInstanceKHR, kVulkanRayTracingMaxInstances> instances{};
+    // One authored material per instance slot. A Box carries its appearance in
+    // the hit shader through this array rather than through a baked-in palette:
+    // the palette made every authored colour in the scene render as one of
+    // eight fixed hues, which is what turned a grey floor into near-black and
+    // left the water with nothing to show through it.
+    std::array<VulkanBoxMaterial, kVulkanRayTracingMaxInstances> boxMaterials{};
     u32 count = 0;
+    u32 boxCount = 0;
     if (!snapshot) {
         count = 1;
         instances[0].transform.matrix[0][0] = 1.0f;
         instances[0].transform.matrix[1][1] = 1.0f;
         instances[0].transform.matrix[2][2] = 1.0f;
-        instances[0].mask = 0xff;
+        instances[0].mask = kVulkanRayTracingMaskVisible | kVulkanRayTracingMaskLightBlocker;
         instances[0].flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR |
                              VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
         instances[0].accelerationStructureReference = scene.bottomLevelAddress;
@@ -72,13 +101,25 @@ u32 UploadVulkanRayTracingInstances(VulkanRayTracingScene& scene,
         for (const RenderObjectSnapshot& object : snapshot->objects) {
             if (!scene.includeNonShadowCasters && !object.castShadow) continue;
             if (object.shape == PrimitiveShape::Box) {
-                AppendInstance(instances, count, object.model, scene.bottomLevelAddress, count);
+                // The slot is the instance index, so the custom index needs no
+                // second lookup table and both stay valid together.
+                if (count < kVulkanRayTracingMaxInstances) {
+                    boxMaterials[count] = MakeVulkanBoxMaterial(object.material);
+                }
+                AppendInstance(instances, count, object.model, scene.bottomLevelAddress,
+                               kVulkanRayTracingBoxMaterialBit | count, object.castShadow);
+                ++boxCount;
             } else if (object.shape == PrimitiveShape::Model) {
                 AppendModelInstances(scene, object, instances, count);
             }
         }
     }
     if (count == 0) {
+        return 0;
+    }
+    if (boxCount != 0 &&
+        !UploadVulkanBuffer(scene.boxMaterialBuffer,
+                            std::as_bytes(std::span(boxMaterials.data(), count)))) {
         return 0;
     }
     const auto bytes = std::as_bytes(std::span<const VkAccelerationStructureInstanceKHR>(

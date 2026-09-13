@@ -43,6 +43,27 @@ int main()
     if (!state.enabled || state.lightIndex != 0 || !std::isfinite(state.viewProjection.col[0].x)) {
         return 1;
     }
+    // A shadow is a world-space projection, so moving or turning the camera
+    // must not move the light volume. When the orthographic box is fitted to
+    // a camera-relative focus point instead of to the scene, the same object
+    // appears to cast a differently shaped shadow from a different angle.
+    RenderSceneSnapshot moved = snapshot;
+    moved.camera.position = {40.0f, 25.0f, -60.0f};
+    moved.camera.forward = {0.3f, -0.5f, 0.8f};
+    moved.camera.target = moved.camera.position + moved.camera.forward;
+    const VulkanDirectionalShadowState movedState = BuildVulkanDirectionalShadowState(moved);
+    if (!movedState.enabled || movedState.lightIndex != state.lightIndex) {
+        return 1;
+    }
+    for (u32 column = 0; column < 4; ++column) {
+        for (u32 row = 0; row < 4; ++row) {
+            if (std::abs(state.viewProjection.col[column][row] -
+                         movedState.viewProjection.col[column][row]) > 0.0001f) {
+                return 1;
+            }
+        }
+    }
+
     snapshot.lights[0].light.castShadow = false;
     return BuildVulkanDirectionalShadowState(snapshot).enabled ? 1 : 0;
 }
