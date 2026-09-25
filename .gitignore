@@ -35,3 +35,15 @@
 *.log
 *_out.txt
 *_err.txt
+
+# Compiler and release-tool build artifacts.
+/tools/**/build*/
+/tools/**/generated*/
+/tools/**/CMakeFiles/
+/tools/**/out/
+/tools/**/CMakeCache.txt
+/tools/**/cmake_install.cmake
+/tools/**/build.ninja
+/tools/**/.ninja_*
+/tools/**/*.gen.cpp
+/tools/**/*.gen.h

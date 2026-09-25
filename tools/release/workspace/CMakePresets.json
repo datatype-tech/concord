@@ -1,0 +1,19 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "release-preview",
+      "displayName": "Concord Flash preview (Release, shaders, tests)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/release-build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CONCORD_BUILD_SHADERS": "ON",
+        "CONCORD_BUILD_TESTS": "ON",
+        "CONCORD_BUILD_GPU_TESTS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [{"name": "release-preview", "configurePreset": "release-preview", "jobs": 6}],
+  "testPresets": [{"name": "release-preview", "configurePreset": "release-preview", "output": {"outputOnFailure": true}}]
+}

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.24)
+project(ConcordPreviewConsumer LANGUAGES CXX)
+find_package(ConcordFlash CONFIG REQUIRED)
+add_executable(preview main.cpp)
+target_link_libraries(preview PRIVATE concord::concord)
+concord_stage_runtime(preview)
