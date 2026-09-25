@@ -1,0 +1,113 @@
+use Concord.CMath;
+@include(path="array", system=true, section="header");
+@include(path="algorithm", system=true, section="header");
+@include(path="cmath", system=true, section="header");
+
+/** Deterministic arcade rules, independent of rendering and window input. */
+class Round {
+public:
+    struct Point { float x=0; float y=0; };
+    enum class Phase { Ready, Playing, Paused, Won, Lost };
+    Phase phase = Phase::Ready;
+    Point player{0.0f, 5.6f};
+    Point heading{0.0f, -1.0f};
+    std::array<Point, 6> enemies{};
+    std::array<Point, 12> crystals{{
+        {-7.5f, -5.0f}, {-3.0f, -5.0f}, {3.0f, -5.0f}, {7.5f, -5.0f},
+        {-7.5f, 0.0f}, {-3.0f, -0.6f}, {3.0f, -0.6f}, {7.5f, 0.0f},
+        {-7.5f, 5.0f}, {-3.0f, 4.0f}, {3.0f, 4.0f}, {7.5f, 5.0f}
+    }};
+    std::array<bool, 12> collected{};
+    int score = 0;
+    int lives = 3;
+    float remaining = 75.0f;
+    float cooldown = 0.0f;
+    float dashTime = 0.0f;
+    float invulnerable = 0.0f;
+    float elapsed = 0.0f;
+    float pickupFlash = 0.0f;
+
+    /** Starting and restarting use precisely the same state reset. */
+    void Start() {
+        player = {0.0f, 5.6f}; heading = {0.0f, -1.0f};
+        enemies = {{{-8.5f,-5.8f},{0.0f,-5.8f},{8.5f,-5.8f},
+                    {-8.5f,2.0f},{8.5f,2.0f},{0.0f,-2.0f}}};
+        collected.fill(false);
+        score = 0; lives = 3; remaining = 75.0f;
+        cooldown = 0.0f; dashTime = 0.0f; invulnerable = 1.2f;
+        elapsed = 0.0f; pickupFlash = 0.0f; phase = Phase::Playing;
+    }
+
+    static float Distance(Point a, Point b) {
+        const float x = a.x-b.x, y = a.y-b.y;
+        return std::sqrt(x*x+y*y);
+    }
+
+    /** Dash direction is locked during the burst; diagonal motion is normalized. */
+    void Step(float dt, float x, float z, bool dash) {
+        if (phase != Phase::Playing || !(dt > 0.0f)) return;
+        dt = std::min(dt, 0.05f);
+        elapsed += dt; remaining = std::max(0.0f, remaining-dt);
+        cooldown = std::max(0.0f, cooldown-dt);
+        invulnerable = std::max(0.0f, invulnerable-dt);
+        pickupFlash = std::max(0.0f, pickupFlash-dt);
+        const float length = std::sqrt(x*x+z*z);
+        if (length > 0.01f) { x /= length; z /= length; }
+        if (length > 0.01f && dashTime <= 0.0f) heading = {x,z};
+        if (dash && cooldown <= 0.0f) { dashTime = 0.20f; cooldown = 1.5f; }
+        const bool dashing = dashTime > 0.0f;
+        const float speed = dashing ? 17.0f : 5.2f;
+        player.x = std::clamp(player.x + (dashing ? heading.x : x)*speed*dt, -9.0f, 9.0f);
+        player.y = std::clamp(player.y + (dashing ? heading.y : z)*speed*dt, -6.0f, 6.0f);
+        dashTime = std::max(0.0f, dashTime-dt);
+        for (int i=0; i<6; ++i) {
+            auto& enemy = enemies[i];
+            const float dx = player.x-enemy.x, dz = player.y-enemy.y;
+            const float distance = std::sqrt(dx*dx+dz*dz);
+            const float chaseSpeed = 1.15f + float(score)*0.055f + float(i%3)*0.15f;
+            // Alternating hunters flank the courier instead of forming one pile.
+            if (distance > 0.02f) {
+                const float sway = std::sin(elapsed*1.7f+float(i)*2.1f)*0.6f;
+                enemy.x = std::clamp(enemy.x+(dx/distance*chaseSpeed-dz/distance*sway)*dt,-9.1f,9.1f);
+                enemy.y = std::clamp(enemy.y+(dz/distance*chaseSpeed+dx/distance*sway)*dt,-6.1f,6.1f);
+            }
+            if (Distance(player,enemy) < 0.78f && !dashing && invulnerable <= 0.0f) {
+                --lives; invulnerable = 1.5f;
+                enemy = {std::clamp(enemy.x-dx/std::max(distance,0.1f)*2.6f,-9.1f,9.1f),
+                         std::clamp(enemy.y-dz/std::max(distance,0.1f)*2.6f,-6.1f,6.1f)};
+            }
+        }
+        if (lives <= 0 || remaining <= 0.0f) { phase = Phase::Lost; return; }
+        for (int i=0; i<12; ++i) {
+            if (!collected[i] && Distance(player,crystals[i]) < 0.85f) {
+                collected[i] = true; ++score; pickupFlash = 0.7f;
+                cooldown = std::max(0.0f,cooldown-0.25f);
+            }
+        }
+        if (score == 12) phase = Phase::Won;
+    }
+
+    /** Exercises the win/loss, dash, boundary and pause contracts without a GPU. */
+    static bool SelfTest() {
+        Round r; r.Start();
+        r.Step(0.05f,1,1,false);
+        if (std::abs(Distance(r.player,{0,5.6f})-0.26f)>0.001f) return false;
+        r.Start(); r.Step(0.05f,0,-1,true);
+        if (r.cooldown <= 0 || r.dashTime <= 0 || r.player.y >= 5.0f) return false;
+        r.phase = Phase::Paused; const auto before = r.player;
+        r.Step(0.05f,1,0,true); if (Distance(before,r.player)>0.001f) return false;
+        r.Start(); r.player = {9,0}; r.Step(0.05f,1,0,true);
+        if (r.player.x > 9) return false;
+        r.Start(); r.invulnerable = 100;
+        for (int i=0;i<12;++i) { r.player=r.crystals[i]; r.Step(0.01f,0,0,false); }
+        if (r.phase != Phase::Won || r.score != 12) return false;
+        r.Start(); r.remaining = 0.005f; r.Step(0.01f,0,0,false);
+        if (r.phase != Phase::Lost) return false;
+        r.Start(); r.invulnerable = 0; r.lives = 1; r.enemies[0] = r.player;
+        r.Step(0.01f,0,0,false);
+        if (r.phase != Phase::Lost || r.lives != 0) return false;
+        r.Start(); r.invulnerable = 0; r.enemies[0] = r.player;
+        r.Step(0.01f,0,-1,true);
+        return r.lives == 3;
+    }
+};

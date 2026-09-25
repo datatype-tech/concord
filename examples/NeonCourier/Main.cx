@@ -1,0 +1,56 @@
+use Concord.CApplication;
+use Concord.CInput;
+use Concord.CScene;
+use NeonCourier.Rules;
+use NeonCourier.Arena;
+@include(path="cstdio", system=true);
+@include(path="cstdlib", system=true);
+
+@entry {
+    if (std::getenv("NEON_COURIER_SELF_TEST")) {
+        const bool passed = Rules::Round::SelfTest();
+        std::printf("Neon Courier rules: %s\n", passed ? "PASS" : "FAIL");
+        return passed ? 0 : 1;
+    }
+    const char* capture = std::getenv("NEON_COURIER_CAPTURE");
+    const bool smoke = std::getenv("NEON_COURIER_SMOKE") != nullptr;
+    Concord::Game game({.enableRayTracing=false, .frameRateLimit=120});
+    var window = Concord::Window({.title="Neon Courier | ConcordScript - Press ENTER to start",
+        .resolution={1280,800}, .visible=capture==nullptr && !smoke, .vsync=true});
+    game.AttachWindow(window);
+    if (!window.IsOpen()) return 1;
+    Concord::Scene scene;
+    Rules::Round round;
+    round.Start(); round.phase=Rules::Round::Phase::Ready;
+    Arena::View view;
+    view.Build(scene,round);
+    view.Sync(round,0);
+    game.LoadScene(scene);
+    if(capture) return game.RenderStill(capture,{.warmupFrames=2}) ? 0 : 1;
+    game.OnUpdate([&](float dt) {
+        using Key=Concord::KeyCode;
+        using Phase=Rules::Round::Phase;
+        if(window.WasKeyPressed(Key::Escape) || window.WasKeyPressed(Key::P)) {
+            if(round.phase==Phase::Playing) round.phase=Phase::Paused;
+            else if(round.phase==Phase::Paused) round.phase=Phase::Playing;
+        }
+        if(window.WasKeyPressed(Key::R)) round.Start();
+        if(window.WasKeyPressed(Key::Enter)) {
+            if(round.phase==Phase::Paused) round.phase=Phase::Playing;
+            else if(round.phase!=Phase::Playing) round.Start();
+        }
+        const float x=float(window.IsKeyDown(Key::D) || window.IsKeyDown(Key::Right))-
+                      float(window.IsKeyDown(Key::A) || window.IsKeyDown(Key::Left));
+        const float z=float(window.IsKeyDown(Key::S) || window.IsKeyDown(Key::Down))-
+                      float(window.IsKeyDown(Key::W) || window.IsKeyDown(Key::Up));
+        round.Step(dt,x,z,window.WasKeyPressed(Key::Space));
+        view.Sync(round,dt);
+        if(view.DrawUi(game.Ui(),round,float(window.Width()),float(window.Height()))) {
+            if(round.phase==Phase::Paused) round.phase=Phase::Playing;
+            else round.Start();
+        }
+        if(smoke && game.FrameCount()>=90) game.Quit();
+    });
+    game.Run();
+    return 0;
+};

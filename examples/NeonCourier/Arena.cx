@@ -1,0 +1,159 @@
+use Concord.CApplication;
+use Concord.CCamera;
+use Concord.CColor;
+use Concord.CLight;
+use Concord.CObject;
+use Concord.CScene;
+use Concord.CUi;
+use NeonCourier.Rules;
+@include(path="array", system=true, section="header");
+@include(path="cmath", system=true, section="header");
+@include(path="cstdio", system=true, section="header");
+
+/** Native Concord geometry and immediate-mode UI for the arcade arena. */
+class View {
+public:
+    Concord::EntityHandle player;
+    Concord::EntityHandle nose;
+    std::array<Concord::EntityHandle,12> gems{};
+    std::array<Concord::EntityHandle,12> pads{};
+    std::array<Concord::EntityHandle,6> hunters{};
+    std::array<Concord::EntityHandle,8> trail{};
+    std::array<Rules::Round::Point,8> history{};
+    float time = 0;
+
+    static Concord::EntityHandle Box(Concord::Scene& scene, Concord::Vec3 position,
+                                     Concord::Vec3 size, Concord::ColorRGBA color, float emission=0) {
+        return scene.Spawn<Concord::Object::Box>({.transform={.position=position},.size=size,
+            .material={.albedo=color,.roughness=0.7f,.emissive=emission}});
+    }
+
+    void Build(Concord::Scene& scene, const Rules::Round& round) {
+        scene.Spawn<Concord::Object::Camera>({.position={0,21,16},.target={0,0,0},
+            .projection=Concord::CameraProjection::Orthographic,.orthographicSize=9.5f});
+        scene.Spawn<Concord::Object::SunLight>({.elevationDegrees=64,.azimuthDegrees=225,
+            .color=COLOR_RGB(195,220,255),.intensity=1.3f});
+        auto environment = scene.Environment();
+        environment.skyColor=COLOR_RGB(5,9,20);
+        environment.ambientColor=COLOR_RGB(140,170,220);
+        environment.ambientIntensity=0.8f;
+        scene.SetEnvironment(environment);
+        Box(scene,{0,-0.4f,0},{20,0.65f,14},COLOR_RGB(13,22,38));
+        Box(scene,{0,-0.86f,0},{21,0.35f,15},COLOR_RGB(5,12,24));
+        for (int x=-9;x<=9;++x) Box(scene,{float(x),-0.065f,0},{0.022f,0.02f,13},COLOR_RGB(23,46,66),0.25f);
+        for (int z=-6;z<=6;++z) Box(scene,{0,-0.06f,float(z)},{19,0.02f,0.022f},COLOR_RGB(23,46,66),0.25f);
+        for (int side : {-1,1}) {
+            Box(scene,{float(side)*9.6f,0,0},{0.15f,0.14f,13.5f},COLOR_RGB(28,230,226),0.5f);
+            Box(scene,{0,0,float(side)*6.6f},{19.2f,0.14f,0.15f},COLOR_RGB(28,230,226),0.5f);
+            for (int i=-3;i<=3;++i) {
+                Box(scene,{float(i)*3,0.3f,float(side)*7.05f},{0.35f,0.8f,0.35f},COLOR_RGB(35,60,88));
+                Box(scene,{float(i)*3,0.75f,float(side)*7.05f},{0.38f,0.1f,0.38f},COLOR_RGB(56,180,236),0.5f);
+            }
+        }
+        for (int i=0;i<12;++i) {
+            const auto pos=round.crystals[i];
+            pads[i]=Box(scene,{pos.x,0.02f,pos.y},{0.95f,0.08f,0.95f},COLOR_RGB(63,49,15),0.2f);
+            gems[i]=Box(scene,{pos.x,0.8f,pos.y},{0.48f,0.48f,0.48f},COLOR_RGB(255,207,66),0.45f);
+        }
+        player=Box(scene,{0,0.45f,5.6f},{0.68f,0.8f,0.68f},COLOR_RGB(64,255,233),0.3f);
+        nose=Box(scene,{0,0.84f,5.3f},{0.28f,0.1f,0.2f},COLOR_RGB(245,255,255),0.7f);
+        for (int i=0;i<6;++i) hunters[i]=Box(scene,{0,0.45f,0},{0.8f,0.8f,0.8f},COLOR_RGB(255,65,99),0.25f);
+        for (int i=0;i<8;++i) trail[i]=Box(scene,{0,0.08f,5.6f},{0.45f,0.08f,0.45f},COLOR_RGB(18,114,134),0.6f);
+    }
+
+    void Sync(const Rules::Round& round, float dt) {
+        time += dt;
+        for (int i=7;i>0;--i) history[i]=history[i-1];
+        history[0]=round.player;
+        auto* transform=player.Get<Concord::Transform>();
+        transform->position={round.player.x,0.48f,round.player.y};
+        transform->rotation.y=std::atan2(round.heading.x,round.heading.y)*57.29578f;
+        const bool blink=round.invulnerable>0 && int(time*14)%2==0;
+        player.Get<Concord::Material>()->albedo=blink ? COLOR_RGB(235,255,255) : COLOR_RGB(55,240,224);
+        nose.Get<Concord::Transform>()->position={round.player.x+round.heading.x*0.24f,0.92f,round.player.y+round.heading.y*0.24f};
+        for (int i=0;i<12;++i) {
+            gems[i].Get<Concord::MeshRenderer>()->visible=!round.collected[i];
+            gems[i].Get<Concord::Transform>()->rotation={45,time*65+float(i)*20,35};
+            gems[i].Get<Concord::Transform>()->position.y=0.8f+std::sin(time*3+float(i))*0.13f;
+            pads[i].Get<Concord::Material>()->albedo=round.collected[i] ? COLOR_RGB(20,75,79) : COLOR_RGB(90,65,16);
+        }
+        for (int i=0;i<6;++i) {
+            hunters[i].Get<Concord::Transform>()->position={round.enemies[i].x,0.5f,round.enemies[i].y};
+            hunters[i].Get<Concord::Transform>()->rotation.y=time*35+float(i)*30;
+        }
+        for (int i=0;i<8;++i) {
+            trail[i].Get<Concord::MeshRenderer>()->visible=round.dashTime>0;
+            trail[i].Get<Concord::Transform>()->position={history[i].x,0.07f,history[i].y};
+        }
+    }
+
+    static void Rect(Concord::UiCanvas& ui,float x,float y,float w,float h,std::array<float,4> color) {
+        ui.theme.panel=color; ui.Panel(x,y,w,h);
+    }
+
+    static void Text(Concord::UiCanvas& ui,float x,float y,const char* text,
+                     std::array<float,4> color={0.82f,0.91f,0.98f,1}) {
+        ui.theme.text=color; ui.Label(x,y,text);
+    }
+
+    static const char* Glyph(char c) {
+        switch(c) {
+        case 'N':return "10001110011010110011100011000110001";
+        case 'E':return "11111100001000011110100001000011111";
+        case 'O':return "01110100011000110001100011000101110";
+        case 'C':return "01111100001000010000100001000001111";
+        case 'U':return "10001100011000110001100011000101110";
+        case 'R':return "11110100011000111110101001001010001";
+        case 'I':return "11111001000010000100001000010011111";
+        default:return "00000000000000000000000000000000000";
+        }
+    }
+
+    static void Title(Concord::UiCanvas& ui,float x,float y) {
+        const char* title="NEON COURIER";
+        for(int i=0;title[i];++i) for(int row=0;row<7;++row) for(int col=0;col<5;++col)
+            if(Glyph(title[i])[row*5+col]=='1') Rect(ui,x+float(i*24+col*4),y+float(row*4),3,3,{0.25f,1,0.88f,1});
+    }
+
+    /** Returns true when the player clicks a start/resume/retry action. */
+    bool DrawUi(Concord::UiCanvas& ui,const Rules::Round& round,float width,float height) {
+        Rect(ui,18,18,width-36,64,{0.025f,0.045f,0.075f,0.97f});
+        Rect(ui,18,18,4,64,{0.18f,0.95f,0.85f,1});
+        Text(ui,36,32,"NEON COURIER",{0.3f,1,0.88f,1});
+        Text(ui,36,54,"DELIVERY RUN / 01",{0.4f,0.57f,0.72f,1});
+        char text[90];
+        std::snprintf(text,sizeof(text),"ENERGY  %02d / 12",round.score);Text(ui,width*0.30f,42,text);
+        std::snprintf(text,sizeof(text),"TIME  %02d",int(std::ceil(round.remaining)));Text(ui,width*0.53f,42,text);
+        Text(ui,width-194,32,"SHIELD");
+        for(int i=0;i<3;++i) Rect(ui,width-194+float(i*42),54,32,8,
+            i<round.lives ? std::array<float,4>{1,0.32f,0.45f,1} : std::array<float,4>{0.17f,0.19f,0.24f,1});
+        Rect(ui,18,height-66,width-36,48,{0.025f,0.045f,0.075f,0.95f});
+        Text(ui,34,height-49,"WASD / ARROWS: MOVE    SPACE: DASH    P: PAUSE    R: RESTART");
+        const float meterX=width-248;
+        Rect(ui,meterX,height-39,208,5,{0.12f,0.19f,0.25f,1});
+        Rect(ui,meterX,height-39,208*(1-round.cooldown/1.5f),5,{0.25f,1,0.85f,1});
+        Text(ui,meterX,height-57,round.cooldown<=0 ? "DASH READY" : "RECHARGING",{0.35f,1,0.86f,1});
+        if(round.pickupFlash>0 && round.phase==Rules::Round::Phase::Playing)
+            Text(ui,width*0.5f-90,height-96,"ENERGY ACQUIRED +1",{1,0.84f,0.3f,1});
+        if(round.phase==Rules::Round::Phase::Playing) return false;
+        const float left=width*0.5f-300,top=height*0.5f-178;
+        Rect(ui,left-4,top-4,608,352,{0.08f,0.32f,0.37f,1});
+        Rect(ui,left,top,600,344,{0.025f,0.045f,0.075f,0.98f});
+        Title(ui,left+156,top+30);
+        const bool won=round.phase==Rules::Round::Phase::Won;
+        const bool lost=round.phase==Rules::Round::Phase::Lost;
+        const bool paused=round.phase==Rules::Round::Phase::Paused;
+        Text(ui,left+48,top+96,won ? "DELIVERY COMPLETE. CITY POWER RESTORED." :
+            lost ? "SIGNAL LOST. THE CITY NEEDS ANOTHER COURIER." :
+            paused ? "RUN PAUSED. TAKE A BREATH." : "12 ENERGY CORES. 75 SECONDS. ONE COURIER.",
+            {1,0.85f,0.43f,1});
+        Text(ui,left+48,top+138,"You are CYAN. Collect every GOLD crystal.");
+        Text(ui,left+48,top+164,"RED hunters chase you. Keep moving, take wide turns.");
+        Text(ui,left+48,top+190,"SPACE dashes THROUGH hunters. Three hits end the run.");
+        Text(ui,left+48,top+216,"Crystals help recharge your dash. No mouse aim needed.");
+        ui.theme.button={0.06f,0.37f,0.36f,1};ui.theme.buttonHot={0.08f,0.55f,0.48f,1};
+        ui.theme.text={0.8f,1,0.94f,1};
+        const bool clicked=ui.Button(left+170,top+265,260,42,paused ? "RESUME / ENTER" : "START RUN / ENTER");
+        return clicked;
+    }
+};

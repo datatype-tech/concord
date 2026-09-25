@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.24)
+project(ConcordScriptGame LANGUAGES CXX)
+find_package(ConcordFlash CONFIG REQUIRED)
+find_program(CONCORDSCRIPT_COMPILER NAMES concordc HINTS "${CONCORD_SDK_ROOT}/bin" REQUIRED)
+file(GLOB sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cx")
+set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+set(generated_sources "${generated_dir}/ConcordScriptRegistry.gen.cpp")
+set(generated_headers "${generated_dir}/ConcordScriptRegistry.gen.h")
+foreach(source IN LISTS sources)
+    get_filename_component(stem "${source}" NAME_WE)
+    list(APPEND generated_sources "${generated_dir}/${stem}.gen.cpp")
+    list(APPEND generated_headers "${generated_dir}/${stem}.gen.h")
+endforeach()
+add_custom_command(OUTPUT ${generated_sources} ${generated_headers}
+    COMMAND "${CONCORDSCRIPT_COMPILER}" --cpp --project "${CMAKE_CURRENT_SOURCE_DIR}" --out "${generated_dir}"
+    DEPENDS ${sources} "${CONCORDSCRIPT_COMPILER}"
+    COMMENT "Compile ConcordScript sources" VERBATIM)
+add_executable(game ${generated_sources} ${generated_headers})
+target_include_directories(game PRIVATE "${generated_dir}")
+target_link_libraries(game PRIVATE concord::concord)
+concord_stage_runtime(game)
