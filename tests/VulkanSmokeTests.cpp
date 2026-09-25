@@ -10,6 +10,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cstring>
+#include <cstdio>
 #include <vector>
 
 namespace {
@@ -38,9 +39,11 @@ bool HasValidationLayer()
 int main()
 {
 #if defined(NDEBUG)
+    std::fprintf(stderr, "SKIP: validation smoke requires a Debug build\n");
     return 77;
 #else
     if (!HasValidationLayer()) {
+        std::fprintf(stderr, "SKIP: VK_LAYER_KHRONOS_validation is unavailable\n");
         return 77;
     }
 

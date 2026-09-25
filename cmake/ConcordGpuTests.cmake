@@ -121,6 +121,18 @@ add_test(NAME concord_ray_tracing_pipeline_gpu_tests
 set_tests_properties(concord_ray_tracing_pipeline_gpu_tests PROPERTIES
     SKIP_RETURN_CODE 77 TIMEOUT 30)
 
+foreach(gpu_target concord_ray_tracing_scene_gpu_tests concord_ray_tracing_model_gpu_tests
+                   concord_ray_tracing_pipeline_gpu_tests)
+    target_sources(${gpu_target} PRIVATE
+        src/engine/render/RayTracingTextureSlots.cpp
+        src/engine/render/vulkan/VulkanRayTracingSkinnedBlas.cpp)
+endforeach()
+target_sources(concord_ray_tracing_model_gpu_tests PRIVATE
+    src/engine/render/vulkan/VulkanRayTracingSkinned.cpp
+    src/engine/asset/SkinnedGeometry.cpp
+    src/engine/asset/SkinningPalette.cpp
+    src/engine/asset/WaterMaterial.cpp)
+
 add_executable(concord_vulkan_smoke_tests tests/VulkanSmokeTests.cpp)
 target_compile_features(concord_vulkan_smoke_tests PRIVATE cxx_std_23)
 target_include_directories(concord_vulkan_smoke_tests PRIVATE

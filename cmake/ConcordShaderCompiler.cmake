@@ -23,10 +23,15 @@ function(concord_resolve_shader_compiler out_compiler out_kind)
         set(compiler "${resolved_compiler}")
     endif()
     if(NOT compiler)
+        # An explicitly empty variable makes find_program skip its search.
+        unset(compiler)
+        get_filename_component(toolchain_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
         if(prefer_hlsl)
-            find_program(compiler NAMES glslangValidator dxc glslc NO_CACHE)
+            find_program(compiler NAMES glslangValidator dxc glslc
+                HINTS "${toolchain_bin}" "$ENV{VULKAN_SDK}/Bin" NO_CACHE)
         else()
-            find_program(compiler NAMES glslc glslangValidator dxc NO_CACHE)
+            find_program(compiler NAMES glslc glslangValidator dxc
+                HINTS "${toolchain_bin}" "$ENV{VULKAN_SDK}/Bin" NO_CACHE)
         endif()
     endif()
 

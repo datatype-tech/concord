@@ -10,6 +10,7 @@
 #include "engine/render/vulkan/VulkanRayTracingPipeline.h"
 #include "engine/render/vulkan/VulkanRayTracingSceneInternal.h"
 #include "engine/render/vulkan/VulkanShaderModule.h"
+#include <cstdio>
 #include <memory>
 #include <vector>
 namespace {
@@ -57,6 +58,7 @@ int main() {
     }
     Concord::VulkanContext context{.instance = instance, .physicalDevice = physical,
                                    .device = device, .queueFamily = family, .rayTracing = support};
+    vkGetDeviceQueue(device, family, 0, &context.graphicsQueue);
     Concord::VulkanRayTracingScene scene{};
     Concord::VulkanModelAssetCache cache{};
     Concord::VulkanFrameDataResources frameData{};
@@ -65,6 +67,7 @@ int main() {
     const auto asset = MakeTriangle();
     int status = Concord::CreateVulkanRayTracingScene(context, scene) ? 0 : 1;
     if (status == 0) status = cache.Ensure(context, asset) ? 0 : 1;
+    if (status != 0) std::fprintf(stderr, "Model GPU test failed during scene/asset creation\n");
     Concord::RenderSceneSnapshot snapshot{};
     snapshot.hasCamera = true;
     snapshot.objects.push_back(Concord::RenderObjectSnapshot{
@@ -74,6 +77,7 @@ int main() {
     });
     if (status == 0 && !Concord::EnsureVulkanRayTracingModelPrimitives(
                            context, scene, snapshot, cache)) {
+        std::fprintf(stderr, "Model GPU test failed at line %d\n", __LINE__);
         status = 1;
     }
     if (status == 0 && (scene.modelPrimitives.size() != 1 ||
@@ -82,6 +86,7 @@ int main() {
                         scene.modelPrimitiveBuffer.mapped == nullptr ||
                         static_cast<const Concord::VulkanRayTracingModelPrimitiveInfo*>(
                             scene.modelPrimitiveBuffer.mapped)->indexCount != 3)) {
+        std::fprintf(stderr, "Model GPU test failed at line %d\n", __LINE__);
         status = 1;
     }
     if (status == 0 && (!Concord::CreateVulkanFrameDataResources(context, frameData) ||
@@ -89,14 +94,17 @@ int main() {
                             .header = {.cameraValid = 1},
                             .camera = {.view = Concord::Mat4::Identity(),
                                        .projection = Concord::Mat4::Identity()}}))) {
+        std::fprintf(stderr, "Model GPU test failed at line %d\n", __LINE__);
         status = 1;
     }
     if (status == 0 && !Concord::CreateVulkanRayTracingPipeline(
                            context, frameData.layout, scene.descriptorLayout, pipeline)) {
+        std::fprintf(stderr, "Model GPU test failed at line %d\n", __LINE__);
         status = 1;
     }
     if (status == 0 && !Concord::CreateVulkanRayTracingOutputRing(
                            context, pipeline.outputLayout, {16, 16}, output)) {
+        std::fprintf(stderr, "Model GPU test failed at line %d\n", __LINE__);
         status = 1;
     }
     VkCommandPool pool = VK_NULL_HANDLE;
@@ -117,6 +125,7 @@ int main() {
         VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         status = vkBeginCommandBuffer(command, &begin) == VK_SUCCESS ? 0 : 1;
         if (status == 0 && !Concord::RecordVulkanRayTracingSceneBuild(command, scene, &snapshot)) {
+            std::fprintf(stderr, "Model GPU test failed at line %d\n", __LINE__);
             status = 1;
         }
         if (status == 0) {
@@ -126,6 +135,7 @@ int main() {
             if (!Concord::RecordVulkanRayTracingDispatch(
                     command, pipeline, frameData.sets[0], output.At(0).descriptorSet,
                     scene, output.At(0).extent)) {
+                std::fprintf(stderr, "Model GPU test failed at line %d\n", __LINE__);
                 status = 1;
             }
         }
