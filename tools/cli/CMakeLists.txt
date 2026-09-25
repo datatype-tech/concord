@@ -1,0 +1,22 @@
+cmake_minimum_required(VERSION 3.24)
+project(ConcordLauncher VERSION 0.1.0 LANGUAGES CXX)
+include(CTest)
+if(NOT WIN32)
+    message(FATAL_ERROR "Concord CLI supports Windows only")
+endif()
+if(BUILD_TESTING)
+    add_test(NAME concord_cli_bootstrap
+        COMMAND "$ENV{SystemRoot}/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -ExecutionPolicy Bypass -File
+            "${CMAKE_CURRENT_SOURCE_DIR}/TestBootstrap.ps1"
+            -Launcher $<TARGET_FILE:concord> -Work "${CMAKE_CURRENT_BINARY_DIR}/tests")
+endif()
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/Bootstrap.ps1" BOOTSTRAP_SCRIPT)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Bootstrap.ps1")
+configure_file(Launcher.cpp.in "${CMAKE_CURRENT_BINARY_DIR}/Launcher.cpp" @ONLY)
+add_executable(concord "${CMAKE_CURRENT_BINARY_DIR}/Launcher.cpp")
+target_compile_features(concord PRIVATE cxx_std_20)
+if(MINGW)
+    target_link_options(concord PRIVATE -static -municode)
+elseif(MSVC)
+    set_property(TARGET concord PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
+endif()
