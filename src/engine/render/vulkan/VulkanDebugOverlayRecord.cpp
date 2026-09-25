@@ -12,16 +12,7 @@
 namespace Concord {
 namespace {
 
-constexpr u32 kMaxOverlayGlyphs =
-    static_cast<u32>(128 * 1024 / (6 * sizeof(OverlayVertex)));
 constexpr f32 kTexelInset = 0.5f;
-constexpr u32 kMaxOverlayDraws = 64;
-
-struct OverlayDraw {
-    u32 first = 0;
-    u32 count = 0;
-    f32 color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-};
 
 f32 PixelToNdcX(f32 pixel, f32 width) noexcept
 {
@@ -91,21 +82,6 @@ bool AppendText(OverlayVertex* vertices, u32 capacity, u32& count, f32 penX, f32
     return true;
 }
 
-bool PushDraw(OverlayDraw* draws, u32& drawCount, u32 first, u32 count, const f32* color)
-{
-    if (count == 0 || drawCount >= kMaxOverlayDraws) {
-        return false;
-    }
-    OverlayDraw& draw = draws[drawCount++];
-    draw.first = first;
-    draw.count = count;
-    draw.color[0] = color[0];
-    draw.color[1] = color[1];
-    draw.color[2] = color[2];
-    draw.color[3] = color[3];
-    return true;
-}
-
 } // namespace
 
 void RecordVulkanDebugOverlay(VkCommandBuffer commandBuffer, VulkanDebugOverlay& overlay,
@@ -131,9 +107,9 @@ void RecordVulkanDebugOverlay(VkCommandBuffer commandBuffer, VulkanDebugOverlay&
     const f32 lineAdvance = overlay.font.lineAdvance;
 
     u32 count = 0;
-    const u32 capacity = kMaxOverlayGlyphs;
-    OverlayDraw draws[kMaxOverlayDraws]{};
-    u32 drawCount = 0;
+    const u32 capacity = static_cast<u32>(buffer.size / sizeof(OverlayVertex));
+    auto& draws = overlay.draws;
+    draws.clear();
 
     if (hasUi && overlay.font.hasWhite && atlasWidth > 0.0f && atlasHeight > 0.0f) {
         const f32 u0 = (static_cast<f32>(overlay.font.whiteX) + 0.5f) / atlasWidth;
@@ -153,16 +129,17 @@ void RecordVulkanDebugOverlay(VkCommandBuffer commandBuffer, VulkanDebugOverlay&
             } else if (command.kind == UiDrawKind::Text) {
                 if (!AppendText(vertices, capacity, count, command.x, command.y, command.text,
                                 overlay.font, atlasWidth, atlasHeight, width, height)) {
+                    AppendOverlayDraw(draws, start, count - start, command.color);
                     break;
                 }
             }
-            PushDraw(draws, drawCount, start, count - start, command.color.data());
+            AppendOverlayDraw(draws, start, count - start, command.color);
         }
     }
 
     if (hasOverlay) {
         const u32 start = count;
-        const f32 white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        const std::array<f32, 4> white = {1.0f, 1.0f, 1.0f, 1.0f};
         for (u32 line = 0; line < frame->lineCount && line < kDebugOverlayMaxLines; ++line) {
             const char* text = frame->lines[line].text;
             const f32 penLeft = width - kOverlayMargin - overlay.font.LineWidth(text);
@@ -173,10 +150,10 @@ void RecordVulkanDebugOverlay(VkCommandBuffer commandBuffer, VulkanDebugOverlay&
                 break;
             }
         }
-        PushDraw(draws, drawCount, start, count - start, white);
+        AppendOverlayDraw(draws, start, count - start, white);
     }
 
-    if (count == 0 || drawCount == 0 ||
+    if (count == 0 || draws.empty() ||
         !UploadVulkanBuffer(buffer, std::span<const std::byte>(
                                         reinterpret_cast<const std::byte*>(vertices),
                                         count * sizeof(OverlayVertex)))) {
@@ -211,16 +188,16 @@ void RecordVulkanDebugOverlay(VkCommandBuffer commandBuffer, VulkanDebugOverlay&
     vkCmdBeginRendering(commandBuffer, &rendering);
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-    for (u32 index = 0; index < drawCount; ++index) {
+    for (const OverlayDraw& draw : draws) {
         OverlayPushConstants push{};
-        push.color[0] = draws[index].color[0];
-        push.color[1] = draws[index].color[1];
-        push.color[2] = draws[index].color[2];
-        push.color[3] = draws[index].color[3];
+        push.color[0] = draw.color[0];
+        push.color[1] = draw.color[1];
+        push.color[2] = draw.color[2];
+        push.color[3] = draw.color[3];
         vkCmdPushConstants(commandBuffer, overlay.layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(push), &push);
-        vkCmdDraw(commandBuffer, draws[index].count, 1, draws[index].first, 0);
+        vkCmdDraw(commandBuffer, draw.count, 1, draw.first, 0);
     }
     vkCmdEndRendering(commandBuffer);
 }

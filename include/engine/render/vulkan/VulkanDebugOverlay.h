@@ -8,6 +8,7 @@
 #include "engine/core/Types.h"
 #include "engine/debug/DebugOverlayFrame.h"
 #include "engine/render/vulkan/VulkanBuffer.h"
+#include "engine/render/vulkan/OverlayDrawBatch.h"
 #include "engine/ui/UiDrawList.h"
 #include "engine/render/vulkan/VulkanContext.h"
 #include "engine/render/vulkan/VulkanDebugFont.h"
@@ -41,6 +42,8 @@ struct VulkanDebugOverlay {
     DebugFontBake font{};
     /** One host-visible quad buffer per frame in flight. */
     VulkanBuffer vertices[kMaxFramesInFlight]{};
+    /** Reused CPU draw ranges; their count is bounded by the submitted geometry. */
+    std::vector<OverlayDraw> draws;
 
     /** Whether every resource the overlay draws with is alive. */
     [[nodiscard]] bool IsReady() const noexcept

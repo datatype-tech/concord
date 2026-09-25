@@ -11,6 +11,11 @@ set(CONCORD_RENDER_PARTICLE_SOURCES
     src/engine/particle/ParticleSampling.cpp
     src/engine/particle/ParticleSimulation.cpp)
 
+add_executable(concord_overlay_draw_batch_tests tests/OverlayDrawBatchTests.cpp)
+target_compile_features(concord_overlay_draw_batch_tests PRIVATE cxx_std_23)
+target_include_directories(concord_overlay_draw_batch_tests PRIVATE ${CONCORD_TEST_INCLUDE})
+add_test(NAME concord_overlay_draw_batch_tests COMMAND concord_overlay_draw_batch_tests)
+
 add_executable(concord_ecs_tests
     tests/EcsTests.cpp tests/EcsWorldTests.cpp tests/EcsQueryTests.cpp
     tests/EcsDeferredTests.cpp tests/EcsSceneTests.cpp)
