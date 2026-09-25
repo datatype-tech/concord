@@ -10,7 +10,8 @@ $name = 'ConcordFlash-0.1.0-preview.1-win64'
 $fixture = Join-Path $Work $name
 foreach ($file in @('bin/concordc.exe','tools/cmake/bin/cmake.exe','tools/mingw/bin/g++.exe',
     'tools/mingw/bin/ninja.exe','bin/ConcordFlashGameEngineRuntime.dll',
-    'bin/ConcordFlashGameEngineRender.dll','lib/cmake/ConcordFlash/ConcordFlashConfig.cmake')) {
+    'bin/ConcordFlashGameEngineRender.dll','lib/cmake/ConcordFlash/ConcordFlashConfig.cmake',
+    'tools/cmake/share/cmake-4.3/Modules/CMakeExtraGeneratorDetermineCompilerMacrosAndIncludeDirs.cmake')) {
     $target = Join-Path $fixture $file
     New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
     Copy-Item -LiteralPath $Launcher -Destination $target

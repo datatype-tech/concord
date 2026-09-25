@@ -45,7 +45,9 @@ try {
         try {
             if (-not (Test-Path -LiteralPath (Join-Path $Sdk '.complete'))) {
                 if (Test-Path -LiteralPath $Sdk) { throw "Incomplete cache: remove $Sdk or select another --cache" }
-                $stage = Join-Path $cacheRoot ($key + '-download-' + [guid]::NewGuid().ToString('N'))
+                # Keep extraction below MAX_PATH on Windows PowerShell 5.1.
+                # The archive already contains the release name and long CMake filenames.
+                $stage = Join-Path $cacheRoot ('.d-' + [guid]::NewGuid().ToString('N').Substring(0,16))
                 New-Item -ItemType Directory -Path $stage | Out-Null
                 try {
                     $name = 'ConcordFlash-' + $Release.Substring(1) + '-win64'
