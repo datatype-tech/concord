@@ -1,0 +1,4 @@
+@cvm {
+    let count: int = 3;
+    return count;
+};

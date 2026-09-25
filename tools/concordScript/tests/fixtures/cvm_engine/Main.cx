@@ -1,0 +1,94 @@
+// The Concord engine binding.
+//
+// Builds a real Concord::Scene through the engine C ABI, which the compiler
+// resolves at run time from the module named by --cvm-host. Nothing here is
+// linked into cc.exe: these symbols come from
+// ConcordFlashGameEngineRuntime.dll and are looked up by name.
+//
+// Lengths are world units and angles are degrees. Handles, key codes and
+// colour channels stay integers.
+
+@cvm {
+    print(concord_version());
+
+    // Input and the frame callback answer harmlessly outside a running window,
+    // which is what lets a script call them without knowing whether one exists.
+    print(concord_key_down(23));
+    print(concord_key_pressed(23));
+    print(concord_key_released(23));
+    print_float(concord_mouse_delta(0));
+    print(concord_set_update(0));
+
+    let scene = concord_scene_new();
+    print(concord_scene_entity_count(scene));
+
+    // Every spawn returns an entity handle rather than a count, because a
+    // script needs something it can move on a later frame.
+    let camera = concord_spawn_camera(scene, 0.0, 4.0, -12.0, 0.0, 1.0, 0.0);
+    let sun = concord_spawn_sun(scene, 45.0, 200.0, 3.0);
+    let first = concord_spawn_box(scene, 0.0, 0.5, 0.0, 1.0, 1.0, 1.0, 224, 64, 64);
+    let second = concord_spawn_box(scene, 2.0, 0.5, 0.0, 0.8, 0.8, 0.8, 64, 160, 224);
+
+    print(concord_scene_entity_count(scene));
+    print(concord_scene_has_camera(scene));
+    print(first == second);
+
+    // Position round-trips as a real number, with no scale factor in sight.
+    print_float(concord_entity_position(first, 0));
+    concord_entity_set_position(first, 1.5, 2.0, -3.0);
+    print_float(concord_entity_position(first, 0));
+    print_float(concord_entity_position(first, 1));
+    print_float(concord_entity_position(first, 2));
+
+    // A relative move is what per-frame motion actually wants.
+    concord_entity_translate(first, 0.5, 0.0, 0.5);
+    print_float(concord_entity_position(first, 0));
+    print_float(concord_entity_position(first, 2));
+
+    print_float(concord_entity_size(second, 0));
+    print(concord_entity_set_size(second, 1.2, 0.8, 0.8));
+    print_float(concord_entity_size(second, 0));
+    print(concord_entity_look_at(camera, 0.0, 0.5, 0.0));
+    print(concord_scene_camera(scene) == camera);
+    print(concord_entity_overlaps(first, second));
+    print_float(concord_entity_distance(first, first));
+    print(concord_entity_alive(first));
+    print(concord_quit());
+    print(concord_mouse_captured());
+    print(concord_window_width());
+    print(concord_set_overlay(1));
+    print(concord_overlay());
+    print(concord_light_set_intensity(sun, 4.0));
+
+    print(concord_scene_snapshot(scene));
+    print(concord_scene_snapshot_at(0) == camera);
+    print(concord_entity_kind(camera));
+    print(concord_entity_kind(sun));
+    print(concord_entity_kind(first));
+    print(concord_entity_set_name(first, "hero"));
+    print(str_eq(concord_entity_name(first), "hero"));
+    print(concord_entity_color(first, 0));
+    print_float(concord_entity_fov(camera));
+    print_float(concord_light_intensity(sun));
+    print(concord_entity_visible(first));
+    print(concord_raycast(scene, 2.0, 10.0, -2.5, 0.0, -1.0, 0.0, 100.0) == first);
+    print_float(concord_raycast_distance());
+    print(concord_ui_button(0.0, 0.0, 10.0, 10.0, "x"));
+    print(concord_frame_count());
+    print(concord_set_title("x"));
+    print(concord_set_window_mode(1));
+    print_float(concord_delta_time());
+    print_float(concord_time());
+
+    print(concord_entity_destroy(first));
+    print(concord_scene_entity_count(scene));
+    print_float(concord_entity_position(first, 0));
+
+    // Retiring the scene must retire its entity handles too, so a recycled
+    // scene handle cannot be addressed by an entity from the old one.
+    print(concord_scene_free(scene));
+    print_float(concord_entity_position(second, 0));
+    print(concord_scene_entity_count(scene));
+
+    return 0;
+};

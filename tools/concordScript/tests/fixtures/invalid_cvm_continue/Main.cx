@@ -1,0 +1,4 @@
+@cvm {
+    continue;
+    return 0;
+};

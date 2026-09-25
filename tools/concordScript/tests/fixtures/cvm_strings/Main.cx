@@ -1,0 +1,44 @@
+// CVM strings.
+//
+// A string is a pointer at the ABI level, but a script never handles it as
+// one: the only operations are the ones str_* declares. Literals carry an
+// ownership word of zero, so freeing one is a no-op rather than a crash.
+
+@cvm_global {
+    let greeting: str = "hello";
+    let ticks = 0;
+};
+
+@cvm(name="shout", ret="str", args="text: str") {
+    return str_concat(text, "!");
+};
+
+@cvm {
+    print_str("literal");
+    print_str(greeting);
+    print_str(shout("wow"));
+
+    print(str_len(greeting));
+    print(str_eq(greeting, "hello"));
+    print(greeting == "hello");
+    print(greeting != "world");
+    print(str_find(greeting, "llo"));
+
+    print_str(str_sub(greeting, 1, 3));
+    print_str(str_from_int(42));
+    print_str(str_from_float(1.5));
+    print(str_to_int("123"));
+    print_float(str_to_float("2.5"));
+    print(str_char_at(greeting, 0));
+
+    // Only what str_concat and friends allocate is owned; a literal is not, so
+    // releasing one reports that it freed nothing instead of corrupting memory.
+    let joined = str_concat("a", "b");
+    print_str(joined);
+    print(str_free(joined));
+    print(str_free("literal"));
+
+    ticks = ticks + 1;
+    print(ticks);
+    return 0;
+};

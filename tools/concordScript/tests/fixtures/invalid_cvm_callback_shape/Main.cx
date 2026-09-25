@@ -1,0 +1,9 @@
+@cvm(name="worker", args="first: i64, second: i64") {
+    return first + second;
+};
+
+@cvm {
+    // cvm_thread_spawn_arg calls its entry as i64(i64); a two-parameter
+    // function handed to it would be called through the wrong signature.
+    return thread_join(thread_spawn_arg(worker, 1));
+};

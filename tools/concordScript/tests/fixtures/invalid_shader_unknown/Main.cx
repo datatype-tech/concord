@@ -1,0 +1,5 @@
+@shader(name="bad", stage=fragment, entyr="main") {
+void main() {}
+};
+
+@entry {};

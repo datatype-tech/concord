@@ -1,0 +1,45 @@
+// Scene coverage: the primitives, the surface, and the environment.
+//
+// Every one of these is a thin wrapper over a component the engine already
+// had; the point of the fixture is that each call reaches a real component and
+// reports back, not that the renderer drew anything.
+
+@cvm {
+    let scene = concord_scene_new();
+
+    // Four primitives plus a light: box, sphere, plane, point light.
+    let box = concord_spawn_box(scene, 0.0, 0.5, 0.0, 2.0, 1.0, 0.5, 224, 96, 64);
+    let sphere = concord_spawn_sphere(scene, 3.0, 0.5, 0.0, 1.0, 96, 200, 255);
+    let plane = concord_spawn_plane(scene, 0.0, -0.5, 0.0, 20.0, 20.0, 90, 90, 100);
+    let lamp = concord_spawn_point_light(scene, 0.0, 4.0, 0.0, 255, 220, 160, 8.0, 20.0);
+    print(concord_scene_entity_count(scene));
+
+    print(concord_spawn_box(scene, 1.0, 1.0, 1.0, 0.5, 0.5, 0.5, 255, 255, 255) != 0);
+    print(concord_scene_entity_count(scene));
+
+    // Surface edits apply to the material an entity carries.
+    print(concord_entity_set_color(box, 10, 20, 30));
+    print(concord_entity_set_material(box, 0.9, 0.15, 2.5));
+
+    // The camera lens is a component too.
+    let camera = concord_spawn_camera(scene, 0.0, 6.0, -14.0, 0.0, 0.5, 0.0);
+    print(concord_entity_set_fov(camera, 70.0));
+
+    // Environment setters each read, change one field and write back, so they
+    // do not clobber each other.
+    print(concord_scene_set_sky(scene, 12, 18, 34));
+    print(concord_scene_set_ambient(scene, 120, 140, 190, 0.85));
+    print(concord_scene_set_grade(scene, 1.4, 0.35, 1.2, 0.3, 0.5));
+    print(concord_scene_set_fog(scene, 0.02, 0.08, 1.5, 0.6));
+    print(concord_scene_set_clouds(scene, 0.4, 0.01, 1500.0));
+
+    // Edits on something that carries no such component must report failure,
+    // not silently do nothing.
+    print(concord_entity_set_material(lamp, 0.5, 0.5, 0.0));
+    print(concord_entity_set_fov(box, 60.0));
+
+    print(concord_entity_destroy(sphere));
+    print(concord_scene_entity_count(scene));
+    print(concord_scene_free(scene));
+    return 0;
+};

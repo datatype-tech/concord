@@ -1,0 +1,77 @@
+// Records.
+//
+// A struct is a value like any other: it can be a local, a parameter, a return,
+// a global or a field of another record. Fields are assignable through the same
+// expression that reads them.
+
+struct Point {
+    x: f64;
+    y: f64;
+    z: f64;
+};
+
+struct Segment {
+    start: Point;
+    finish: Point;
+    weight: i64;
+};
+
+@cvm_global {
+    // A record global is a constant, so every field is a literal.
+    let origin = Point { x = 0.0, y = 0.0, z = 0.0 };
+};
+
+@cvm(name="midpoint", ret="Point", args="a: Point, b: Point") {
+    return Point {
+        x = (a.x + b.x) / 2.0,
+        y = (a.y + b.y) / 2.0,
+        z = (a.z + b.z) / 2.0
+    };
+}
+
+@cvm(name="length2", ret="f64", args="p: Point") {
+    return p.x * p.x + p.y * p.y + p.z * p.z;
+}
+
+@cvm {
+    let a = Point { x = 1.0, y = 2.0, z = 3.0 };
+    let b = Point { x = 5.0, y = 6.0, z = 7.0 };
+
+    let m = midpoint(a, b);
+    print_float(m.x);
+    print_float(m.y);
+    print_float(m.z);
+    print_float(length2(a));
+
+    // Assigning a field goes through the same path that reads it.
+    a.x = 4.0;
+    print_float(a.x);
+    print_float(length2(a));
+
+    // A record can contain another record, and a field of a field reads.
+    let s = Segment { finish = b, start = a, weight = 3 };
+    print_float(s.start.x);
+    print_float(s.finish.z);
+    print(s.weight);
+
+    print_float(origin.y);
+
+    // Records in the existing containers: a point is three slots, so a list of
+    // points is a list with a stride of three. No new container is needed.
+    let cloud = flist_new();
+    flist_push(cloud, a.x);
+    flist_push(cloud, a.y);
+    flist_push(cloud, a.z);
+    flist_push(cloud, b.x);
+    flist_push(cloud, b.y);
+    flist_push(cloud, b.z);
+    let stride = 3;
+    let second = Point {
+        x = flist_get(cloud, stride),
+        y = flist_get(cloud, stride + 1),
+        z = flist_get(cloud, stride + 2)
+    };
+    print_float(second.z);
+    flist_free(cloud);
+    return 0;
+};

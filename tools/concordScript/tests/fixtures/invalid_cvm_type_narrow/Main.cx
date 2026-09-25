@@ -1,0 +1,6 @@
+@cvm {
+    let count = 3;
+    let ratio = 1.5;
+    count = ratio;
+    return count;
+};

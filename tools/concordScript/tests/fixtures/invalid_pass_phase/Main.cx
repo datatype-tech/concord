@@ -1,0 +1,2 @@
+@pass(name="bad_phase", callback=DoPass, phase=middle);
+@entry {};

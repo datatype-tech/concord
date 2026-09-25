@@ -1,0 +1,3 @@
+class Only {
+    pub int value = 1;
+};

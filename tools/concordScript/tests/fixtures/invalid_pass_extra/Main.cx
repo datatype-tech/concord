@@ -1,0 +1,3 @@
+@pass("bad", DoPass, after_scene, 1, nullptr, "extra");
+
+@entry {};

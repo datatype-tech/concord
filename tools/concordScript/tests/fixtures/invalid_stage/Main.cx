@@ -1,0 +1,5 @@
+@shader(name="bad_stage", stage="not-a-vulkan-stage") {
+void main() {}
+};
+
+@entry {};

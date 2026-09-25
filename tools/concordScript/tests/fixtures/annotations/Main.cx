@@ -1,0 +1,158 @@
+use Concord.CApplication;
+
+@include(path="vector", system=true)
+@define(name="CX_ANNOTATION_TEST", value=7)
+@include(path=["array", "vector"], system=true, section=header)
+@include(path="my/local.hpp", section=header)
+@pragma(value="once", section=header)
+use Concord.CScene;
+
+@cpp(section=header) {
+struct AnnotationHeaderType { int value = CX_ANNOTATION_TEST; };
+};
+
+@cpp(section=header, include=["string"], system=true) {
+using AnnotationString = std::string;
+};
+
+@feature(name="nested", config={mode="fast", values=[1, 2, 3]})
+@pipeline(labels=["a,b", "c"])
+@shader(name="external", stage=fragment, file="assets/external.frag")
+@binding(set=0, binding=3, type="storage_buffer")
+class Annotated {
+    pub int value = 1;
+};
+
+@shader("vertex", fragment, "main") {
+#version 460
+void main() {}
+};
+
+@descriptor(set=1, binding=0, type="uniform_buffer")
+@register
+class Registered {
+    pub int value = 2;
+};
+
+@vulkan(section=source) {
+struct UserVulkanState { int value = 42; };
+};
+
+@vulkan(section=source, callback=FixturePass, name="fixture_vulkan_pass",
+        phase=after_scene, order=6) {
+bool FixturePass(const Concord::VulkanPassContext& context, void*) {
+    return context.version == 1;
+}
+};
+
+@vulkan("fixture_positional_pass", PositionalFixturePass, before_scene, 7) {
+bool PositionalFixturePass(const Concord::VulkanPassContext& context, void*) {
+    return context.version == 1;
+}
+};
+
+@vulkan(section=source) {
+using FixtureCallback = bool (*)(const Concord::VulkanPassContext&, void*);
+FixtureCallback FixturePointer = FixturePass;
+};
+
+@pass(name="fixture_pointer", callback=FixturePointer, phase=after_scene, order=8);
+
+@pass(name="fixture_pass", phase=before_scene, order=4) {
+    (void)context;
+};
+@pass(name="fixture_init", phase=initialize, order=1) {
+    (void)context;
+};
+@pass(name="fixture_shutdown", phase=shutdown, order=2) {
+    (void)context;
+};
+
+@pass(name="raw_return_guard") {
+    const char* text = R"tag(return)tag";
+    (void)text;
+};
+
+@pass(name="conditional_return") {
+    if (context.version == 0) return false;
+};
+
+@shader(name="toon", stage=fragment, entry="main", language=glsl,
+        path="custom/toon.frag", defines=["TOON=1"], include_dirs=["."],
+        options=["-g"]) {
+#version 460
+layout(location = 0) out vec4 color;
+void main() { if (true) { color = vec4(1.0); } }
+};
+
+@shader(name="custom_entry", stage=fragment, entry="shade", language=glsl) {
+#version 460
+layout(location = 0) out vec4 color;
+void shade() { color = vec4(0.2, 0.4, 0.8, 1.0); }
+};
+
+@shader(name="mixed_named", stage=fragment, "shade_mixed", glsl) {
+#version 460
+layout(location = 0) out vec4 color;
+void shade_mixed() { color = vec4(0.7, 0.2, 0.1, 1.0); }
+};
+
+@fragment(name="alias_mixed", "alias_main") {
+#version 460
+layout(location = 0) out vec4 color;
+void alias_main() { color = vec4(0.1, 0.7, 0.2, 1.0); }
+};
+
+@vertex(name="mesh", path="custom/mesh.vert") {
+#version 460
+void main() { gl_Position = vec4(0.0); }
+};
+
+@rgen(name="ray_primary") {
+#version 460
+#extension GL_EXT_ray_tracing : require
+layout(location = 0) rayPayloadEXT vec4 payload;
+void main() { payload = vec4(1.0); }
+};
+
+@shader(name="inline_compute", stage=compute,
+        code="#version 460\nlayout(local_size_x = 1) in; void main() {}")
+@shader(name="hlsl_vertex", stage=vertex, language=hlsl,
+        source="struct VSOut { float4 position : SV_Position; };\nVSOut main() { VSOut o; o.position = 0; return o; }")
+
+@rmiss(name="ray_miss") {
+#version 460
+#extension GL_EXT_ray_tracing : require
+void main() {}
+};
+@rchit(name="ray_hit") {
+#version 460
+#extension GL_EXT_ray_tracing : require
+void main() {}
+};
+@rahit(name="ray_any") {
+#version 460
+#extension GL_EXT_ray_tracing : require
+void main() {}
+};
+@rint(name="ray_intersection") {
+#version 460
+#extension GL_EXT_ray_tracing : require
+void main() {}
+};
+@rcall(name="ray_callable") {
+#version 460
+#extension GL_EXT_ray_tracing : require
+void main() {}
+};
+
+const char* AtText = "@not_an_annotation({})";
+// @also_not_an_annotation(x=(1, 2))
+
+@tool::standalone(name="kept", payload={nested=true});
+@shader(name="external_standalone", stage=fragment, file="assets/standalone.frag");
+
+@entrymeta(name="integration")
+@entry {
+    Concord::Game game;
+};

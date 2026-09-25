@@ -1,0 +1,12 @@
+use Concord.CApplication;
+
+@entry {
+    var window = Concord::Window({
+        .title = "Hello Concord",
+        .resolution = {1280, 720},
+    });
+
+    Concord::Game game;
+    game.AttachWindow(window);
+    game.Run();
+};

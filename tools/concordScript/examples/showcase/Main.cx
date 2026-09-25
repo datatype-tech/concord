@@ -1,0 +1,79 @@
+use Concord.CApplication;
+use Concord.CCamera;
+use Concord.CColor;
+use Concord.CLight;
+use Concord.CScene;
+use showcase.Showcase;
+
+@entry {
+    Concord::Game game;
+    Concord::Window window({.title = "ConcordScript Showcase",
+                            .resolution = {.width = 1280, .height = 720}});
+    game.AttachWindow(window);
+
+    Concord::Scene scene;
+    scene.Spawn<Concord::Object::Camera>({
+        .position = {0.0f, 8.0f, -22.0f},
+        .target = {0.0f, 2.8f, 5.0f},
+        .fovYDegrees = 55.0f,
+    });
+    scene.Spawn<Concord::Object::SunLight>({
+        .elevationDegrees = 45.0f,
+        .azimuthDegrees = 200.0f,
+        .intensity = 1.55f,
+    });
+    scene.CreateEntity()
+        .Add<Concord::LightComponent>(Concord::LightComponent{
+            .type = Concord::LightType::Directional,
+            .color = COLOR_RGB(100, 150, 255),
+            .intensity = 0.55f,
+            .elevationDegrees = 28.0f,
+            .azimuthDegrees = 35.0f,
+            .castShadow = false,
+        });
+
+    Showcase::SceneFactory::AddPointLight(scene, {-7.0f, 5.0f, -1.0f}, COLOR_RGB(255, 54, 36),
+                                          7.0f, 0.75f, 0.0f);
+    Showcase::SceneFactory::AddPointLight(scene, {7.0f, 4.0f, 2.0f}, COLOR_RGB(42, 126, 255),
+                                          7.0f, -0.9f, 2.1f);
+    Showcase::SceneFactory::AddPointLight(scene, {0.0f, 6.0f, 8.0f}, COLOR_RGB(255, 196, 64),
+                                          4.0f, 1.2f, 4.0f);
+
+    scene.CreateEntity()
+        .Add<Concord::Transform>(Concord::Transform{
+            .position = {0.0f, 6.0f, -2.0f}, .rotation = {35.0f, 0.0f, 0.0f}})
+        .Add<Concord::LightComponent>(Concord::LightComponent{
+            .type = Concord::LightType::Spot,
+            .color = COLOR_RGB(192, 220, 255),
+            .intensity = 12.0f,
+            .range = 24.0f,
+            .spotAngleDegrees = 28.0f,
+        });
+
+    Showcase::SceneFactory::AddBox(scene, {0.0f, -1.0f, 0.0f}, {40.0f, 2.0f, 40.0f}, COLOR_RGB(64, 70, 84), 0.0f, 0.92f);
+    Showcase::SceneFactory::AddBox(scene, {0.0f, 7.0f, 16.0f}, {40.0f, 14.0f, 1.0f}, COLOR_RGB(24, 29, 44), 0.0f, 0.75f);
+    Showcase::SceneFactory::AddBox(scene, {0.0f, 0.5f, 3.0f}, {5.0f, 1.0f, 5.0f}, COLOR_RGB(110, 118, 142), 0.55f, 0.28f);
+    Showcase::SceneFactory::AddBox(scene, {-5.5f, 3.5f, 2.0f}, {3.5f, 5.0f, 3.5f}, COLOR_RGB(224, 44, 56),
+                                    0.25f, 0.32f, 0.0f, {0.0f, 20.0f, 12.0f}).Add<Showcase::Spin>(Showcase::Spin{34.0f});
+    Showcase::SceneFactory::AddBox(scene, {5.8f, 3.0f, 7.0f}, {3.0f, 4.0f, 3.0f}, COLOR_RGB(44, 118, 238),
+                                    0.72f, 0.18f, 0.0f, {0.0f, -28.0f, -8.0f}).Add<Showcase::Spin>(Showcase::Spin{-48.0f});
+    Showcase::SceneFactory::AddBox(scene, {0.0f, 6.2f, 8.0f}, {2.4f, 2.4f, 2.4f}, COLOR_RGB(255, 184, 48),
+                                    0.35f, 0.2f, 0.0f, {18.0f, 0.0f, 45.0f}).Add<Showcase::Spin>(Showcase::Spin{75.0f});
+    Showcase::SceneFactory::AddBox(scene, {-9.5f, 3.0f, 10.0f}, {2.0f, 4.0f, 2.0f}, COLOR_RGB(46, 222, 176), 0.0f, 0.38f, 0.08f);
+    scene.CreateEntity()
+        .Add<Concord::Transform>(Concord::Transform{.position = {8.5f, 3.5f, 1.0f}})
+        .Add<Concord::MeshRenderer>(Concord::MeshRenderer{.size = {2.5f, 5.0f, 2.5f}})
+        .Add<Concord::Material>(Concord::Material{
+            .albedo = COLOR_RGB(184, 64, 224), .metallic = 0.45f, .roughness = 0.3f})
+        .Add<Showcase::Spin>(Showcase::Spin{-35.0f});
+
+    scene.SetEnvironment({
+        .skyColor = COLOR_RGB(8, 12, 28),
+        .ambientColor = COLOR_RGB(32, 38, 60),
+        .ambientIntensity = 0.24f,
+    });
+    Concord::Script::RegisterAll(scene);
+    game.Systems().Add<Showcase::ShowcaseSystem>();
+    game.LoadScene(scene);
+    game.Run();
+};

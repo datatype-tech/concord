@@ -1,0 +1,62 @@
+use Concord.CApplication;
+use Concord.CCamera;
+use Concord.CColor;
+use Concord.CLight;
+use Concord.CScene;
+use game_demo.GameTypes;
+use game_demo.SpaceDefense;
+
+@entry {
+    Concord::Game game;
+    Concord::Window window({
+        .title = "ConcordScript Space Defense Game Demo",
+        .resolution = {.width = 1280, .height = 720},
+    });
+    game.AttachWindow(window);
+
+    Concord::Scene scene;
+
+    scene.Spawn<Concord::Object::Camera>({
+        .position = {0.0f, 10.0f, -22.0f},
+        .target = {0.0f, 2.0f, 2.0f},
+        .fovYDegrees = 52.0f,
+    });
+
+    scene.Spawn<Concord::Object::SunLight>({
+        .elevationDegrees = 50.0f,
+        .azimuthDegrees = 220.0f,
+        .color = COLOR_RGB(240, 245, 255),
+        .intensity = 1.4f,
+        .castShadow = true,
+    });
+
+    scene.CreateEntity()
+        .Add<Concord::LightComponent>(Concord::LightComponent{
+            .type = Concord::LightType::Directional,
+            .color = COLOR_RGB(80, 120, 220),
+            .intensity = 0.45f,
+            .elevationDegrees = 30.0f,
+            .azimuthDegrees = 40.0f,
+            .castShadow = false,
+        });
+
+    SpaceDefense::GameFactory::CreatePlatform(scene);
+    SpaceDefense::GameFactory::CreateCoreBeacon(scene);
+    SpaceDefense::GameFactory::CreateDefenseDrones(scene);
+    SpaceDefense::GameFactory::CreateFloatingCrystals(scene);
+    SpaceDefense::GameFactory::CreateAsteroidBelt(scene);
+    SpaceDefense::GameFactory::CreateDynamicLighting(scene);
+
+    scene.SetEnvironment({
+        .skyColor = COLOR_RGB(5, 8, 20),
+        .ambientColor = COLOR_RGB(20, 26, 45),
+        .ambientIntensity = 0.22f,
+    });
+
+    Concord::Script::RegisterAll(scene);
+
+    game.Systems().Add<SpaceDefense::SpaceDefenseSystem>();
+
+    game.LoadScene(scene);
+    game.Run();
+};

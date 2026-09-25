@@ -1,0 +1,3 @@
+@rawmeta(owner="raw", values={1, 2, 3})
+// The at-sign in this string and comment must remain ordinary C++ text.
+const char* RawAtText = "@shader(name=ignored)";

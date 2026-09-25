@@ -1,0 +1,31 @@
+// Associative maps. A miss and a stored zero both read as 0, so has/remove
+// are what tell those two cases apart.
+
+@cvm {
+    let numbers = map_new();
+    print(map_len(numbers));
+    print(map_set(numbers, 7, 42));
+    print(map_has(numbers, 7));
+    print(map_get(numbers, 7));
+    print(map_get(numbers, 8));
+    print(map_has(numbers, 8));
+    print(map_set(numbers, 7, 9));
+    print(map_get(numbers, 7));
+    print(map_len(numbers));
+    print(map_remove(numbers, 7));
+    print(map_has(numbers, 7));
+    print(map_remove(numbers, 7));
+    print(map_free(numbers));
+    print(map_len(0));
+
+    let names = smap_new();
+    print(smap_set(names, "alpha", 3));
+    print(smap_get(names, "alpha"));
+    print(smap_has(names, "beta"));
+    print(smap_set(names, "beta", 4));
+    print(smap_len(names));
+    print(smap_remove(names, "alpha"));
+    print(smap_has(names, "alpha"));
+    print(smap_free(names));
+    return 0;
+};

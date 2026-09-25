@@ -1,0 +1,40 @@
+// Concord Visual Machine language core.
+//
+// Exercises locals, assignment, comparison, branches, loops, and calling one
+// @cvm function from another. The printed values are chosen so a regression in
+// any one construct changes the output.
+
+@cvm(name="classify") {
+    let value = 7;
+    if (value < 0) {
+        return -1;
+    } else if (value == 0) {
+        return 0;
+    } else {
+        return 1;
+    }
+};
+
+@cvm(name="check") {
+    if (classify() > 0) {
+        print(100);
+    }
+    return classify();
+};
+
+@cvm {
+    // Alternating signs: the loop body must re-read index and re-test the
+    // condition every iteration, so this cannot collapse to a constant.
+    let total = 0;
+    let index = 1;
+    while (index <= 10) {
+        if (index % 2 == 0) {
+            total = total + index;
+        } else {
+            total = total - index;
+        }
+        index = index + 1;
+    }
+    print(total);
+    return classify() + check();
+};

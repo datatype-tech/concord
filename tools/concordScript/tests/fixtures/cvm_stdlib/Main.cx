@@ -1,0 +1,71 @@
+// Concord Visual Machine standard library.
+//
+// Exercises the registered host surface: containers, real threads, atomic
+// counters, a mutex, and the clock. Every printed value is deterministic.
+
+@cvm(name="worker") {
+    // Runs on its own thread; join returns this sum.
+    let total = 0;
+    let index = 0;
+    while (index < 10) {
+        total = total + index;
+        index = index + 1;
+    }
+    return total;
+};
+
+@cvm {
+    let numbers = list_new();
+    list_push(numbers, 10);
+    list_push(numbers, 20);
+    list_push(numbers, 30);
+    print(list_size(numbers));
+    print(list_get(numbers, 1));
+    print(list_index_of(numbers, 30));
+    print(list_pop(numbers));
+    print(list_contains(numbers, 30));
+    list_free(numbers);
+
+    let table = array_new(4);
+    array_set(table, 0, 5);
+    array_set(table, 1, 6);
+    array_set(table, 2, 7);
+    array_set(table, 3, 8);
+    print(array_sum(table));
+    array_reverse(table);
+    print(array_get(table, 0));
+    array_free(table);
+
+    // Four threads, each computing the same sum: the total proves all four
+    // ran and that join returned what the entry function returned.
+    let workers = list_new();
+    let index = 0;
+    while (index < 4) {
+        list_push(workers, thread_spawn(worker));
+        index = index + 1;
+    }
+    let total = 0;
+    index = 0;
+    while (index < list_size(workers)) {
+        total = total + thread_join(list_get(workers, index));
+        index = index + 1;
+    }
+    print(total);
+    list_free(workers);
+
+    let counter = counter_new(0);
+    counter_add(counter, 7);
+    counter_add(counter, 35);
+    print(counter_get(counter));
+    counter_free(counter);
+
+    let guard = mutex_new();
+    mutex_lock(guard);
+    mutex_unlock(guard);
+    mutex_free(guard);
+    print(1);
+
+    print(thread_count() >= 1);
+    print(sys_time_ms() >= 0);
+    return 0;
+};

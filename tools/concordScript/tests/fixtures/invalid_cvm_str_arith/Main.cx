@@ -1,0 +1,4 @@
+@cvm {
+    let joined = "a" + "b";
+    return 0;
+};

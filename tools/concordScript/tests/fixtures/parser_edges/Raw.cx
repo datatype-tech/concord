@@ -1,0 +1,4 @@
+int use = 1;
+void UseClassNames() { int classValue = use; }
+template <class T>
+struct RawTemplateTwo { T value; };

@@ -1,0 +1,6 @@
+@fragment(name="reserved", path="ConcordScriptManifest.json") {
+#version 460
+void main() {}
+};
+
+@entry {};

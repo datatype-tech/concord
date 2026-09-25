@@ -1,0 +1,3 @@
+@include(path="a.hpp", header="b.hpp");
+
+@entry {};

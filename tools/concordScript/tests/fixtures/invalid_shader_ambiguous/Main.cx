@@ -1,0 +1,6 @@
+@shader(fragment, vertex, "main") {
+#version 460
+void main() {}
+};
+
+@entry {};

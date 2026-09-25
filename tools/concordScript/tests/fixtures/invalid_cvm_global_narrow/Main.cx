@@ -1,0 +1,7 @@
+@cvm_global {
+    let speed: i64 = 1.5;
+};
+
+@cvm {
+    return speed;
+};

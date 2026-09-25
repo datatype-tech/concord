@@ -1,0 +1,10 @@
+use Concord.CColor;
+
+@register
+class Score {
+    pub int value = 0;
+
+    pub void Add(int amount) {
+        value += amount;
+    }
+};

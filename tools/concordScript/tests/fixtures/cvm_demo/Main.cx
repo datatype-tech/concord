@@ -1,0 +1,6 @@
+// Concord Visual Machine demo: a leading comment exercises the annotation
+// boundary, and the block only contains LLVM-expressible statements.
+@cvm {
+    print(6 * 7);
+    return (2 + 3) * (10 - 4);
+};

@@ -1,0 +1,36 @@
+// Threads that share data.
+//
+// CVM has no closures and threads cannot share its globals, so the only thing
+// that can be handed to a thread is a value -- and a handle is the only value
+// that reaches anything shared. thread_spawn_arg is what makes that possible.
+
+@cvm(name="bump", args="handle: i64") {
+    let index = 0;
+    while (index < 1000) {
+        counter_add(handle, 1);
+        index = index + 1;
+    }
+    return 0;
+};
+
+// One parameter, because that is the shape cvm_thread_spawn_arg calls it
+// through. Declaring it otherwise is a compile error, not a wrong answer.
+@cvm(name="scale", args="value: i64") {
+    return value * 3;
+};
+
+@cvm {
+    // Two threads, one counter: 2000 is only reachable if both ran and both
+    // saw the same counter.
+    let shared = counter_new(0);
+    let first = thread_spawn_arg(bump, shared);
+    let second = thread_spawn_arg(bump, shared);
+    thread_join(first);
+    thread_join(second);
+    print(counter_get(shared));
+    counter_free(shared);
+
+    // The argument is a plain value too, not only a handle.
+    print(thread_join(thread_spawn_arg(scale, 7)));
+    return 0;
+};

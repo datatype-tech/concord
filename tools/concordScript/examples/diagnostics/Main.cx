@@ -1,0 +1,15 @@
+use Concord.CApplication;
+use Concord.CScene;
+
+@shader(name="demo", stage=not_a_stage) {
+#version 460
+void main() {}
+};
+
+@entry {
+    Concord::Game game;
+};
+
+@entry {
+    Concord::Game duplicate;
+};

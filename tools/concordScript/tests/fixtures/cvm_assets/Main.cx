@@ -1,0 +1,75 @@
+// Models, particles, water and engine systems.
+//
+// Runs with the fixture directory as its working directory, so the model path
+// is relative and portable.
+
+@cvm {
+    // A path that does not exist fails cleanly and says why.
+    let missing = concord_model_load("no-such-file.obj", 1.0);
+    print(missing);
+    print(str_len(concord_last_error()) > 0);
+
+    let model = concord_model_load("cube.obj", 1.0);
+    print(model != 0);
+
+    let scene = concord_scene_new();
+    let instance = concord_spawn_model(scene, model, 1.0, 2.0, 3.0);
+    print(instance != 0);
+    print_float(concord_entity_position(instance, 1));
+
+    let sparks = concord_spawn_particles(scene, 0.0, 1.0, 0.0, 255, 180, 90);
+    print(concord_particles_set_rate(sparks, 120.0));
+    print(concord_particles_set_speed(sparks, 1.0, 3.0));
+    print(concord_particles_set_lifetime(sparks, 0.8, 1.6));
+    print(concord_particles_set_size(sparks, 0.1, 0.01));
+    print(concord_particles_set_shape(sparks, 3, 0.4, 0.2, 0.0));
+    print(concord_particles_set_direction(sparks, 0.0, 1.0, 0.0, 25.0));
+    print(concord_particles_set_gravity(sparks, 0.0, 2.0, 0.0, 0.8));
+    print(concord_particles_set_color(sparks, 255, 200, 100, 180, 40, 10));
+    print(concord_particles_set_blend(sparks, 0));
+    print(concord_particles_set_capacity(sparks, 2048));
+
+    // A shape index outside the enumeration is rejected rather than clamped,
+    // and so is any setter on an entity that carries no emitter.
+    print(concord_particles_set_shape(sparks, 9, 1.0, 1.0, 1.0));
+    print(concord_particles_set_rate(instance, 10.0));
+
+    let sea = concord_spawn_water(scene, model, 0.0, -1.0, 0.0, 20.0, 30, 90, 120, 0.85, 6.0,
+                                  0.16, 0.35);
+    print(sea != 0);
+
+    print(concord_add_particle_system());
+    print(concord_add_water_ripple_system());
+    print(concord_add_day_cycle(300.0, 7.0, 58.0, 92.0, 0.4));
+    print(concord_add_first_person(1));
+
+    print(concord_model_material_count(model) > 0);
+    print(concord_model_clip_count(model));
+    print(concord_model_skeleton_count(model));
+    print(concord_model_find_clip(model, "walk"));
+    print(str_len(concord_model_clip_name(model, 0)));
+    print_float(concord_model_clip_duration(model, 0));
+    print(concord_model_set_albedo_texture(model, 0, "albedo.png"));
+    print(concord_model_set_albedo_texture(model, 99, "x"));
+    print(concord_entity_play_animation(instance, 0, 1.0, 1));
+    print(concord_entity_stop_animation(instance));
+    print_float(concord_entity_animation_time(instance));
+    print(concord_entity_set_scale(instance, 2.0, 3.0, 4.0));
+    print_float(concord_entity_scale(instance, 1));
+    print(concord_entity_set_visible(instance, 0));
+    print(concord_entity_set_shadow(instance, 0));
+    print(concord_entity_set_visible(sparks, 0));
+    print(concord_spawn_spot_light(scene, 1.0, 4.0, 1.0, 90.0, 0.0, 255, 255, 200, 6.0, 12.0, 25.0) != 0);
+    print(concord_spawn_ripple(scene, 0.0, 0.0, 1.2, 0.3, 0.02, 2.0, 1.5) != 0);
+    print(concord_spawn_ripple_field(scene, 2.0, 4.0, 4.0) != 0);
+    print(concord_add_animation_system());
+    print(concord_mouse_down(0));
+    print(concord_mouse_pressed(0));
+    print_float(concord_mouse_position(0));
+    print_float(concord_mouse_wheel(1));
+
+    print(concord_scene_entity_count(scene));
+    print(concord_model_free(model));
+    print(concord_scene_free(scene));
+    return 0;
+};

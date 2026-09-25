@@ -1,0 +1,17 @@
+use Concord.CApplication;
+use Concord.CScene;
+use Concord.CColor;
+use hello.Player;
+
+@entry {
+    Concord::Game game;
+    Concord::Window window({.title = "ConcordScript Demo"});
+    game.AttachWindow(window);
+
+    Concord::Scene scene;
+    scene.Spawn<Concord::Object::Camera>({.position = {0.0f, 2.0f, -5.0f}});
+    Concord::Script::RegisterAll(scene);
+
+    var count = scene.EntityCount();
+    (void)count;
+};

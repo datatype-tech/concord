@@ -1,0 +1,4 @@
+@cvm {
+    print("a" < "b");
+    return 0;
+};

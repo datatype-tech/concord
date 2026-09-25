@@ -1,0 +1,2 @@
+@pass(name="bad_order", callback=DoPass, order=not_a_number);
+@entry {};

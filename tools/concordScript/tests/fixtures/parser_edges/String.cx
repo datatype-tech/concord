@@ -1,0 +1,2 @@
+@string_payload(value="R\"tag({ @inside, var })tag\"", next=2);
+@raw_delimiter(value=R"foo(a )foo, b = @inside)foo", next=3);

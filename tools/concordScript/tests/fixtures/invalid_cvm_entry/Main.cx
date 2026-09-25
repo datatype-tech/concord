@@ -1,0 +1,4 @@
+@entry {
+    return 0;
+};
+@cvm { return 1; };

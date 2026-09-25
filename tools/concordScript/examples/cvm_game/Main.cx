@@ -1,0 +1,194 @@
+// A Concord game written entirely in ConcordScript's Concord Visual Machine.
+//
+// Run it with:
+//   cc --project examples/cvm_game --out examples/cvm_game/generated \
+//      --cvm-host <build>/ConcordFlashGameEngineRuntime.dll \
+//      --cvm-host <build>/ConcordFlashGameEngineRender.dll
+//
+// Click to capture the mouse, WASD to move, Space to shoot (Jolt raycast),
+// F3 for stats, Escape to release the mouse then quit. Crates fall.
+
+@cvm_global {
+    let key_left = 1;
+    let key_right = 4;
+    let key_forward = 23;
+    let key_back = 19;
+    let key_sprint = 53;
+    let key_shoot = 61;
+    let key_overlay = 39;
+    let key_quit = 63;
+
+    let scene = 0;
+    let player = 0;
+    let camera = 0;
+    let targets = 0;
+    let targetPhase = 0;
+    let yaw = 0.0;
+    let pitch = -18.0;
+    let score = 0;
+    let cooldown = 0.0;
+    let limit = 11.0;
+};
+
+@cvm(name="spawn_target", args="phase: f64") {
+    let radius = 6.0 + sys_random_float() * 3.0;
+    let x = cos(phase) * radius;
+    let z = sin(phase) * radius;
+    let target = concord_spawn_box(scene, x, 0.6, z, 0.9, 1.2, 0.9, 220, 80, 70);
+    concord_entity_set_material(target, 0.05, 0.45, 0.15);
+    concord_entity_add_body(target, 1, 1.0);
+    list_push(targets, target);
+    flist_push(targetPhase, phase);
+    return target;
+}
+
+@cvm(name="update", args="deltaTime: f64") {
+    if (concord_mouse_pressed(0)) {
+        concord_set_mouse_captured(1);
+    }
+    if (concord_key_pressed(key_overlay)) {
+        concord_set_overlay(1 - concord_overlay());
+    }
+    if (concord_key_pressed(key_quit)) {
+        if (concord_mouse_captured()) {
+            concord_set_mouse_captured(0);
+            return score;
+        }
+        return -1;
+    }
+
+    if (concord_mouse_captured()) {
+        yaw = yaw - concord_mouse_delta(0) * 0.12;
+        pitch = clamp(pitch - concord_mouse_delta(1) * 0.12, -80.0, 25.0);
+    }
+
+    let step = 7.0 * deltaTime;
+    if (concord_key_down(key_sprint)) {
+        step = step * 2.2;
+    }
+    let heading = radians(yaw);
+    let forwardX = -sin(heading);
+    let forwardZ = -cos(heading);
+    let rightX = cos(heading);
+    let rightZ = -sin(heading);
+    let x = concord_entity_position(player, 0);
+    let z = concord_entity_position(player, 2);
+    if (concord_key_down(key_forward)) {
+        x = x + forwardX * step;
+        z = z + forwardZ * step;
+    }
+    if (concord_key_down(key_back)) {
+        x = x - forwardX * step;
+        z = z - forwardZ * step;
+    }
+    if (concord_key_down(key_right)) {
+        x = x + rightX * step;
+        z = z + rightZ * step;
+    }
+    if (concord_key_down(key_left)) {
+        x = x - rightX * step;
+        z = z - rightZ * step;
+    }
+    x = clamp(x, -limit, limit);
+    z = clamp(z, -limit, limit);
+    concord_entity_set_position(player, x, 0.5, z);
+    concord_entity_set_rotation(player, 0.0, yaw, 0.0);
+
+    let camPitch = radians(pitch);
+    let camDist = 9.0;
+    let camX = x - forwardX * cos(camPitch) * camDist;
+    let camY = 0.5 - sin(camPitch) * camDist;
+    let camZ = z - forwardZ * cos(camPitch) * camDist;
+    camY = max(camY, 1.2);
+    concord_entity_set_position(camera, camX, camY, camZ);
+    concord_entity_look_at(camera, x, 1.0, z);
+
+    cooldown = max(cooldown - deltaTime, 0.0);
+    if (concord_key_pressed(key_shoot) && cooldown <= 0.0) {
+        let hit = concord_raycast(scene, concord_entity_position(camera, 0),
+                                    concord_entity_position(camera, 1),
+                                    concord_entity_position(camera, 2),
+                                    concord_entity_forward(camera, 0),
+                                    concord_entity_forward(camera, 1),
+                                    concord_entity_forward(camera, 2), 48.0);
+        if (hit != 0 && hit != player && hit != camera) {
+            concord_entity_apply_impulse(hit, concord_entity_forward(camera, 0) * 12.0, 4.0,
+                                          concord_entity_forward(camera, 2) * 12.0);
+            let targetIndex = list_size(targets) - 1;
+            while (targetIndex >= 0) {
+                if (list_get(targets, targetIndex) == hit) {
+                    concord_entity_destroy(hit);
+                    list_remove(targets, targetIndex);
+                    flist_remove(targetPhase, targetIndex);
+                    spawn_target(sys_random_float() * tau());
+                    score = score + 1;
+                    print(score);
+                    break;
+                }
+                targetIndex = targetIndex - 1;
+            }
+        }
+        cooldown = 0.18;
+    }
+
+    let index = 0;
+    while (index < list_size(targets)) {
+        let phase = flist_get(targetPhase, index) + deltaTime * 0.55;
+        flist_set(targetPhase, index, phase);
+        let radius = 7.0 + sin(phase * 0.7) * 1.4;
+        concord_entity_set_position(list_get(targets, index), cos(phase) * radius, 0.6,
+                                    sin(phase) * radius);
+        index = index + 1;
+    }
+
+    let scoreText = str_from_int(score);
+    let hud = str_concat("score ", scoreText);
+    concord_ui_panel(16.0, 16.0, 220.0, 48.0);
+    concord_ui_label(28.0, 26.0, hud);
+    str_free(hud);
+    str_free(scoreText);
+    return score;
+};
+
+@cvm {
+    scene = concord_scene_new();
+    targets = list_new();
+    targetPhase = flist_new();
+    sys_random_seed(1);
+    concord_add_physics_system();
+
+    camera = concord_spawn_camera(scene, 0.0, 6.0, -12.0, 0.0, 0.5, 0.0);
+    concord_entity_set_fov(camera, 58.0);
+    concord_spawn_sun(scene, 42.0, 210.0, 3.4);
+    concord_spawn_plane(scene, 0.0, -0.05, 0.0, 28.0, 28.0, 62, 70, 80);
+    concord_spawn_static_body(scene, 0.0, 0.0, 0.0, 28.0, 0.16, 28.0);
+
+    for (let post = 0; post < 8; post += 1) {
+        let wall = to_f64(post) * 3.2 - 11.2;
+        let postBox = concord_spawn_box(scene, wall, 0.9, 13.0, 0.7, 1.8, 0.7, 96, 102, 118);
+        concord_entity_add_body(postBox, 0, 1.0);
+    }
+
+    player = concord_spawn_box(scene, 0.0, 0.5, 0.0, 1.0, 1.0, 1.0, 224, 96, 64);
+    concord_entity_set_material(player, 0.15, 0.38, 0.0);
+    concord_entity_add_body(player, 1, 1.0);
+
+    concord_spawn_dynamic_box(scene, -1.4, 8.2, 0.4, 0.55, 0.55, 0.55, 204, 86, 58, 1.4);
+    concord_spawn_dynamic_box(scene, 0.2, 9.4, 1.1, 0.42, 0.70, 0.42, 62, 122, 196, 0.9);
+    concord_spawn_dynamic_sphere(scene, 1.6, 7.6, -0.4, 0.55, 236, 196, 72, 0.8);
+
+    for (let n = 0; n < 5; n += 1) {
+        spawn_target(to_f64(n) * 1.256);
+    }
+
+    concord_scene_set_sky(scene, 10, 16, 32);
+    concord_scene_set_ambient(scene, 100, 120, 170, 0.85);
+    concord_scene_set_grade(scene, 1.45, 0.32, 1.18, 0.28, 0.4);
+    concord_scene_set_fog(scene, 0.016, 0.07, 1.2, 0.6);
+    concord_scene_set_clouds(scene, 0.34, 0.009, 1400.0);
+
+    concord_set_update(update);
+    print(concord_scene_entity_count(scene));
+    return concord_run_scene(scene, 1280, 720,
+                             "ConcordScript - click look, WASD move, Space shoot, Esc quit");
+};

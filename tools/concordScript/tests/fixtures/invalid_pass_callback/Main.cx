@@ -1,0 +1,2 @@
+@pass(name="missing_callback");
+@entry {};

@@ -1,0 +1,109 @@
+use Concord.CApplication;
+use Concord.CCamera;
+use Concord.CEcs;
+use Concord.CColor;
+use Concord.CLight;
+use Concord.CObject;
+use Concord.CScene;
+
+
+class Spin {
+    pub Concord::f32 degreesPerSecond = 30.0f;
+};
+
+class RayTracingShowcaseSystem extends Concord::ISystem {
+    pub void OnUpdate(Concord::Scene& scene, Concord::f32 deltaTime) override {
+        scene.Query<Spin, Concord::Transform>(
+            [deltaTime](Concord::Entity, Spin& spin, Concord::Transform& transform) {
+                transform.rotation.y += spin.degreesPerSecond * deltaTime;
+                transform.rotation.x += spin.degreesPerSecond * 0.31f * deltaTime;
+            });
+    }
+};
+
+@entry {
+    Concord::Game game;
+    Concord::Window window({.title = "Concord Internal Ray Tracing",
+                            .resolution = {.width = 1280, .height = 720}});
+    game.AttachWindow(window);
+
+    Concord::Scene scene;
+    scene.Spawn<Concord::Object::Camera>({
+        .position = {0.0f, 5.0f, -16.0f},
+        .target = {0.0f, 2.6f, 4.0f},
+        .fovYDegrees = 52.0f,
+    });
+    scene.Spawn<Concord::Object::SunLight>({
+        .elevationDegrees = 42.0f,
+        .azimuthDegrees = 215.0f,
+        .color = COLOR_RGB(255, 238, 210),
+        .intensity = 1.8f,
+        .castShadow = true,
+    });
+
+    scene.CreateEntity()
+        .Add<Concord::Transform>(Concord::Transform{.position = {-6.0f, 4.5f, 1.0f}})
+        .Add<Concord::LightComponent>(Concord::LightComponent{
+            .type = Concord::LightType::Point,
+            .color = COLOR_RGB(255, 38, 32),
+            .intensity = 24.0f,
+            .range = 18.0f,
+        });
+    scene.CreateEntity()
+        .Add<Concord::Transform>(Concord::Transform{.position = {6.0f, 5.0f, 5.0f}})
+        .Add<Concord::LightComponent>(Concord::LightComponent{
+            .type = Concord::LightType::Point,
+            .color = COLOR_RGB(32, 128, 255),
+            .intensity = 26.0f,
+            .range = 20.0f,
+        });
+    scene.CreateEntity()
+        .Add<Concord::Transform>(Concord::Transform{.position = {0.0f, 7.5f, 10.0f}})
+        .Add<Concord::LightComponent>(Concord::LightComponent{
+            .type = Concord::LightType::Point,
+            .color = COLOR_RGB(255, 168, 42),
+            .intensity = 20.0f,
+            .range = 18.0f,
+        });
+
+    scene.Spawn<Concord::Object::Box>({
+        .transform = {.position = {0.0f, -1.0f, 4.0f}},
+        .size = {20.0f, 1.0f, 20.0f},
+        .material = {.albedo = COLOR_RGB(24, 28, 46), .roughness = 0.76f},
+    });
+    scene.Spawn<Concord::Object::Box>({
+        .transform = {.position = {0.0f, 5.0f, 14.0f}},
+        .size = {20.0f, 12.0f, 1.0f},
+        .material = {.albedo = COLOR_RGB(10, 16, 32), .roughness = 0.9f},
+    });
+    scene.Spawn<Concord::Object::Box>({
+        .transform = {.position = {-7.0f, 3.5f, 5.0f}, .rotation = {0.0f, 0.0f, 9.0f}},
+        .size = {2.4f, 5.0f, 2.4f},
+        .material = {.albedo = COLOR_RGB(228, 42, 52), .metallic = 0.72f, .roughness = 0.16f},
+    }).Add<Main::Spin>(Main::Spin{38.0f});
+    scene.Spawn<Concord::Object::Box>({
+        .transform = {.position = {7.0f, 3.0f, 7.0f}, .rotation = {0.0f, 0.0f, -12.0f}},
+        .size = {2.8f, 4.0f, 2.8f},
+        .material = {.albedo = COLOR_RGB(40, 118, 240), .metallic = 0.82f, .roughness = 0.12f},
+    }).Add<Main::Spin>(Main::Spin{-46.0f});
+    scene.Spawn<Concord::Object::Box>({
+        .transform = {.position = {0.0f, 2.0f, 4.5f}, .rotation = {0.0f, 24.0f, 0.0f}},
+        .size = {3.8f, 3.8f, 3.8f},
+        .material = {.albedo = COLOR_RGB(238, 78, 34), .metallic = 0.9f, .roughness = 0.1f},
+    }).Add<Main::Spin>(Main::Spin{32.0f});
+    scene.Spawn<Concord::Object::Box>({
+        .transform = {.position = {0.0f, 6.7f, 9.0f}, .rotation = {20.0f, 0.0f, 45.0f}},
+        .size = {1.8f, 1.8f, 1.8f},
+        .material = {.albedo = COLOR_RGB(255, 190, 48), .metallic = 0.86f, .roughness = 0.08f,
+                     .emissive = 0.12f},
+    }).Add<Main::Spin>(Main::Spin{76.0f});
+
+    scene.SetEnvironment({
+        .skyColor = COLOR_RGB(3, 6, 18),
+        .ambientColor = COLOR_RGB(24, 34, 78),
+        .ambientIntensity = 0.24f,
+    });
+    game.Systems().Add<Main::RayTracingShowcaseSystem>();
+    game.LoadScene(scene);
+    game.Run();
+};

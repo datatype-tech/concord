@@ -1,0 +1,5 @@
+@fragment(name="bad", stage=vertex) {
+void main() {}
+};
+
+@entry {};

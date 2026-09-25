@@ -1,0 +1,9 @@
+// Text-file save round-trip. The test runner sets the working directory.
+
+@cvm {
+    print(file_exists("missing.txt"));
+    print(file_write("save.txt", "42"));
+    print(file_exists("save.txt"));
+    print(str_to_int(file_read("save.txt")));
+    return 0;
+};

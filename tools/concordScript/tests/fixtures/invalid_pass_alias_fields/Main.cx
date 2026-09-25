@@ -1,0 +1,3 @@
+@pass(name="bad", callback=First, function=Second);
+
+@entry {};

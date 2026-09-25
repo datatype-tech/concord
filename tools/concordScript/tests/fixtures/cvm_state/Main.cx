@@ -1,0 +1,38 @@
+// Module globals, typed parameters, typed returns, and the shape of a frame
+// callback.
+//
+// A per-frame function cannot return its state to anyone, so the state has to
+// live in globals. This calls the callback directly instead of opening a
+// window, which keeps the check deterministic and GPU-free.
+
+@cvm_global {
+    let ticks = 0;
+    let total = 0.0;
+};
+
+@cvm(name="clamp", ret="f64", args="value: f64, low: f64, high: f64") {
+    if (value < low) {
+        return low;
+    }
+    if (value > high) {
+        return high;
+    }
+    return value;
+};
+
+// i64(f64): exactly the signature the engine calls a frame callback through.
+@cvm(name="frame", ret="f64", args="deltaTime: f64") {
+    ticks = ticks + 1;
+    total = total + deltaTime;
+    return clamp(total, 0.0, 100.0);
+};
+
+@cvm {
+    print_float(frame(30.0));
+    print_float(frame(30.0));
+    print_float(frame(30.0));
+    print_float(frame(30.0));
+    print(ticks);
+    print_float(total);
+    return ticks;
+};

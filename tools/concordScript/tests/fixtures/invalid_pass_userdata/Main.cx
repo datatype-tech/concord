@@ -1,0 +1,2 @@
+@pass(name="bad_userdata", callback=DoPass, userData=object.field);
+@entry {};

@@ -1,0 +1,31 @@
+// The f64 view of the containers.
+//
+// A slot is 64 bits either way, so these share the i64 container rather than
+// duplicating it. The aliases that need no reinterpretation -- new, free, size,
+// clear, copy, reverse -- name the same symbol.
+
+@cvm {
+    let xs = flist_new();
+    flist_push(xs, 1.5);
+    flist_push(xs, 2.5);
+    flist_push(xs, 3.0);
+    print(flist_size(xs));
+    print_float(flist_get(xs, 1));
+    print(flist_index_of(xs, 3.0));
+    print(flist_contains(xs, 9.0));
+    print_float(flist_pop(xs));
+    print(flist_size(xs));
+    flist_free(xs);
+
+    let values = farray_new(4);
+    farray_set(values, 0, 0.5);
+    farray_set(values, 1, 1.5);
+    farray_set(values, 2, 2.5);
+    farray_set(values, 3, 3.5);
+    print(farray_size(values));
+    print_float(farray_sum(values));
+    farray_reverse(values);
+    print_float(farray_get(values, 0));
+    farray_free(values);
+    return 0;
+};

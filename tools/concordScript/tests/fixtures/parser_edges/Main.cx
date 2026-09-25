@@ -1,0 +1,37 @@
+use Concord.CApplication;
+
+template<class T>
+struct RawTemplate { T value; };
+template<class T>
+class RawTemplateClass { public: T value; };
+class NativeFinal final { public: int value; };
+
+int useValue = 7;
+const char* classText = "class Fake {};";
+const char* rawText = R"tag(@fake { var pub })tag";
+const char* utfRawText = u8R"tag(@fake { var priv })tag";
+const char* wideRawText = LR"tag(@fake { var prot })tag";
+
+class KeywordSafety {
+    const char* text = R"tag(var pub priv { @not_an_annotation })tag";
+    // var priv must remain a comment
+    var value = 9;
+};
+
+@template_args(type=std::array<int, 4>, value=42);
+@raw_literal(value=R"tag({ @inside, var })tag");
+@raw_body {
+const char* bodyText = R"tag({ @inside, var })tag";
+};
+@comparison(left=a < b, c > d, right=2);
+@nested_template(type=std::map<std::string, std::vector<int>>, value=1);
+
+@meta(value={nested: [1, 2]}) /* comment between annotation and declaration */
+@register // another comment
+@pipeline(order=10) class Registered {
+    pub int value = useValue;
+};
+
+@entry /* comment before body */ {
+    (void)classText;
+};

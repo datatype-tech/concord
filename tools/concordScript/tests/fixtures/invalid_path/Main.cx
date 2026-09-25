@@ -1,0 +1,6 @@
+@shader(name="escape", stage=fragment, path="../outside.frag") {
+#version 460
+void main() {}
+};
+
+@entry {};

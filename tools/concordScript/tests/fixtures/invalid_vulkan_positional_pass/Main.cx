@@ -1,0 +1,9 @@
+@vulkan("same", FirstPass, before_scene) {
+bool FirstPass(const Concord::VulkanPassContext&, void*) { return true; }
+};
+
+@vulkan("same", SecondPass, after_scene) {
+bool SecondPass(const Concord::VulkanPassContext&, void*) { return true; }
+};
+
+@entry {};

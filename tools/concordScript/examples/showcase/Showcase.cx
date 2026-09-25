@@ -1,0 +1,66 @@
+use Concord.CColor;
+use Concord.CEcs;
+use Concord.CObject;
+use Concord.CScene;
+
+class Spin {
+    pub Concord::f32 degreesPerSecond = 45.0f;
+};
+
+class OrbitLight {
+    pub Concord::f32 radius = 5.0f;
+    pub Concord::f32 height = 4.0f;
+    pub Concord::f32 speed = 1.0f;
+    pub Concord::f32 phase = 0.0f;
+    pub Concord::f32 baseIntensity = 8.0f;
+};
+
+class ShowcaseSystem extends Concord::ISystem {
+    pub void OnUpdate(Concord::Scene& scene, Concord::f32 deltaTime) override {
+        scene.Query<Spin, Concord::Transform>(
+            [deltaTime](Concord::Entity, Spin& spin, Concord::Transform& transform) {
+                transform.rotation.y += spin.degreesPerSecond * deltaTime;
+            });
+        scene.Query<OrbitLight, Concord::Transform, Concord::LightComponent>(
+            [deltaTime](Concord::Entity, OrbitLight& orbit, Concord::Transform& transform,
+                        Concord::LightComponent& light) {
+                orbit.phase += orbit.speed * deltaTime;
+                transform.position = {std::cos(orbit.phase) * orbit.radius, orbit.height,
+                                      std::sin(orbit.phase) * orbit.radius};
+                light.intensity = orbit.baseIntensity *
+                                  (0.75f + 0.25f * std::sin(orbit.phase * 1.7f));
+            });
+    }
+};
+
+@register
+class DemoMarker {
+    pub int value = 1;
+};
+
+class SceneFactory {
+    pub static Concord::EntityHandle AddBox(Concord::Scene& scene, Concord::Vec3 position,
+                                            Concord::Vec3 size, Concord::ColorRGBA color,
+                                            Concord::f32 metallic = 0.0f,
+                                            Concord::f32 roughness = 0.8f,
+                                            Concord::f32 emissive = 0.0f,
+                                            Concord::Vec3 rotation = {}) {
+        return scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = position, .rotation = rotation},
+            .size = size,
+            .material = {.albedo = color, .metallic = metallic, .roughness = roughness,
+                         .emissive = emissive},
+        });
+    }
+
+    pub static void AddPointLight(Concord::Scene& scene, Concord::Vec3 position,
+                                  Concord::ColorRGBA color, Concord::f32 radius,
+                                  Concord::f32 speed, Concord::f32 phase) {
+        scene.CreateEntity()
+            .Add<Concord::Transform>(Concord::Transform{.position = position})
+            .Add<Concord::LightComponent>(Concord::LightComponent{
+                .type = Concord::LightType::Point, .color = color, .intensity = 8.0f,
+                .range = 18.0f})
+            .Add<OrbitLight>(OrbitLight{radius, position.y, speed, phase, 8.0f});
+    }
+};

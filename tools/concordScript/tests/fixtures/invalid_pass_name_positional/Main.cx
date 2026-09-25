@@ -1,0 +1,3 @@
+@pass("same", phase=before_scene) { return true; };
+@pass("same", phase=after_scene) { return true; };
+@entry {};

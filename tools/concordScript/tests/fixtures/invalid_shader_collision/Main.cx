@@ -1,0 +1,11 @@
+@fragment(name="first", path="same.frag") {
+#version 460
+void main() {}
+};
+
+@fragment(name="second", path="same.frag") {
+#version 460
+void main() {}
+};
+
+@entry {};

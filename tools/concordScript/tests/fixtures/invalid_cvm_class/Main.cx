@@ -1,0 +1,2 @@
+class Forbidden { pub int value = 1; };
+@cvm { return 1; };

@@ -1,0 +1,5 @@
+@fragment(vertex, "main") {
+void main() {}
+};
+
+@entry {};

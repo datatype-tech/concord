@@ -1,0 +1,4 @@
+@metadata(name="missing") {
+    this body never closes
+
+@entry {};

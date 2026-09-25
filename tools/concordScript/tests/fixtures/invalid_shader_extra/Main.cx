@@ -1,0 +1,5 @@
+@shader("bad", fragment, "main", glsl, "extra", "too-much") {
+void main() {}
+};
+
+@entry {};

@@ -1,0 +1,34 @@
+// for, compound assignment, true/false, and the ternary operator.
+
+@cvm {
+    let n = 0;
+    for (let i = 1; i <= 5; i += 1) {
+        n += i;
+    }
+    n += true ? 6 : 0;
+    n += false ? 100 : 0;
+    print(n);
+
+    let skipped = 0;
+    for (let j = 1; j <= 4; j += 1) {
+        if (j == 2) {
+            continue;
+        }
+        skipped += j;
+    }
+    print(skipped);
+
+    let k = 0;
+    for (;;) {
+        k += 1;
+        if (k >= 3) {
+            break;
+        }
+    }
+    print(k);
+
+    let s: str = "ab";
+    s += "c";
+    print(str_len(s));
+    return 0;
+};

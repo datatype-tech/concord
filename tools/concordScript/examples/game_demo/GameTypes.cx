@@ -1,0 +1,65 @@
+use Concord.CColor;
+use Concord.CEcs;
+use Concord.CMath;
+
+@register
+class ScoreBoard {
+    pub int score = 0;
+    pub int wave = 1;
+    pub int destroyedEnemies = 0;
+    pub Concord::f32 gameTime = 0.0f;
+    pub Concord::f32 multiplier = 1.0f;
+    pub Concord::f32 shield = 100.0f;
+};
+
+class Spin {
+    pub Concord::f32 spinX = 0.0f;
+    pub Concord::f32 spinY = 45.0f;
+    pub Concord::f32 spinZ = 0.0f;
+};
+
+class Orbiter {
+    pub Concord::f32 radius = 6.0f;
+    pub Concord::f32 speed = 1.2f;
+    pub Concord::f32 angle = 0.0f;
+    pub Concord::f32 height = 2.0f;
+    pub Concord::f32 wobbleSpeed = 2.5f;
+    pub Concord::f32 wobbleAmp = 0.5f;
+};
+
+class Asteroid {
+    pub Concord::f32 trackRadius = 12.0f;
+    pub Concord::f32 angularSpeed = 0.8f;
+    pub Concord::f32 currentAngle = 0.0f;
+    pub Concord::f32 height = 1.5f;
+    pub Concord::f32 health = 30.0f;
+    pub Concord::f32 maxHealth = 30.0f;
+    pub int pointValue = 150;
+    pub bool isElite = false;
+};
+
+class EnergyCrystal {
+    pub Concord::f32 baseY = 1.5f;
+    pub Concord::f32 bobSpeed = 3.0f;
+    pub Concord::f32 bobHeight = 0.6f;
+    pub Concord::f32 rotateSpeed = 90.0f;
+    pub Concord::f32 pulseTimer = 0.0f;
+};
+
+class PulsingLight {
+    pub Concord::f32 radius = 8.0f;
+    pub Concord::f32 speed = 1.0f;
+    pub Concord::f32 phase = 0.0f;
+    pub Concord::f32 height = 4.0f;
+    pub Concord::f32 baseIntensity = 12.0f;
+    pub Concord::f32 pulseFrequency = 2.0f;
+};
+
+class DefenseDrone {
+    pub Concord::f32 orbitRadius = 4.5f;
+    pub Concord::f32 orbitSpeed = 2.2f;
+    pub Concord::f32 currentAngle = 0.0f;
+    pub Concord::f32 height = 2.0f;
+    pub Concord::f32 attackRange = 8.0f;
+    pub Concord::f32 laserTimer = 0.0f;
+};

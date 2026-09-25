@@ -1,0 +1,6 @@
+@shader(name="first", name="second") {
+#version 460
+void main() {}
+};
+
+@entry {};

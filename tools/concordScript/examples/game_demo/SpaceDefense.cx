@@ -1,0 +1,192 @@
+use Concord.CColor;
+use Concord.CEcs;
+use Concord.CLight;
+use Concord.CObject;
+use Concord.CScene;
+use game_demo.GameTypes;
+
+class SpaceDefenseSystem extends Concord::ISystem {
+    pub void OnStart(Concord::Scene& scene) override {
+        scene.Query<GameTypes::ScoreBoard>([](Concord::Entity, GameTypes::ScoreBoard& sb) {
+            sb.score = 0;
+            sb.wave = 1;
+            sb.destroyedEnemies = 0;
+            sb.shield = 100.0f;
+            sb.multiplier = 1.0f;
+            sb.gameTime = 0.0f;
+        });
+    }
+
+    pub void OnUpdate(Concord::Scene& scene, Concord::f32 deltaTime) override {
+        scene.Query<GameTypes::ScoreBoard>([deltaTime](Concord::Entity, GameTypes::ScoreBoard& sb) {
+            sb.gameTime += deltaTime;
+            sb.score += static_cast<int>(10.0f * deltaTime * sb.multiplier);
+            if (sb.gameTime > 15.0f * sb.wave) {
+                sb.wave += 1;
+                sb.multiplier += 0.5f;
+            }
+        });
+
+        scene.Query<GameTypes::Spin, Concord::Transform>(
+            [deltaTime](Concord::Entity, GameTypes::Spin& spin, Concord::Transform& t) {
+                t.rotation.x += spin.spinX * deltaTime;
+                t.rotation.y += spin.spinY * deltaTime;
+                t.rotation.z += spin.spinZ * deltaTime;
+            });
+
+        scene.Query<GameTypes::EnergyCrystal, Concord::Transform, Concord::Material>(
+            [deltaTime](Concord::Entity, GameTypes::EnergyCrystal& crystal, Concord::Transform& t, Concord::Material& mat) {
+                crystal.pulseTimer += crystal.bobSpeed * deltaTime;
+                t.position.y = crystal.baseY + std::sin(crystal.pulseTimer) * crystal.bobHeight;
+                t.rotation.y += crystal.rotateSpeed * deltaTime;
+                t.rotation.x = std::cos(crystal.pulseTimer * 0.7f) * 15.0f;
+                mat.emissive = 0.2f + 0.3f * std::sin(crystal.pulseTimer * 1.5f);
+            });
+
+        scene.Query<GameTypes::DefenseDrone, Concord::Transform>(
+            [deltaTime](Concord::Entity, GameTypes::DefenseDrone& drone, Concord::Transform& t) {
+                drone.currentAngle += drone.orbitSpeed * deltaTime;
+                drone.laserTimer += deltaTime;
+                t.position.x = std::cos(drone.currentAngle) * drone.orbitRadius;
+                t.position.z = std::sin(drone.currentAngle) * drone.orbitRadius;
+                t.position.y = drone.height + std::sin(drone.currentAngle * 2.0f) * 0.3f;
+                t.rotation.y = -drone.currentAngle * (180.0f / 3.14159265f) + 90.0f;
+            });
+
+        scene.Query<GameTypes::Asteroid, Concord::Transform>(
+            [deltaTime](Concord::Entity, GameTypes::Asteroid& ast, Concord::Transform& t) {
+                ast.currentAngle += ast.angularSpeed * deltaTime;
+                t.position.x = std::cos(ast.currentAngle) * ast.trackRadius;
+                t.position.z = std::sin(ast.currentAngle) * ast.trackRadius;
+                t.position.y = ast.height + std::sin(ast.currentAngle * 3.0f) * 0.5f;
+            });
+
+        scene.Query<GameTypes::PulsingLight, Concord::Transform, Concord::LightComponent>(
+            [deltaTime](Concord::Entity, GameTypes::PulsingLight& light, Concord::Transform& t, Concord::LightComponent& comp) {
+                light.phase += light.speed * deltaTime;
+                t.position.x = std::cos(light.phase) * light.radius;
+                t.position.z = std::sin(light.phase) * light.radius;
+                t.position.y = light.height + std::cos(light.phase * 1.3f) * 1.0f;
+                Concord::f32 pulse = 0.5f + 0.5f * std::sin(light.phase * light.pulseFrequency);
+                comp.intensity = light.baseIntensity * (0.6f + 0.4f * pulse);
+            });
+    }
+};
+
+class GameFactory {
+    pub static Concord::EntityHandle CreateCoreBeacon(Concord::Scene& scene) {
+        return scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {0.0f, 1.2f, 0.0f}},
+            .size = {1.8f, 2.4f, 1.8f},
+            .material = {.albedo = COLOR_RGB(60, 180, 255), .metallic = 0.85f, .roughness = 0.15f, .emissive = 0.4f},
+        }).Add<GameTypes::Spin>(GameTypes::Spin{15.0f, 30.0f, 10.0f});
+    }
+
+    pub static void CreatePlatform(Concord::Scene& scene) {
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {0.0f, -0.6f, 0.0f}},
+            .size = {36.0f, 1.2f, 36.0f},
+            .material = {.albedo = COLOR_RGB(25, 30, 42), .metallic = 0.1f, .roughness = 0.85f},
+        });
+
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {0.0f, -0.2f, 0.0f}},
+            .size = {12.0f, 0.4f, 12.0f},
+            .material = {.albedo = COLOR_RGB(45, 52, 70), .metallic = 0.3f, .roughness = 0.6f},
+        });
+
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {0.0f, 6.0f, 18.0f}},
+            .size = {36.0f, 14.0f, 1.0f},
+            .material = {.albedo = COLOR_RGB(15, 18, 28), .metallic = 0.0f, .roughness = 0.9f},
+        });
+    }
+
+    pub static void CreateDefenseDrones(Concord::Scene& scene) {
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {4.5f, 2.0f, 0.0f}},
+            .size = {0.8f, 0.5f, 1.2f},
+            .material = {.albedo = COLOR_RGB(255, 215, 0), .metallic = 0.9f, .roughness = 0.2f, .emissive = 0.2f},
+        }).Add<GameTypes::DefenseDrone>(GameTypes::DefenseDrone{4.5f, 1.8f, 0.0f, 2.2f})
+          .Add<GameTypes::Spin>(GameTypes::Spin{0.0f, 0.0f, 40.0f});
+
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {-4.5f, 2.0f, 0.0f}},
+            .size = {0.8f, 0.5f, 1.2f},
+            .material = {.albedo = COLOR_RGB(0, 230, 180), .metallic = 0.9f, .roughness = 0.2f, .emissive = 0.2f},
+        }).Add<GameTypes::DefenseDrone>(GameTypes::DefenseDrone{4.5f, 1.8f, 3.14159265f, 2.2f})
+          .Add<GameTypes::Spin>(GameTypes::Spin{0.0f, 0.0f, -40.0f});
+    }
+
+    pub static void CreateFloatingCrystals(Concord::Scene& scene) {
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {3.0f, 1.5f, 3.0f}, .rotation = {45.0f, 0.0f, 45.0f}},
+            .size = {0.9f, 0.9f, 0.9f},
+            .material = {.albedo = COLOR_RGB(255, 50, 120), .metallic = 0.7f, .roughness = 0.1f, .emissive = 0.3f},
+        }).Add<GameTypes::EnergyCrystal>(GameTypes::EnergyCrystal{1.8f, 2.5f, 0.5f, 60.0f, 0.0f});
+
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {-3.0f, 1.5f, 3.0f}, .rotation = {45.0f, 0.0f, 45.0f}},
+            .size = {0.9f, 0.9f, 0.9f},
+            .material = {.albedo = COLOR_RGB(160, 40, 255), .metallic = 0.7f, .roughness = 0.1f, .emissive = 0.3f},
+        }).Add<GameTypes::EnergyCrystal>(GameTypes::EnergyCrystal{1.8f, 2.8f, 0.5f, -75.0f, 1.5f});
+
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {0.0f, 1.5f, -3.5f}, .rotation = {45.0f, 0.0f, 45.0f}},
+            .size = {1.1f, 1.1f, 1.1f},
+            .material = {.albedo = COLOR_RGB(40, 240, 160), .metallic = 0.7f, .roughness = 0.1f, .emissive = 0.35f},
+        }).Add<GameTypes::EnergyCrystal>(GameTypes::EnergyCrystal{2.2f, 2.2f, 0.6f, 50.0f, 3.0f});
+    }
+
+    pub static void CreateAsteroidBelt(Concord::Scene& scene) {
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {9.0f, 1.5f, 0.0f}},
+            .size = {1.6f, 1.6f, 1.6f},
+            .material = {.albedo = COLOR_RGB(180, 70, 50), .metallic = 0.4f, .roughness = 0.7f},
+        }).Add<GameTypes::Asteroid>(GameTypes::Asteroid{9.0f, 0.9f, 0.0f, 1.8f, 40.0f, 40.0f, 200, false})
+          .Add<GameTypes::Spin>(GameTypes::Spin{45.0f, 60.0f, 20.0f});
+
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {-10.5f, 2.0f, 2.0f}},
+            .size = {2.2f, 2.0f, 2.2f},
+            .material = {.albedo = COLOR_RGB(210, 45, 45), .metallic = 0.6f, .roughness = 0.5f, .emissive = 0.15f},
+        }).Add<GameTypes::Asteroid>(GameTypes::Asteroid{10.5f, 0.6f, 2.1f, 2.2f, 80.0f, 80.0f, 500, true})
+          .Add<GameTypes::Spin>(GameTypes::Spin{30.0f, -40.0f, 15.0f});
+
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {0.0f, 1.6f, 12.0f}},
+            .size = {1.4f, 1.4f, 1.4f},
+            .material = {.albedo = COLOR_RGB(160, 110, 60), .metallic = 0.3f, .roughness = 0.8f},
+        }).Add<GameTypes::Asteroid>(GameTypes::Asteroid{12.0f, -0.75f, 4.2f, 1.6f, 30.0f, 30.0f, 150, false})
+          .Add<GameTypes::Spin>(GameTypes::Spin{-50.0f, 25.0f, -30.0f});
+
+        scene.Spawn<Concord::Object::Box>({
+            .transform = {.position = {8.0f, 2.4f, -8.0f}},
+            .size = {1.8f, 1.8f, 1.8f},
+            .material = {.albedo = COLOR_RGB(130, 60, 150), .metallic = 0.5f, .roughness = 0.6f},
+        }).Add<GameTypes::Asteroid>(GameTypes::Asteroid{11.3f, 0.82f, 1.2f, 2.0f, 50.0f, 50.0f, 250, false})
+          .Add<GameTypes::Spin>(GameTypes::Spin{20.0f, 80.0f, -40.0f});
+    }
+
+    pub static void CreateDynamicLighting(Concord::Scene& scene) {
+        scene.CreateEntity()
+            .Add<Concord::Transform>(Concord::Transform{.position = {7.0f, 4.0f, 0.0f}})
+            .Add<Concord::LightComponent>(Concord::LightComponent{
+                .type = Concord::LightType::Point,
+                .color = COLOR_RGB(60, 180, 255),
+                .intensity = 14.0f,
+                .range = 20.0f,
+            })
+            .Add<GameTypes::PulsingLight>(GameTypes::PulsingLight{7.0f, 1.1f, 0.0f, 4.0f, 14.0f, 2.0f});
+
+        scene.CreateEntity()
+            .Add<Concord::Transform>(Concord::Transform{.position = {-7.0f, 4.0f, 0.0f}})
+            .Add<Concord::LightComponent>(Concord::LightComponent{
+                .type = Concord::LightType::Point,
+                .color = COLOR_RGB(255, 60, 140),
+                .intensity = 14.0f,
+                .range = 20.0f,
+            })
+            .Add<GameTypes::PulsingLight>(GameTypes::PulsingLight{7.0f, -0.95f, 3.14f, 4.5f, 14.0f, 2.5f});
+    }
+};

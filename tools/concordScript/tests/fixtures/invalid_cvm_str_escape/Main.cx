@@ -1,0 +1,4 @@
+@cvm {
+    print_str("bad \q escape");
+    return 0;
+};

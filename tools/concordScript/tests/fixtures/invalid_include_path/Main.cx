@@ -1,0 +1,3 @@
+@include(path="bad\"header.hpp", system=true);
+
+@entry {};

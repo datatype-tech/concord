@@ -1,0 +1,46 @@
+// Text, lists of text, and containers four bytes wide.
+//
+// The source file is UTF-8, so "héllo" is five characters and six bytes; both
+// counts are available because they answer different questions.
+
+@cvm {
+    let text = "héllo";
+    print(str_len(text));
+    print(str_len_utf8(text));
+    print(str_at_utf8(text, 1));
+    print_str(str_from_code(233));
+    print_str(str_upper("abc"));
+    print_str(str_lower("ABC"));
+
+    let names = slist_new();
+    slist_push(names, "alpha");
+    slist_push(names, "beta");
+    slist_push(names, "gamma");
+    print(slist_size(names));
+    print_str(slist_get(names, 1));
+    print(slist_index_of(names, "gamma"));
+    print(slist_contains(names, "delta"));
+    print_str(slist_join(names, ", "));
+    slist_free(names);
+
+    let small = list32_new();
+    list32_push(small, 0.1);
+    list32_push(small, 0.2);
+    print(list32_size(small));
+    print_float(list32_get(small, 1));
+    print_float(list32_pop(small));
+    list32_free(small);
+
+    let cells = array32_new(4);
+    array32_set(cells, 0, 1.5);
+    array32_set(cells, 1, 2.5);
+    print_float(array32_sum(cells));
+    print(array32_size(cells));
+    array32_free(cells);
+
+    let counter = counter_new(5);
+    print(counter_set(counter, 9));
+    print(counter_get(counter));
+    counter_free(counter);
+    return 0;
+};

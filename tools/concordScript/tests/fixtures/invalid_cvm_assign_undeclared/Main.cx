@@ -1,0 +1,4 @@
+@cvm {
+    total = 1;
+    return total;
+};
