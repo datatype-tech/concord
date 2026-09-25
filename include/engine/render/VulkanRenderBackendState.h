@@ -4,6 +4,7 @@
 #ifndef CONCORD_VULKANRENDERBACKENDSTATE_H
 #define CONCORD_VULKANRENDERBACKENDSTATE_H
 #include "engine/render/VulkanRenderBackend.h"
+#include "engine/render/RenderSceneSnapshot.h"
 
 #include <chrono>
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
@@ -35,6 +36,8 @@ struct VulkanDirectionalShadowState;
 
 /** Groups the native objects owned by the Vulkan backend implementation. */
 struct VulkanRenderBackend::Impl {
+    /** CPU extraction storage is reused after command recording consumes it. */
+    RenderSceneSnapshot sceneSnapshot{};
     Window* window = nullptr;
     VulkanContext context{};
     VulkanSwapchain swapchain{};

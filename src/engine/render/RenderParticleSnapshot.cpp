@@ -53,7 +53,7 @@ void AppendBillboard(RenderParticleSnapshot& out, Vec3 center, Vec3 right, Vec3 
 
 /** Expands one emitter pool into billboards, stopping at the vertex cap. */
 void AppendEmitter(RenderParticleSnapshot& out, const ParticleEmitterComponent& emitter,
-                   const Mat4& model, Vec3 right, Vec3 up) noexcept
+                   const Mat4& model, Vec3 right, Vec3 up)
 {
     const ParticleEmitterSettings& settings = emitter.settings;
     if (!emitter.state.IsReady() || emitter.state.liveCount == 0) {
@@ -93,22 +93,24 @@ void AppendParticleSnapshots(RenderParticleSnapshot& particles, const World& wor
     // buffer while the two kinds of emitter can still be drawn with the two
     // blend states they need. Splitting the array is cheaper than splitting the
     // buffer, and the counts are all the draw needs to know.
-    RenderParticleSnapshot additive{};
-    RenderParticleSnapshot scattering{};
-    world.Query<ParticleEmitterComponent, Transform>(
-        [&additive, &scattering, right, up](Entity, const ParticleEmitterComponent& emitter,
-                                            const Transform& transform) {
-            RenderParticleSnapshot& target =
-                emitter.settings.blend == ParticleBlendMode::Additive ? additive : scattering;
-            AppendEmitter(target, emitter, transform.ToMatrix(), right, up);
-        });
-    particles.vertices.reserve(additive.vertices.size() + scattering.vertices.size());
-    particles.vertices.insert(particles.vertices.end(), additive.vertices.begin(),
-                              additive.vertices.end());
-    particles.additiveVertices = static_cast<u32>(additive.vertices.size());
-    particles.vertices.insert(particles.vertices.end(), scattering.vertices.begin(),
-                              scattering.vertices.end());
-    particles.particleCount = additive.particleCount + scattering.particleCount;
+    // Walk the small emitter list twice instead of allocating two temporary
+    // vertex arrays and copying every expanded quad. Both blend modes share
+    // one global cap, matching the size of the GPU upload buffer.
+    for (const bool additive : {true, false}) {
+        world.Query<ParticleEmitterComponent, Transform>(
+            [&](Entity, const ParticleEmitterComponent& emitter, const Transform& transform) {
+                if ((emitter.settings.blend == ParticleBlendMode::Additive) != additive ||
+                    particles.vertices.size() >= kMaxParticleVertices) {
+                    return;
+                }
+                AppendEmitter(particles, emitter,
+                              emitter.settings.localSpace ? transform.ToMatrix() : Mat4::Identity(),
+                              right, up);
+            });
+        if (additive) {
+            particles.additiveVertices = static_cast<u32>(particles.vertices.size());
+        }
+    }
 }
 
 } // namespace Concord

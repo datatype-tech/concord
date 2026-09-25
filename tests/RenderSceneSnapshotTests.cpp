@@ -198,6 +198,26 @@ int main()
     }
 
     Concord::Scene noCamera;
+    Concord::RenderSceneSnapshot reused;
+    Concord::ExtractRenderScene(scene, 1.0f, reused);
+    const auto objectCapacity = reused.objects.capacity();
+    const auto lightCapacity = reused.lights.capacity();
+    reused.skinningPalette.jointMatrices.push_back(Concord::Mat4::Identity());
+    reused.particles.vertices.resize(6);
+    reused.particles.particleCount = 1;
+    reused.particles.additiveVertices = 6;
+    reused.ripples.resize(1);
+    reused.waterBodies.resize(1);
+    Concord::ExtractRenderScene(noCamera, 1.0f, reused);
+    if (reused.hasCamera || reused.camera.entity.IsValid() || !reused.objects.empty() ||
+        !reused.lights.empty() || !reused.skinningPalette.jointMatrices.empty() ||
+        !reused.particles.vertices.empty() || reused.particles.particleCount != 0 ||
+        reused.particles.additiveVertices != 0 || !reused.ripples.empty() ||
+        !reused.waterBodies.empty() || reused.objects.capacity() != objectCapacity ||
+        reused.lights.capacity() != lightCapacity) return 1;
+    Concord::ExtractRenderScene(scene, 1.0f, reused);
+    if (reused.objects.size() != snapshot.objects.size() ||
+        reused.lights.size() != snapshot.lights.size() || !reused.hasCamera) return 1;
     const Concord::RenderSceneSnapshot empty = Concord::ExtractRenderScene(noCamera, 0.0f);
     return empty.hasCamera || !empty.objects.empty() || !empty.lights.empty() ? 1 : 0;
 }

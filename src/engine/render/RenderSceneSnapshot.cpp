@@ -85,6 +85,22 @@ Mat4 SafeModel(const Transform& transform, Vec3 size) noexcept
 RenderSceneSnapshot ExtractRenderScene(const Scene& scene, f32 aspect)
 {
     RenderSceneSnapshot snapshot;
+    ExtractRenderScene(scene, aspect, snapshot);
+    return snapshot;
+}
+
+void ExtractRenderScene(const Scene& scene, f32 aspect, RenderSceneSnapshot& snapshot)
+{
+    snapshot.hasCamera = false;
+    snapshot.camera = {};
+    snapshot.objects.clear();
+    snapshot.lights.clear();
+    snapshot.skinningPalette.jointMatrices.clear();
+    snapshot.particles.vertices.clear();
+    snapshot.particles.particleCount = 0;
+    snapshot.particles.additiveVertices = 0;
+    snapshot.ripples.clear();
+    snapshot.waterBodies.clear();
     snapshot.environment = scene.Environment();
     const World& world = scene.GetWorld();
     const Entity cameraEntity = scene.MainCamera();
@@ -146,7 +162,6 @@ RenderSceneSnapshot ExtractRenderScene(const Scene& scene, f32 aspect)
         }
         snapshot.lights.push_back(result);
     });
-    return snapshot;
 }
 
 } // namespace Concord

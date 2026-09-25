@@ -261,6 +261,25 @@ struct Case {
     bool (*run)();
 };
 
+bool TestMixedBlendModesShareTheCap()
+{
+    World world;
+    auto settings = FixedSettings(Concord::kMaxRenderedParticles, 0.1f);
+    settings.capacity = Concord::kMaxParticlesPerEmitter;
+    settings.blend = Concord::ParticleBlendMode::Scatter;
+    const Entity smoke = SpawnEmitter(world, settings, Transform{});
+    StepEmitter(world, smoke, 0.01f);
+    settings.blend = Concord::ParticleBlendMode::Additive;
+    settings.burstCount = 7;
+    const Entity sparks = SpawnEmitter(world, settings, Transform{});
+    StepEmitter(world, sparks, 0.01f);
+    RenderParticleSnapshot particles;
+    Concord::AppendParticleSnapshots(particles, world, Mat4::Identity());
+    return particles.vertices.size() == Concord::kMaxParticleVertices &&
+           particles.particleCount == Concord::kMaxRenderedParticles &&
+           particles.additiveVertices == 7 * Concord::kParticleIndicesPerParticle;
+}
+
 } // namespace
 
 int main()
@@ -277,6 +296,7 @@ int main()
         {"invisible particles are skipped", TestInvisibleParticlesAreSkipped},
         {"many emitters accumulate", TestManyEmittersAccumulate},
         {"vertex cap is respected", TestVertexCapIsRespected},
+        {"mixed blend modes share the cap", TestMixedBlendModesShareTheCap},
         {"colours come from the ramp", TestColorsComeFromTheRamp},
         {"system advances the scene emitter", TestSystemAdvancesTheSceneEmitter},
         {"system honours the restart flag", TestSystemHonoursTheRestartFlag},

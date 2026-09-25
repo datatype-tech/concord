@@ -24,6 +24,7 @@ void VulkanRenderBackend::Shutdown()
         return;
     }
     Impl& impl = *m_impl;
+    impl.sceneSnapshot = {};
     if (impl.context.device != VK_NULL_HANDLE) {
         if (impl.frameActive || impl.imageAcquirePending) {
             impl.AbortFrame();

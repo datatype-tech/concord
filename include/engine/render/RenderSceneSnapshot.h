@@ -135,6 +135,9 @@ struct RenderSceneSnapshot {
 /** Builds a render snapshot using the supplied viewport aspect ratio. */
 RenderSceneSnapshot ExtractRenderScene(const Scene& scene, f32 aspect);
 
+/** Replaces frame data while retaining vector capacity for subsequent frames. */
+void ExtractRenderScene(const Scene& scene, f32 aspect, RenderSceneSnapshot& snapshot);
+
 } // namespace Concord
 
 #endif // CONCORD_RENDERSCENESNAPSHOT_H

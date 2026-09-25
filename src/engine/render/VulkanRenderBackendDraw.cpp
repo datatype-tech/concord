@@ -44,7 +44,8 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     }
     const f32 aspect = impl.swapchain.extent.height == 0 ? 1.0f : static_cast<f32>(impl.swapchain.extent.width) /
                                                                static_cast<f32>(impl.swapchain.extent.height);
-    const RenderSceneSnapshot snapshot = ExtractRenderScene(scene, aspect);
+    ExtractRenderScene(scene, aspect, impl.sceneSnapshot);
+    const RenderSceneSnapshot& snapshot = impl.sceneSnapshot;
     bool hasModelObjects = false;
     bool hasBoxObjects = false;
     bool hasStaticModelObjects = false;

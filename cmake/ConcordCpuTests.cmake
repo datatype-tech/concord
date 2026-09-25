@@ -52,6 +52,12 @@ target_compile_features(concord_render_snapshot_tests PRIVATE cxx_std_23)
 target_include_directories(concord_render_snapshot_tests PRIVATE ${CONCORD_TEST_INCLUDE})
 add_test(NAME concord_render_snapshot_tests COMMAND concord_render_snapshot_tests)
 
+get_target_property(snapshot_benchmark_sources concord_render_snapshot_tests SOURCES)
+list(REMOVE_ITEM snapshot_benchmark_sources tests/RenderSceneSnapshotTests.cpp)
+add_executable(concord_snapshot_benchmark tests/RenderSnapshotBenchmark.cpp ${snapshot_benchmark_sources})
+target_compile_features(concord_snapshot_benchmark PRIVATE cxx_std_23)
+target_include_directories(concord_snapshot_benchmark PRIVATE ${CONCORD_TEST_INCLUDE})
+
 add_executable(concord_render_skinning_snapshot_tests
     tests/RenderSkinningSnapshotTests.cpp src/engine/render/RenderSceneSnapshot.cpp
     src/engine/render/RenderModelSnapshot.cpp src/engine/render/RenderSkinningSnapshot.cpp
