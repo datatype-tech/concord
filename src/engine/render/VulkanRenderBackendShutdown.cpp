@@ -46,6 +46,7 @@ void VulkanRenderBackend::Shutdown()
                 std::fprintf(stderr, "[Concord] one or more Vulkan shutdown passes failed\n");
             }
         }
+        DestroyVulkanUiToolkit(impl.context, impl.toolkit);
         DestroyVulkanParticlePipeline(impl.context, impl.particlePipeline);
         DestroyVulkanTileLightCulling(impl.context, impl.tileCulling);
         DestroyVulkanBoxPipeline(impl.context, impl.boxPipeline);

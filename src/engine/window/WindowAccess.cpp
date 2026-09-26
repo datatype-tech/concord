@@ -9,6 +9,11 @@
 
 namespace Concord {
 
+void WindowAccess::SetEventObserver(Window& window, std::function<void(const void*)> observer)
+{
+    window.m_impl->state.eventObserver = std::move(observer);
+}
+
 void* WindowAccess::NativeHandle(const Window& window) noexcept
 {
     return window.NativeHandle();

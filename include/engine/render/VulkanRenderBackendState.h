@@ -9,6 +9,7 @@
 #include <chrono>
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
 #include "engine/render/vulkan/VulkanDebugOverlay.h"
+#include "engine/render/vulkan/VulkanUiToolkit.h"
 #include "engine/render/vulkan/VulkanModelPipeline.h"
 #include "engine/render/vulkan/VulkanParticlePipeline.h"
 #include "engine/render/vulkan/VulkanTextureCache.h"
@@ -68,6 +69,7 @@ struct VulkanRenderBackend::Impl {
     /** Set on the first frame; frameTime is the seconds elapsed since then. */
     std::chrono::steady_clock::time_point startedAt{};
     VulkanDebugOverlay debugOverlay{};
+    VulkanUiToolkit toolkit{};
     const DebugOverlayFrame* debugOverlayFrame = nullptr;
     const UiDrawList* uiDrawList = nullptr;
     bool rayTracingCompositedLastFrame = false;
@@ -140,7 +142,9 @@ struct VulkanRenderBackend::Impl {
                             VkDescriptorSet frameDataSet, Vec3 skyColor, bool tileEnabled,
                             bool shadowBindingReady, bool rayTracingBuilt,
                             bool rayTracingComposited, bool canDrawBoxes,
-                            bool canDrawModels, bool canDrawSkinned);
+                            bool canDrawModels, bool canDrawSkinned,
+                            VkImage targetImage, VkImageView targetView, VkExtent2D targetExtent,
+                            VulkanDepthBuffer& depthBuffer);
 };
 
 } // namespace Concord

@@ -9,6 +9,7 @@ namespace Concord {
 SDL_WindowFlags ToSdlWindowFlags(const WindowDesc& desc, bool enableVulkan)
 {
     SDL_WindowFlags flags = 0;
+    if (!desc.decorated) flags |= SDL_WINDOW_BORDERLESS;
     if (enableVulkan) {
         flags |= SDL_WINDOW_VULKAN;
     }

@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "engine/render/VulkanRenderBackend.h"
+#include "Concord/CUiToolkit.h"
 
 #include "engine/core/Color.h"
 #include "engine/ecs/Components.h"
@@ -35,15 +36,27 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     VulkanFrame& frame = impl.frames.Current();
     VulkanRayTracingScene& rayTracing = impl.rayTracing.At(impl.frames.currentFrame);
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
-    const VkImage image = impl.swapchain.images[impl.imageIndex];
-    VulkanDepthBuffer& depth = impl.depth[impl.frames.currentFrame];
+    const VkImage presentImage = impl.swapchain.images[impl.imageIndex];
+    VulkanUiViewport* viewport = impl.toolkit.initialized ? &impl.toolkit.viewports[impl.frames.currentFrame] : nullptr;
+    if (viewport && !impl.toolkit.ui->SceneVisible()) {
+        TransitionToColorAttachment(commandBuffer,presentImage,impl.swapchain.imageLayouts[impl.imageIndex]);
+        RecordVulkanUiToolkit(commandBuffer,impl.toolkit,impl.frames.currentFrame,
+                              impl.swapchain.views[impl.imageIndex],impl.swapchain.extent);
+        TransitionToPresent(commandBuffer,presentImage);
+        impl.swapchain.imageLayouts[impl.imageIndex]=VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        return;
+    }
+    const VkImage image = viewport ? viewport->image : presentImage;
+    const VkImageView colorView = viewport ? viewport->view : impl.swapchain.views[impl.imageIndex];
+    const VkExtent2D sceneExtent = viewport ? viewport->extent : impl.swapchain.extent;
+    VkImageLayout& colorLayout = viewport ? viewport->layout : impl.swapchain.imageLayouts[impl.imageIndex];
+    VulkanDepthBuffer& depth = viewport ? viewport->depth : impl.depth[impl.frames.currentFrame];
     if (image == VK_NULL_HANDLE || depth.image == VK_NULL_HANDLE ||
         depth.view == VK_NULL_HANDLE) {
         impl.AbortFrame();
         return;
     }
-    const f32 aspect = impl.swapchain.extent.height == 0 ? 1.0f : static_cast<f32>(impl.swapchain.extent.width) /
-                                                               static_cast<f32>(impl.swapchain.extent.height);
+    const f32 aspect = sceneExtent.height == 0 ? 1.0f : static_cast<f32>(sceneExtent.width) / sceneExtent.height;
     ExtractRenderScene(scene, aspect, impl.sceneSnapshot);
     const RenderSceneSnapshot& snapshot = impl.sceneSnapshot;
     bool hasModelObjects = false;
@@ -74,14 +87,14 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     // it is presented at. Sizing the footprint from the swapchain would tell
     // every wave octave that it is being sampled finer than it is, and the
     // detail that the fade exists to remove would come back as sparkle.
-    const VkExtent2D tracedExtent = ResolveVulkanRenderExtent(impl.swapchain.extent);
+    const VkExtent2D tracedExtent = ResolveVulkanRenderExtent(sceneExtent);
     if (frame.renderData.camera.projection.col[1][1] != 0.0f && tracedExtent.height != 0) {
         frame.renderData.surfaceInfo.z =
             2.0f / (frame.renderData.camera.projection.col[1][1] *
                     static_cast<f32>(tracedExtent.height));
     }
-    const bool tileInBounds = impl.swapchain.extent.width <= kMaxTileColumns * kTileSizePixels &&
-                              impl.swapchain.extent.height <= kMaxTileRows * kTileSizePixels;
+    const bool tileInBounds = sceneExtent.width <= kMaxTileColumns * kTileSizePixels &&
+                              sceneExtent.height <= kMaxTileRows * kTileSizePixels;
     const bool tileEnabled = snapshot.hasCamera && impl.frameData.IsTileReady() &&
                              impl.tileCulling.IsReady() && tileInBounds;
     frame.renderData.header.reserved = tileEnabled ? kRenderFrameFlagTileLights : 0u;
@@ -109,14 +122,13 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
                                     impl.skinningResources.IsReady() &&
                                     frameDataSet != VK_NULL_HANDLE;
     bool rayTracingBuilt = false;
-    const bool rayTracingRendered = RecordVulkanRayTracingFrame(
+    const bool rayTracingRendered = !viewport && RecordVulkanRayTracingFrame(
         impl.context, commandBuffer, rayTracing, snapshot, impl.rayTracingPipeline,
         impl.rayTracingOutput, impl.boxPipeline, frameDataSet, impl.frames.currentFrame,
         rayTracingBuilt, hasModelObjects ? &impl.modelAssets : nullptr,
         impl.rayTracingTextures, impl.textureCache);
-    TransitionToColorAttachment(commandBuffer, image,
-                                impl.swapchain.imageLayouts[impl.imageIndex]);
-    impl.swapchain.imageLayouts[impl.imageIndex] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    TransitionToColorAttachment(commandBuffer, image, colorLayout);
+    colorLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     TransitionToDepthAttachment(commandBuffer, depth.image, depth.layout);
     depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     // The trace left raw radiance; everything that turns radiance into a
@@ -151,7 +163,7 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
             impl.context, commandBuffer, impl.postProcess, impl.frames.currentFrame, image,
             impl.swapchain.format, impl.swapchain.imageLayouts[impl.imageIndex],
             impl.swapchain.extent);
-    RunVulkanRenderExtensions(impl.context, impl.swapchain, depth, frame,
+    if (!viewport) RunVulkanRenderExtensions(impl.context, impl.swapchain, depth, frame,
                               impl.frames.currentFrame, impl.imageIndex,
                               frameDataSet,
                               shadowBindingReady ? shadowMap.descriptorSet : VK_NULL_HANDLE,
@@ -171,8 +183,9 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
                                 skinnedRasterReady;
     impl.RecordRasterPasses(snapshot, shadowState, frameDataSet, skyColor, tileEnabled,
                             shadowBindingReady, rayTracingBuilt, rayTracingComposited,
-                            canDrawBoxes, canDrawModels, canDrawSkinned);
-    RunVulkanRenderExtensions(impl.context, impl.swapchain, depth, frame,
+                            canDrawBoxes, canDrawModels, canDrawSkinned,
+                            image,colorView,sceneExtent,depth);
+    if (!viewport) RunVulkanRenderExtensions(impl.context, impl.swapchain, depth, frame,
                               impl.frames.currentFrame, impl.imageIndex,
                               frameDataSet,
                               shadowBindingReady ? shadowMap.descriptorSet : VK_NULL_HANDLE,
@@ -183,11 +196,16 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     if (impl.debugOverlay.IsReady() &&
         (impl.debugOverlayFrame != nullptr || impl.uiDrawList != nullptr)) {
         RecordVulkanDebugOverlay(commandBuffer, impl.debugOverlay, impl.frames.currentFrame,
-                                 impl.swapchain.extent,
-                                 impl.swapchain.views[impl.imageIndex], impl.debugOverlayFrame,
+                                 sceneExtent,
+                                 colorView, impl.debugOverlayFrame,
                                  impl.uiDrawList);
     }
-    TransitionToPresent(commandBuffer, image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    if (viewport) {
+        TransitionToColorAttachment(commandBuffer,presentImage,impl.swapchain.imageLayouts[impl.imageIndex]);
+        RecordVulkanUiToolkit(commandBuffer,impl.toolkit,impl.frames.currentFrame,
+                              impl.swapchain.views[impl.imageIndex],impl.swapchain.extent);
+    }
+    TransitionToPresent(commandBuffer, presentImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     impl.swapchain.imageLayouts[impl.imageIndex] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 }
 

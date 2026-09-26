@@ -37,6 +37,8 @@ set(CONCORD_SHADER_SOURCES
     "${CONCORD_SHADER_SOURCE_DIR}/particle.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/debug_overlay.vert"
     "${CONCORD_SHADER_SOURCE_DIR}/debug_overlay.frag"
+    "${CONCORD_SHADER_SOURCE_DIR}/ui_toolkit.vert"
+    "${CONCORD_SHADER_SOURCE_DIR}/ui_toolkit.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/post.comp"
     "${CONCORD_SHADER_SOURCE_DIR}/smoke.frag" CACHE INTERNAL
     "Bundled Concord GLSL sources" FORCE)

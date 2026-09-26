@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+#include "Concord/CApplication.h"
+#include "Concord/CUi.h"
+
 #include "engine/ecs/SystemSchedule.h"
 #include "engine/scene/Scene.h"
 
@@ -57,6 +60,55 @@ private:
     std::vector<int>& m_calls;
 };
 
+/** Keeps a callback regression from leaving the hidden test window running. */
+class QuitAfterFrameSystem final : public Concord::ISystem {
+public:
+    explicit QuitAfterFrameSystem(Concord::Game& game) : m_game(game) {}
+    void OnUpdate(Concord::Scene&, Concord::f32) override { m_game.Quit(); }
+
+private:
+    Concord::Game& m_game;
+};
+
+bool CheckGameFrameCallbacks()
+{
+    Concord::Window window({.title = "Game callback lifecycle tests", .visible = false});
+    Concord::Scene scene;
+    Concord::Game game({.enableRendering = false});
+    game.AttachWindow(window);
+    if (!window.IsOpen()) return false;
+    game.LoadScene(scene);
+    game.Systems().Add<QuitAfterFrameSystem>(game);
+
+    std::vector<int> calls;
+    game.OnUi([&] {
+        if (!game.Ui().IsOpen()) throw std::runtime_error("UI callback ran outside its frame");
+        calls.push_back(2);
+        game.Ui().Label(10, 10, "UI survives script update callbacks");
+        game.Quit();
+    });
+    game.OnUpdate([&](Concord::f32) { calls.push_back(1); });
+    game.Run();
+    if (calls != std::vector<int>{1, 2} || game.Ui().IsOpen() ||
+        game.Ui().DrawList().commands.empty()) return false;
+
+    calls.clear();
+    game.OnUpdate([&](Concord::f32) { calls.push_back(3); });
+    game.Run();
+    if (calls != std::vector<int>{3, 2}) return false;
+
+    calls.clear();
+    game.OnUpdate({});
+    game.Run();
+    if (calls != std::vector<int>{2}) return false;
+
+    calls.clear();
+    game.OnUpdate([&](Concord::f32) { calls.push_back(4); game.Quit(); });
+    game.OnUi({});
+    game.Run();
+    return calls == std::vector<int>{4} && game.Ui().DrawList().commands.empty();
+}
+
 } // namespace
 
 int main()
@@ -101,5 +153,6 @@ int main()
     } catch (const std::runtime_error&) {
         stopThrew = true;
     }
-    return stopThrew && failedStop == std::vector<int>{5, -4, 500} ? 0 : 1;
+    return stopThrew && failedStop == std::vector<int>{5, -4, 500} && CheckGameFrameCallbacks()
+        ? 0 : 1;
 }

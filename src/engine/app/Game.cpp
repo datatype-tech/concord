@@ -71,10 +71,16 @@ SystemSchedule& Game::Systems() noexcept { return m_impl->systems; }
 DebugOverlay& Game::Overlay() noexcept { return m_impl->debugOverlay; }
 
 UiCanvas& Game::Ui() noexcept { return m_impl->ui; }
+UiToolkit* Game::Toolkit() noexcept { return m_impl->toolkit.get(); }
 
 void Game::OnUpdate(std::function<void(f32 deltaTime)> onUpdate)
 {
     m_impl->onUpdate = std::move(onUpdate);
+}
+
+void Game::OnUi(std::function<void()> onUi)
+{
+    m_impl->onUi = std::move(onUi);
 }
 
 void Game::Run()
@@ -96,6 +102,11 @@ void Game::Run()
 
         while (!impl.quitRequested && impl.window && !impl.window->ShouldClose()) {
             impl.window->PumpEvents();
+            const bool uiMinimized = impl.toolkit && impl.window->IsMinimized();
+            if (impl.toolkit) {
+                if (!uiMinimized) impl.renderer->PrepareUiFrame();
+                impl.toolkit->Begin();
+            }
 
             const auto now = Clock::now();
             impl.deltaTime = std::chrono::duration<f32>(now - previous).count();
@@ -120,7 +131,11 @@ void Game::Run()
             if (impl.onUpdate) {
                 impl.onUpdate(impl.deltaTime);
             }
+            if (impl.window && impl.onUi) {
+                impl.onUi();
+            }
             impl.ui.End();
+            if (impl.toolkit) impl.toolkit->End();
 
             if (!impl.window) {
                 break;
@@ -146,7 +161,7 @@ void Game::Run()
                                          : &impl.ui.DrawList());
             }
             f32 cpuSeconds = 0.0f;
-            if (impl.renderer && impl.renderer->BeginFrame()) {
+            if (impl.renderer && !uiMinimized && impl.renderer->BeginFrame()) {
                 impl.renderer->DrawScene(renderScene);
                 // Stop the clock before presenting. A vsync-locked swapchain
                 // blocks inside EndFrame until the next vblank, so measuring
@@ -179,9 +194,14 @@ void Game::Run()
 
             ++impl.frameCount;
 
-            if (impl.config.frameRateLimit > 0) {
+            // Native tools still poll process completion and service input while
+            // minimized, without submitting invisible work to the GPU.
+            const u32 frameRateLimit = uiMinimized
+                ? (impl.config.frameRateLimit == 0 ? 20u : std::min(impl.config.frameRateLimit, 20u))
+                : impl.config.frameRateLimit;
+            if (frameRateLimit > 0) {
                 const auto budget =
-                    std::chrono::duration<f32>(1.0f / static_cast<f32>(impl.config.frameRateLimit));
+                    std::chrono::duration<f32>(1.0f / static_cast<f32>(frameRateLimit));
                 const auto spent = Clock::now() - now;
                 if (spent < budget) {
                     std::this_thread::sleep_for(budget - spent);

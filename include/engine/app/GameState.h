@@ -10,6 +10,7 @@
 #include "engine/render/IRenderBackend.h"
 #include "engine/scene/Scene.h"
 #include "engine/ui/UiCanvas.h"
+#include "engine/ui/UiToolkit.h"
 
 #include <exception>
 #include <functional>
@@ -26,7 +27,9 @@ struct Game::Impl {
     std::unique_ptr<IRenderBackend> renderer;
     DebugOverlay debugOverlay{};
     UiCanvas ui{};
+    std::unique_ptr<UiToolkit> toolkit;
     std::function<void(f32)> onUpdate;
+    std::function<void()> onUi;
     SystemSchedule systems;
     bool systemsStarted = false;
     bool running = false;

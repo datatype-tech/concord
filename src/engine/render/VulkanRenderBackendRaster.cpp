@@ -20,10 +20,10 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
     const RenderSceneSnapshot& snapshot, const VulkanDirectionalShadowState& shadowState,
     VkDescriptorSet frameDataSet, Vec3 skyColor, bool tileEnabled, bool shadowBindingReady,
     bool rayTracingBuilt, bool rayTracingComposited, bool canDrawBoxes, bool canDrawModels,
-    bool canDrawSkinned)
+    bool canDrawSkinned, VkImage targetImage, VkImageView targetView, VkExtent2D targetExtent, VulkanDepthBuffer& depthBuffer)
 {
     const VkCommandBuffer commandBuffer = frames.Current().commandBuffer;
-    VulkanDepthBuffer& depthBuffer = depth[frames.currentFrame];
+
     VulkanShadowMap& shadowMap = shadowMaps[frames.currentFrame];
     VulkanRayTracingScene& rayScene = rayTracing.At(frames.currentFrame);
     if (canDrawBoxes || canDrawModels || canDrawSkinned) {
@@ -40,7 +40,7 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
         if (tileEnabled) {
             BeginVulkanDebugLabel(context, commandBuffer, "Concord.TileLightCulling",
                                   {0.8f, 0.3f, 0.9f});
-            RecordVulkanTileLightCulling(commandBuffer, swapchain.extent, tileCulling,
+            RecordVulkanTileLightCulling(commandBuffer, targetExtent, tileCulling,
                                          frameDataSet);
             InsertVulkanTileLightBarrier(commandBuffer,
                                          frameData.tileBuffers[frames.currentFrame].buffer);
@@ -49,12 +49,12 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
         BeginVulkanDebugLabel(context, commandBuffer, "Concord.DepthPrepass",
                               {0.2f, 0.5f, 1.0f});
         if (canDrawBoxes) {
-            RecordVulkanBoxDepthPass(commandBuffer, swapchain.extent, depthBuffer.view,
+            RecordVulkanBoxDepthPass(commandBuffer, targetExtent, depthBuffer.view,
                                      boxPipeline, snapshot, frameDataSet);
         }
         if (canDrawModels) {
             if (canDrawBoxes) InsertDepthWriteBarrier(commandBuffer, depthBuffer.image);
-            RecordVulkanModelDepthPass(commandBuffer, swapchain.extent, depthBuffer.view,
+            RecordVulkanModelDepthPass(commandBuffer, targetExtent, depthBuffer.view,
                                        modelPipeline, snapshot, frameDataSet, modelAssets,
                                        textureCache, !canDrawBoxes);
         }
@@ -62,7 +62,7 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
             if (canDrawBoxes || canDrawModels) {
                 InsertDepthWriteBarrier(commandBuffer, depthBuffer.image);
             }
-            RecordVulkanSkinnedDepthPass(commandBuffer, swapchain.extent, depthBuffer.view,
+            RecordVulkanSkinnedDepthPass(commandBuffer, targetExtent, depthBuffer.view,
                                          skinnedPipeline, snapshot, frameDataSet,
                                          skinningResources, frames.currentFrame, modelAssets,
                                          textureCache,
@@ -73,7 +73,7 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
         BeginVulkanDebugLabel(context, commandBuffer, "Concord.ForwardPass",
                               {1.0f, 0.4f, 0.2f});
         if (canDrawBoxes) {
-            RecordVulkanBoxColorPass(commandBuffer, swapchain.extent, swapchain.views[imageIndex],
+            RecordVulkanBoxColorPass(commandBuffer, targetExtent, targetView,
                                      depthBuffer.view, boxPipeline, snapshot, frameDataSet,
                                      skyColor,
                                      shadowBindingReady ? shadowMap.descriptorSet : VK_NULL_HANDLE,
@@ -83,18 +83,18 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
                                          : VK_NULL_HANDLE);
         }
         if (canDrawModels) {
-            if (canDrawBoxes) InsertColorWriteBarrier(commandBuffer, swapchain.images[imageIndex]);
-            RecordVulkanModelColorPass(commandBuffer, swapchain.extent,
-                                       swapchain.views[imageIndex], depthBuffer.view,
+            if (canDrawBoxes) InsertColorWriteBarrier(commandBuffer, targetImage);
+            RecordVulkanModelColorPass(commandBuffer, targetExtent,
+                                       targetView, depthBuffer.view,
                                        modelPipeline, snapshot, frameDataSet, modelAssets,
                                        textureCache, skyColor, !canDrawBoxes);
         }
         if (canDrawSkinned) {
             if (canDrawBoxes || canDrawModels) {
-                InsertColorWriteBarrier(commandBuffer, swapchain.images[imageIndex]);
+                InsertColorWriteBarrier(commandBuffer, targetImage);
             }
-            RecordVulkanSkinnedColorPass(commandBuffer, swapchain.extent,
-                                         swapchain.views[imageIndex], depthBuffer.view,
+            RecordVulkanSkinnedColorPass(commandBuffer, targetExtent,
+                                         targetView, depthBuffer.view,
                                          skinnedPipeline, snapshot, frameDataSet,
                                          skinningResources, frames.currentFrame, modelAssets,
                                          textureCache,
@@ -103,7 +103,7 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
         EndVulkanDebugLabel(context, commandBuffer);
     } else if (!rayTracingComposited) {
         BeginVulkanDebugLabel(context, commandBuffer, "Concord.ClearPass", {0.2f, 0.8f, 0.4f});
-        RecordClearPass(commandBuffer, swapchain.views[imageIndex], swapchain.extent, skyColor,
+        RecordClearPass(commandBuffer, targetView, targetExtent, skyColor,
                         depthBuffer.view);
         EndVulkanDebugLabel(context, commandBuffer);
     }
@@ -112,8 +112,8 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
     if (particlePipeline.IsReady() && snapshot.particles.particleCount != 0) {
         BeginVulkanDebugLabel(context, commandBuffer, "Concord.ParticlePass", {1.0f, 0.85f, 0.3f});
         RecordVulkanParticlePass(commandBuffer, particlePipeline, frames.currentFrame,
-                                 snapshot.particles, frameDataSet, swapchain.views[imageIndex],
-                                 depthBuffer.view, swapchain.extent);
+                                 snapshot.particles, frameDataSet, targetView,
+                                 depthBuffer.view, targetExtent);
         EndVulkanDebugLabel(context, commandBuffer);
     }
 }

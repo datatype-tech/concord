@@ -6,6 +6,7 @@
 #define CONCORD_WINDOWACCESS_H
 
 #include "Concord/CExport.h"
+#include <functional>
 
 namespace Concord {
 
@@ -15,6 +16,8 @@ class Window;
 struct CENGINE_API WindowAccess {
     [[nodiscard]] static void* NativeHandle(const Window& window) noexcept;
     [[nodiscard]] static bool ConsumeResizeFlag(Window& window) noexcept;
+    /** Routes borrowed platform events to an optional UI backend. */
+    static void SetEventObserver(Window& window, std::function<void(const void*)> observer);
 };
 
 } // namespace Concord

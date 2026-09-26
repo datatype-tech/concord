@@ -18,6 +18,14 @@ bool BelongsTo(const WindowState& state, SDL_WindowID id)
     return state.handle != nullptr && id == SDL_GetWindowID(state.handle);
 }
 
+void HandleCloseRequest(WindowState& state)
+{
+    if (state.shouldClose) return;
+    /** Retain the callable while it runs, even if it replaces its registration. */
+    const auto handler = state.closeRequestHandler;
+    if (!handler || handler()) state.shouldClose = true;
+}
+
 } // namespace
 
 void PumpWindowEvents(WindowState& state)
@@ -26,14 +34,15 @@ void PumpWindowEvents(WindowState& state)
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+        if (state.eventObserver) state.eventObserver(&event);
         switch (event.type) {
         case SDL_EVENT_QUIT:
-            state.shouldClose = true;
+            HandleCloseRequest(state);
             break;
 
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             if (BelongsTo(state, event.window.windowID)) {
-                state.shouldClose = true;
+                HandleCloseRequest(state);
             }
             break;
 

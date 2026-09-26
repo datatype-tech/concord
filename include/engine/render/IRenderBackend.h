@@ -14,6 +14,7 @@ namespace Concord {
 
 class Scene;
 class Window;
+class UiToolkit;
 
 /** Parameters steering backend bring-up; defaults keep every feature on. */
 struct RenderBackendInit {
@@ -81,6 +82,10 @@ public:
 
     /** Blocks until the device has finished all outstanding work. */
     virtual void WaitIdle() = 0;
+    /** Optional native UI renderer, initialized only when requested by GameConfig. */
+    virtual bool InitializeUi(UiToolkit&) { return false; }
+    /** Waits for the UI frame slot and publishes a safe scene texture before widgets run. */
+    virtual void PrepareUiFrame() {}
 
     /**
      * Supplies the overlay text drawn on top of the scene, or nullptr to

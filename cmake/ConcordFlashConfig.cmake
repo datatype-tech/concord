@@ -21,7 +21,7 @@ foreach(part runtime render)
         IMPORTED_LOCATION "${CONCORD_SDK_ROOT}/bin/${dll}.dll"
         IMPORTED_IMPLIB "${CONCORD_SDK_ROOT}/lib/${dll}.dll.a"
         INTERFACE_INCLUDE_DIRECTORIES "${CONCORD_SDK_ROOT}/include"
-        INTERFACE_COMPILE_DEFINITIONS CONCORD_SHARED
+        INTERFACE_COMPILE_DEFINITIONS "CONCORD_SHARED;IMGUI_USER_CONFIG=\"engine/ui/UiExport.h\""
         INTERFACE_COMPILE_FEATURES cxx_std_23)
 endforeach()
 set_property(TARGET concord::render PROPERTY INTERFACE_LINK_LIBRARIES concord::runtime)

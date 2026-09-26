@@ -9,6 +9,7 @@
 #include "engine/input/InputSnapshot.h"
 
 #include "engine/window/WindowDesc.h"
+#include <functional>
 
 struct SDL_Window;
 
@@ -28,8 +29,10 @@ struct WindowState {
     /** Whether this Window owns an SDL video-subsystem reference. */
     bool sdlVideoInitialized = false;
 
-    /** Set when the user asked to close, cleared only by reopening. */
+    /** Set when closure is accepted, cleared only by reopening. */
     bool shouldClose = false;
+    /** Optional native-close gate; false defers closure until explicitly confirmed. */
+    std::function<bool()> closeRequestHandler;
 
     /** Set when the pixel size changed, cleared by the renderer that reads it. */
     bool resized = false;
@@ -37,7 +40,11 @@ struct WindowState {
     u32 pixelWidth = 0;
     u32 pixelHeight = 0;
     bool mouseCaptured = false;
+    Vec2 dragPosition{}, dragSize{};
+    WindowMode restoreMode = WindowMode::Windowed;
     InputSnapshot input{};
+    /** Optional platform UI observer; never owns or retains the event. */
+    std::function<void(const void*)> eventObserver;
 };
 
 /**
@@ -48,6 +55,10 @@ struct WindowState {
  * per-frame edges.
  */
 void PumpWindowEvents(WindowState& state);
+/** Installs native hit testing without exposing SDL in the public API. */
+void InstallWindowHitTest(WindowState& state);
+/** Applies Windows compositor chrome when the platform exposes it. */
+void ApplyWindowsChrome(SDL_Window* window);
 
 } // namespace Concord
 

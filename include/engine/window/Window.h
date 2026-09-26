@@ -11,6 +11,7 @@
 #include "engine/input/InputSnapshot.h"
 #include "engine/window/WindowDesc.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -60,7 +61,7 @@ public:
     /** Whether a real OS window is currently open. */
     [[nodiscard]] bool IsOpen() const noexcept;
 
-    /** Whether the user asked to close the window since the last poll. */
+    /** Whether closure has been accepted; remains true until the window reopens. */
     [[nodiscard]] bool ShouldClose() const noexcept;
 
     /**
@@ -78,6 +79,32 @@ public:
 
     /** Shows or hides the window. */
     void SetVisible(bool visible);
+
+    /** Enables or removes the native frame without changing the fullscreen state. */
+    void SetDecorated(bool decorated);
+    /** Sets the draggable rectangle in client coordinates; zero size disables it.
+     * Keep interactive title-bar buttons outside this rectangle. Borderless resize
+     * edges are handled by the engine whenever resizing is enabled. */
+    void SetDragRegion(Vec2 position, Vec2 size) noexcept;
+    /** Minimizes the attached native window. */
+    void Minimize() noexcept;
+    /** Maximizes to the monitor work area, preserving the taskbar. */
+    void Maximize() noexcept;
+    /** Restores a minimized or maximized window. */
+    void Restore() noexcept;
+    /** Toggles fullscreen and returns to the preceding windowed mode. */
+    void ToggleFullscreen();
+    [[nodiscard]] bool IsMinimized() const noexcept;
+    [[nodiscard]] bool IsMaximized() const noexcept;
+    /**
+     * Sets a handler for native close requests, including Alt+F4 and system quit.
+     * Return false to keep the window open, for example while confirming unsaved
+     * edits. An empty handler restores automatic acceptance. Invoked on the
+     * event-pump thread; captured objects must outlive the installed handler.
+     */
+    void SetCloseRequestHandler(std::function<bool()> handler);
+    /** Confirms closure and requests a loop exit without invoking the handler. */
+    void RequestClose() noexcept;
 
     [[nodiscard]] bool IsKeyDown(KeyCode key) const noexcept;
     [[nodiscard]] bool WasKeyPressed(KeyCode key) const noexcept;

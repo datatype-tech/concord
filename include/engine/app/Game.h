@@ -19,6 +19,7 @@ namespace Concord {
 class DebugOverlay;
 class Scene;
 class UiCanvas;
+class UiToolkit;
 class Window;
 
 /**
@@ -70,6 +71,16 @@ public:
     void OnUpdate(std::function<void(f32 deltaTime)> onUpdate);
 
     /**
+     * Registers UI drawing for each Run() frame while a window remains attached,
+     * after OnUpdate and before UiCanvas and the optional UiToolkit finish their
+     * open frame. The two callbacks are independent: replacing or clearing
+     * either one leaves the other installed. Pass an empty function to stop
+     * UI drawing.
+     * RenderStill() does not invoke this callback.
+     */
+    void OnUi(std::function<void()> onUi);
+
+    /**
      * The systems ticked each frame, before rendering.
      *
      * Systems are the data-oriented counterpart to OnUpdate: register one
@@ -90,9 +101,12 @@ public:
     /**
      * Immediate-mode UI canvas owned by this Game.
      *
-     * Begin/End are driven by the frame loop; emit widgets from OnUpdate.
+     * Begin/End are driven by the frame loop; emit widgets from OnUi.
+     * Existing OnUpdate drawing remains supported.
      */
     [[nodiscard]] UiCanvas& Ui() noexcept;
+    /** Optional rich UI, available after attaching with enableUiToolkit. */
+    [[nodiscard]] UiToolkit* Toolkit() noexcept;
 
     /**
      * Runs the frame loop until the attached window is closed.

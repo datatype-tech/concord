@@ -72,7 +72,8 @@ try {
     Copy-Required (Join-Path $launcherBuild 'concord.exe') (Join-Path $stage 'bin/concord.exe')
     & (Join-Path $workspace 'concord/tools/cli/PackageToolchain.ps1') -Destination (Join-Path $stage 'tools') -Prefix (Split-Path $ToolchainBin -Parent)
     $shaderDir = Join-Path $engine 'Assets/Shaders'
-    foreach ($shader in @('raygen.rgen.spv', 'rayhit.rchit.spv', 'mesh.vert.spv', 'solid.frag.spv', 'post.comp.spv')) {
+    foreach ($shader in @('raygen.rgen.spv', 'rayhit.rchit.spv', 'mesh.vert.spv', 'solid.frag.spv', 'post.comp.spv',
+                         'ui_toolkit.vert.spv', 'ui_toolkit.frag.spv')) {
         if (-not (Test-Path -LiteralPath (Join-Path $shaderDir $shader))) { throw "Missing compiled shader: $shader" }
     }
     New-Item -ItemType Directory -Force -Path (Join-Path $stage 'bin/Assets/Shaders') | Out-Null
@@ -106,6 +107,12 @@ try {
     }
 
     Copy-Tree (Join-Path $workspace 'concord/include') (Join-Path $stage 'include')
+    # These headers are part of CUiToolkit/CSvgIcon's public include closure.
+    # Keep the pinned versions used to compile Runtime.dll and Render.dll.
+    foreach ($header in @('imgui.h', 'imgui_internal.h', 'imconfig.h', 'imstb_rectpack.h', 'imstb_textedit.h', 'imstb_truetype.h')) {
+        Copy-Required (Join-Path $workspace "concord/src/3rd/imgui/$header") (Join-Path $stage "include/$header")
+    }
+    Copy-Required (Join-Path $workspace 'concord/src/3rd/ImGuizmo/ImGuizmo.h') (Join-Path $stage 'include/ImGuizmo.h')
     foreach ($dll in @('ConcordFlashGameEngineRuntime', 'ConcordFlashGameEngineRender')) {
         Copy-Required (Join-Path $engine "concord/lib$dll.dll.a") (Join-Path $stage "lib/$dll.dll.a")
     }
@@ -118,9 +125,11 @@ try {
     Copy-Required (Join-Path $engine 'release-results.xml') (Join-Path $stage 'validation/engine.xml')
     Copy-Required (Join-Path $compiler 'release-results.xml') (Join-Path $stage 'validation/compiler.xml')
 
-    foreach ($area in @('include', 'src/engine', 'cmake', 'assets/shaders', 'docs', 'tests', 'tools/cli')) {
+    foreach ($area in @('include', 'src/engine', 'cmake', 'assets/shaders', 'docs', 'tests', 'tools/cli', 'editor',
+                       'src/3rd/imgui', 'src/3rd/ImGuizmo', 'src/3rd/ImGuiColorTextEdit', 'src/3rd/nanosvg', 'src/3rd/hello_imgui')) {
         Copy-Tree (Join-Path $workspace "concord/$area") (Join-Path $stage "source/concord/$area")
     }
+    Copy-Required (Join-Path $workspace 'concord/src/3rd/UI-VERSIONS.txt') (Join-Path $stage 'source/concord/src/3rd/UI-VERSIONS.txt')
     foreach ($file in @('CMakeLists.txt', 'LICENSE', 'README.md', 'README.zh.md')) {
         Copy-Required (Join-Path $workspace "concord/$file") (Join-Path $stage "source/concord/$file")
     }
@@ -137,6 +146,12 @@ try {
     Copy-Required (Join-Path $workspace 'concord/LICENSE') (Join-Path $stage 'licenses/Concord-MPL-2.0.txt')
     Copy-Required (Join-Path $workspace 'script/LICENSE') (Join-Path $stage 'licenses/ConcordScript-MIT.txt')
     Copy-Required (Join-Path $workspace 'concord/src/3rd/Jolt/LICENSE') (Join-Path $stage 'licenses/Jolt.txt')
+    foreach ($pair in @(@('imgui','LICENSE.txt'), @('hello_imgui','LICENSE'), @('ImGuizmo','LICENSE'),
+                        @('ImGuiColorTextEdit','LICENSE'), @('nanosvg','LICENSE.txt'))) {
+        Copy-Required (Join-Path $workspace "concord/src/3rd/$($pair[0])/$($pair[1])") (Join-Path $stage "licenses/$($pair[0]).txt")
+    }
+    Copy-Required (Join-Path $workspace 'concord/src/3rd/UI-VERSIONS.txt') (Join-Path $stage 'licenses/UI-VERSIONS.txt')
+    Copy-Required (Join-Path $workspace 'concord/src/3rd/hello_imgui/README.concord.md') (Join-Path $stage 'licenses/hello_imgui-NOTICE.md')
     foreach ($entry in @(@('SDL3/SDL3/SDL.h', 'SDL.h'), @('SteamAudio/phonon.h', 'phonon.h'), @('stb/stb_image.h', 'stb_image.h'), @('stb/stb_image_write.h', 'stb_image_write.h'))) {
         Copy-Required (Join-Path $workspace "concord/src/3rd/$($entry[0])") (Join-Path $stage "licenses/$($entry[1])")
     }

@@ -36,6 +36,8 @@ public:
     void DrawScene(const Scene& scene) override;
     void EndFrame() override;
     void WaitIdle() override;
+    bool InitializeUi(UiToolkit& ui) override;
+    void PrepareUiFrame() override;
     void SetDebugOverlay(const DebugOverlayFrame* overlay) override;
     void SetUi(const UiDrawList* ui) override;
     bool CaptureStill(const char* path) override;

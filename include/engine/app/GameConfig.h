@@ -35,6 +35,8 @@ struct GameConfig {
      * Zero means unbounded.
      */
     u32 frameRateLimit = 0;
+    /** Activates docking, native text input and an offscreen scene viewport. */
+    bool enableUiToolkit = false;
 };
 
 } // namespace Concord

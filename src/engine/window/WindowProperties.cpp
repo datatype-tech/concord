@@ -23,9 +23,12 @@ void Window::Set(WindowDesc desc)
 
     SDL_SetWindowTitle(state.handle, state.desc.title.c_str());
     SDL_SetWindowResizable(state.handle, state.desc.resizable);
+    SDL_SetWindowMinimumSize(state.handle, static_cast<int>(state.desc.minimumResolution.width),
+                             static_cast<int>(state.desc.minimumResolution.height));
     SDL_SetWindowSize(state.handle, static_cast<int>(state.desc.resolution.width),
                       static_cast<int>(state.desc.resolution.height));
     ApplySdlWindowMode(state.handle, state.desc.mode);
+    SDL_SetWindowBordered(state.handle, state.desc.decorated && state.desc.mode == WindowMode::Windowed);
     SetVisible(state.desc.visible);
     SDL_SyncWindow(state.handle);
 
@@ -49,9 +52,15 @@ void Window::SetTitle(std::string title)
 
 void Window::SetMode(WindowMode mode)
 {
-    WindowDesc desc = m_impl->state.desc;
-    desc.mode = mode;
-    Set(std::move(desc));
+    auto& state = m_impl->state;
+    if (mode == state.desc.mode) return;
+    if (mode == WindowMode::Fullscreen) state.restoreMode = state.desc.mode;
+    state.desc.mode = mode;
+    if (state.handle) {
+        ApplySdlWindowMode(state.handle, mode);
+        SDL_SetWindowBordered(state.handle, state.desc.decorated && mode == WindowMode::Windowed);
+        state.resized = true;
+    }
 }
 
 void Window::SetVisible(bool visible)

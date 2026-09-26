@@ -31,6 +31,13 @@ bool VulkanRenderBackend::BeginFrame()
             return false;
         }
     }
+    // UI draw data was assembled before BeginFrame and still refers to the
+    // preceding format's scene descriptors. Do not acquire an image or submit
+    // it against new scene pipelines; PrepareUiFrame replaces these resources
+    // before building the next UI frame.
+    if (impl.toolkit.initialized && impl.toolkit.format != impl.swapchain.format) {
+        return false;
+    }
 
     VulkanFrame& frame = impl.frames.Current();
     if (frame.commandBuffer == VK_NULL_HANDLE || frame.imageAvailable == VK_NULL_HANDLE ||

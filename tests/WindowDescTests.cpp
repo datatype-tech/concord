@@ -30,6 +30,13 @@ int main()
 
     window.SetTitle(std::string("Renamed"));
     window.SetMode(Concord::WindowMode::Fullscreen);
+    window.SetDecorated(false);
+    window.ToggleFullscreen();
+    if(window.Mode()!=Concord::WindowMode::Borderless || window.Desc().decorated) return 2;
+    window.ToggleFullscreen();
+    window.Minimize();window.Maximize();window.Restore();
+    if(window.IsMinimized() || window.IsMaximized())return 3;
+    window.RequestClose();if(!window.ShouldClose())return 4;
     return window.Title() == "Renamed" && window.Mode() == Concord::WindowMode::Fullscreen ? 0
                                                                                              : 1;
 }

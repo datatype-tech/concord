@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <exception>
+#include <stdexcept>
 #include <utility>
 
 namespace Concord {
@@ -65,6 +66,12 @@ void Game::AttachWindow(Window& window)
             init.enableRayTracing = m_impl->config.enableRayTracing;
 
             if (backend->Init(window, init)) {
+                if (m_impl->config.enableUiToolkit) {
+                    m_impl->toolkit = std::make_unique<UiToolkit>();
+                    if (!m_impl->toolkit->Init(window) || !backend->InitializeUi(*m_impl->toolkit)) {
+                        throw std::runtime_error("rich UI initialization failed");
+                    }
+                }
                 m_impl->renderer = std::move(backend);
                 return;
             }
@@ -95,6 +102,7 @@ void Game::DetachWindow()
     }
     try {
         if (window) {
+            m_impl->toolkit.reset();
             window->Close();
         }
     } catch (...) {

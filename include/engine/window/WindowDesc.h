@@ -46,6 +46,10 @@ struct WindowDesc {
      * refresh rate); off prefers mailbox or immediate.
      */
     bool vsync = true;
+    /** False removes the OS caption and border, allowing an application-drawn title bar. */
+    bool decorated = true;
+    /** Smallest client size; zero leaves that dimension unrestricted. */
+    Resolution minimumResolution{0, 0};
 };
 
 } // namespace Concord

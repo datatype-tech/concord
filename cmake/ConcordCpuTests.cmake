@@ -318,6 +318,17 @@ target_link_libraries(concord_window_desc_tests PRIVATE concord::runtime)
 concord_stage_runtime(concord_window_desc_tests)
 add_test(NAME concord_window_desc_tests COMMAND concord_window_desc_tests)
 
+add_executable(concord_window_close_tests
+    tests/WindowCloseTests.cpp
+    src/engine/window/WindowState.cpp
+    src/engine/input/SdlInputCodes.cpp)
+target_compile_features(concord_window_close_tests PRIVATE cxx_std_23)
+target_include_directories(concord_window_close_tests PRIVATE ${CONCORD_3RD_DIR}/SDL3)
+target_link_libraries(concord_window_close_tests PRIVATE concord::runtime SDL3::SDL3)
+concord_stage_runtime(concord_window_close_tests)
+add_test(NAME concord_window_close_tests COMMAND concord_window_close_tests)
+set_tests_properties(concord_window_close_tests PROPERTIES TIMEOUT 20)
+
 add_executable(concord_vulkan_pass_registry_tests tests/VulkanPassRegistryTests.cpp)
 target_compile_features(concord_vulkan_pass_registry_tests PRIVATE cxx_std_23)
 target_link_libraries(concord_vulkan_pass_registry_tests PRIVATE concord::runtime)

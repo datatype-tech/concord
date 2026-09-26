@@ -1,0 +1,5 @@
+imgui 4806a1924ff6181180bf5e4b8b79ab4394118875
+ImGuizmo 18cef5e031d8c6973d80284c67f60549fafd78c1
+ImGuiColorTextEdit ca2f9f1462e3b60e56351bc466acda448c5ea50d
+nanosvg 239e102ec2c691f2902e20ace2ed36ee4a35cfe6
+hello_imgui 3135ade34abcbcfea0bf0dd8c8c4e84a1a350415 (theme and docking definitions; see hello_imgui/README.concord.md)

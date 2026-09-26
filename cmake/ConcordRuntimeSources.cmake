@@ -80,6 +80,7 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/window/SdlWindowFlags.cpp
     src/engine/window/WindowAccess.cpp
     src/engine/window/Window.cpp
+    src/engine/window/WindowChrome.cpp
     src/engine/window/WindowProperties.cpp
     src/engine/window/WindowState.cpp
 )

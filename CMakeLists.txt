@@ -85,9 +85,25 @@ set_target_properties(concord_runtime PROPERTIES
 target_compile_features(concord_runtime PUBLIC cxx_std_23)
 target_compile_definitions(concord_runtime PUBLIC CONCORD_SHARED)
 target_compile_definitions(concord_runtime PRIVATE CENGINE_EXPORTS)
+target_compile_definitions(concord_runtime PUBLIC IMGUI_USER_CONFIG="engine/ui/UiExport.h")
+target_sources(concord_runtime PRIVATE
+    src/engine/ui/UiToolkit.cpp
+    src/engine/ui/CodeEditor.cpp
+    src/engine/ui/SvgIcon.cpp
+    src/engine/ui/document/UiDocument.cpp
+    src/engine/ui/document/UiDocumentLayout.cpp
+    src/engine/ui/document/UiDocumentDraw.cpp
+    src/3rd/hello_imgui/imgui_theme.cpp
+    src/3rd/ImGuizmo/ImGuizmo.cpp
+    src/3rd/ImGuiColorTextEdit/TextEditor.cpp
+    src/3rd/imgui/imgui.cpp src/3rd/imgui/imgui_draw.cpp
+    src/3rd/imgui/imgui_tables.cpp src/3rd/imgui/imgui_widgets.cpp
+    src/3rd/imgui/backends/imgui_impl_sdl3.cpp)
 
 target_include_directories(concord_runtime PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/3rd/imgui>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/3rd/ImGuizmo>
 )
 
 # SDL3 is a runtime implementation detail: PRIVATE keeps it off the
@@ -96,8 +112,14 @@ target_include_directories(concord_runtime PRIVATE
     ${CONCORD_3RD_DIR}/SDL3
     ${CONCORD_3RD_DIR}/SteamAudio
     ${CONCORD_3RD_DIR}/stb
+    ${CONCORD_3RD_DIR}/ImGuiColorTextEdit
+    ${CONCORD_3RD_DIR}/nanosvg
+    ${CONCORD_3RD_DIR}/hello_imgui
 )
 target_link_libraries(concord_runtime PRIVATE SDL3::SDL3 Jolt)
+if(WIN32)
+    target_link_libraries(concord_runtime PRIVATE dwmapi)
+endif()
 
 # ---------------------------------------------------------------------------
 # ConcordFlashGameEngineRender.dll
@@ -114,6 +136,13 @@ set_target_properties(concord_render PROPERTIES
 target_compile_features(concord_render PUBLIC cxx_std_23)
 target_compile_definitions(concord_render PUBLIC CONCORD_SHARED)
 target_compile_definitions(concord_render PRIVATE CRENDER_EXPORTS)
+target_compile_definitions(concord_render PRIVATE IMGUI_IMPL_API=CRENDER_API)
+target_sources(concord_render PRIVATE
+    src/engine/render/vulkan/VulkanUiToolkit.cpp
+    src/engine/render/vulkan/VulkanUiPipeline.cpp
+    src/engine/render/vulkan/VulkanUiViewport.cpp
+    src/engine/render/VulkanRenderBackendUi.cpp
+    src/3rd/imgui/backends/imgui_impl_vulkan.cpp)
 
 target_include_directories(concord_render PRIVATE
     ${CONCORD_3RD_DIR}/SDL3

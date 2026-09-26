@@ -126,6 +126,12 @@ bool Window::Open(bool enableVulkan)
     state.pixelHeight = static_cast<u32>(height);
     state.shouldClose = false;
     state.resized = false;
+    SDL_SetWindowMinimumSize(state.handle, static_cast<int>(state.desc.minimumResolution.width),
+                             static_cast<int>(state.desc.minimumResolution.height));
+#if defined(_WIN32)
+    ApplyWindowsChrome(state.handle);
+#endif
+    InstallWindowHitTest(state);
     return true;
 }
 
