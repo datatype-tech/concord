@@ -34,11 +34,10 @@ SDL_WindowFlags ToSdlWindowFlags(const WindowDesc& desc, bool enableVulkan)
     return flags;
 }
 
-void ApplySdlWindowMode(SDL_Window* handle, WindowMode mode)
+void ApplySdlWindowMode(SDL_Window* handle, WindowMode mode, bool decorated)
 {
     switch (mode) {
     case WindowMode::Fullscreen:
-        SDL_SetWindowBordered(handle, true);
         SDL_SetWindowFullscreen(handle, true);
         break;
     case WindowMode::Borderless:
@@ -47,7 +46,7 @@ void ApplySdlWindowMode(SDL_Window* handle, WindowMode mode)
         break;
     case WindowMode::Windowed:
         SDL_SetWindowFullscreen(handle, false);
-        SDL_SetWindowBordered(handle, true);
+        SDL_SetWindowBordered(handle, decorated);
         break;
     }
 }

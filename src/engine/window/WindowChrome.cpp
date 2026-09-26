@@ -54,10 +54,17 @@ SDL_HitTestResult SDLCALL HitTest(SDL_Window* window, const SDL_Point* point, vo
         if(top)return SDL_HITTEST_RESIZE_TOP;
         if(bottom)return SDL_HITTEST_RESIZE_BOTTOM;
     }
-    if(point->x>=state.dragPosition.x && point->y>=state.dragPosition.y &&
-       point->x<state.dragPosition.x+state.dragSize.x && point->y<state.dragPosition.y+state.dragSize.y)
-        return SDL_HITTEST_DRAGGABLE;
-    return SDL_HITTEST_NORMAL;
+    const auto inside=[point](Vec2 position,Vec2 size) {
+        return point->x>=position.x && point->y>=position.y && point->x<position.x+size.x && point->y<position.y+size.y;
+    };
+    if(!inside(state.dragPosition,state.dragSize))return SDL_HITTEST_NORMAL;
+    for(u32 index=0;index<state.dragExclusionCount;++index)
+        if(inside(state.dragExclusions[index].position,state.dragExclusions[index].size))return SDL_HITTEST_NORMAL;
+    return SDL_HITTEST_DRAGGABLE;
+}
+bool FiniteRegion(Vec2 position,Vec2 size)
+{
+    return std::isfinite(position.x) && std::isfinite(position.y) && std::isfinite(size.x) && std::isfinite(size.y);
 }
 }
 void InstallWindowHitTest(WindowState& state) {SDL_SetWindowHitTest(state.handle,HitTest,&state);}
@@ -69,8 +76,15 @@ void Window::SetDecorated(bool decorated)
 void Window::SetDragRegion(Vec2 position,Vec2 size) noexcept
 {
     auto& state=m_impl->state;
-    if(!std::isfinite(position.x)||!std::isfinite(position.y)||!std::isfinite(size.x)||!std::isfinite(size.y)) {state.dragSize={};return;}
+    state.dragExclusionCount=0;
+    if(!FiniteRegion(position,size)) {state.dragSize={};return;}
     state.dragPosition=position;state.dragSize={std::max(0.0f,size.x),std::max(0.0f,size.y)};
+}
+void Window::ExcludeFromDragRegion(Vec2 position,Vec2 size) noexcept
+{
+    auto& state=m_impl->state;
+    if(!FiniteRegion(position,size) || size.x<=0 || size.y<=0 || state.dragExclusionCount>=state.dragExclusions.size())return;
+    state.dragExclusions[state.dragExclusionCount++]={position,size};
 }
 void Window::Minimize() noexcept {if(m_impl->state.handle)SDL_MinimizeWindow(m_impl->state.handle);}
 void Window::Maximize() noexcept {if(m_impl->state.handle)SDL_MaximizeWindow(m_impl->state.handle);}

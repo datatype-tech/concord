@@ -5,6 +5,7 @@
 #include "engine/render/VulkanRenderBackendState.h"
 #include "Concord/CUiToolkit.h"
 #include <backends/imgui_impl_vulkan.h>
+#include <cstdio>
 #include <limits>
 #include <stdexcept>
 
@@ -27,6 +28,9 @@ void VulkanRenderBackend::PrepareUiFrame()
         throw std::runtime_error("cannot prepare editor viewport");
     }
     impl.toolkit.ui->SetSceneTexture(reinterpret_cast<u64>(impl.toolkit.viewports[impl.frames.currentFrame].texture));
+    if (!UploadVulkanUiImages(impl.context,impl.toolkit)) {
+        std::fprintf(stderr, "[Concord] one or more UI images could not be uploaded\n");
+    }
     ImGui_ImplVulkan_NewFrame();
 }
 }

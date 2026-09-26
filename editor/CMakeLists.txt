@@ -15,14 +15,25 @@ foreach(icon IN LISTS editor_icons)
 endforeach()
 string(APPEND icon_header "};}\n")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/EditorIcons.gen.h" "${icon_header}")
+set(editor_logo "${editor_real}/../assets/ConcordCircle.png")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${editor_logo}")
+file(READ "${editor_logo}" logo_hex HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," logo_bytes "${logo_hex}")
+string(REGEX REPLACE "((0x[0-9a-f][0-9a-f],){32})" "\\1\n" logo_bytes "${logo_bytes}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/EditorLogo.gen.h"
+    "// Generated from assets/ConcordCircle.png; replace the PNG to change the logo.\nnamespace Concord::Editor {\ninline constexpr unsigned char ConcordLogoPng[]={\n${logo_bytes}\n};\n}\n")
 add_executable(concord_editor WIN32
     src/Main.cpp src/Editor.cpp src/EditorChrome.cpp src/EditorHome.cpp src/EditorToolbar.cpp src/EditorPanels.cpp src/EditorViewport.cpp
     src/SceneDocument.cpp src/BuildProcess.cpp src/NativeDialogs.cpp src/Design.cpp src/EditorScripts.cpp
     src/EditorPreferences.cpp src/WorkspaceLayouts.cpp src/ConcordScriptLanguage.cpp
     src/EditorProject.cpp src/EditorSceneSettings.cpp src/ProjectDocument.cpp src/ProjectRuntime.cpp
-    src/UiDesigner.cpp src/UiDesignerCanvas.cpp src/UiDesignerProperties.cpp)
+    src/UiDesigner.cpp src/UiDesignerCanvas.cpp src/UiDesignerProperties.cpp src/Localization.cpp src/PropertyGrid.cpp)
+set(editor_resource "${CMAKE_CURRENT_BINARY_DIR}/generated/ConcordEditor.rc")
+file(TO_CMAKE_PATH "${editor_real}/../assets/Concord.ico" editor_icon_path)
+file(WRITE "${editor_resource}" "1 ICON \"${editor_icon_path}\"\n")
+target_sources(concord_editor PRIVATE "${editor_resource}")
 target_include_directories(concord_editor PRIVATE include "${CMAKE_CURRENT_BINARY_DIR}/generated"
-    "${editor_real}/../src/3rd/hello_imgui")
+    "${editor_real}/../src/3rd/hello_imgui" "${editor_real}/../src/3rd/stb")
 target_link_libraries(concord_editor PRIVATE concord::concord ole32 uuid shell32)
 if(MINGW)
     target_link_options(concord_editor PRIVATE -municode)
@@ -60,8 +71,8 @@ if(CONCORD_BUILD_TESTS)
     concord_stage_runtime(concord_editor_runtime_test)
     add_test(NAME editor_runtime COMMAND concord_editor_runtime_test "${CMAKE_BINARY_DIR}/editor-validation/StudioProject")
     add_executable(concord_editor_ui_test tests/UiDesignerTest.cpp src/UiDesigner.cpp src/UiDesignerCanvas.cpp src/UiDesignerProperties.cpp
-        src/Design.cpp src/NativeDialogs.cpp src/SceneDocument.cpp src/ProjectDocument.cpp)
-    target_include_directories(concord_editor_ui_test PRIVATE include "${CMAKE_CURRENT_BINARY_DIR}/generated")
+        src/Design.cpp src/NativeDialogs.cpp src/SceneDocument.cpp src/ProjectDocument.cpp src/Localization.cpp src/PropertyGrid.cpp)
+    target_include_directories(concord_editor_ui_test PRIVATE include "${CMAKE_CURRENT_BINARY_DIR}/generated" "${editor_real}/../src/3rd/stb")
     target_link_libraries(concord_editor_ui_test PRIVATE concord::concord ole32 uuid shell32)
     target_compile_definitions(concord_editor_ui_test PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
     concord_stage_runtime(concord_editor_ui_test)

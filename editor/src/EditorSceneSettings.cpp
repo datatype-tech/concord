@@ -3,6 +3,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #include "editor/Editor.h"
 #include "editor/Design.h"
+#include "editor/Localization.h"
+#include "editor/PropertyGrid.h"
 #include <algorithm>
 
 namespace Concord::Editor {
@@ -11,49 +13,61 @@ void Workspace::SceneSettings()
     const SceneDocument before=m_document;
     bool changed=false;
     const auto number=[&](const char* label,float& value,float step,float low,float high) {
-        ImGui::TextDisabled("%s",label);ImGui::PushID(label);
-        changed|=ImGui::DragFloat("##value",&value,step,low,high,"%.3f",ImGuiSliderFlags_AlwaysClamp);
-        RecordEdit();ImGui::PopID();
+        changed|=PropertyGrid::Float(label,value,step,low,high);RecordEdit();
     };
-    const auto color=[&](const char* label,ColorRGBA& value) {
-        float channels[]={ColorR(value)/255.0f,ColorG(value)/255.0f,ColorB(value)/255.0f};
-        const bool edit=ImGui::ColorEdit3(label,channels,ImGuiColorEditFlags_NoInputs);RecordEdit();
-        if(edit){value=MakeColor(static_cast<u8>(channels[0]*255),static_cast<u8>(channels[1]*255),static_cast<u8>(channels[2]*255));changed=true;}
+    const auto steps=[&](const char* label,u32& value,int high,int low=0) {
+        int count=static_cast<int>(value);
+        if(PropertyGrid::Integer(label,count,low,high)){value=static_cast<u32>(count);changed=true;}
+        RecordEdit();
     };
-    ImGui::TextWrapped("%s",Utf8Text(m_scenePath.lexically_relative(m_project)).c_str());
-    if(Design::Action("Make initial scene","play","Set as initial scene"))Attempt([&]{auto settings=m_projectConfig;settings.startupScene=Utf8Text(m_scenePath.lexically_relative(m_project));ApplyProjectSettings(settings);m_status="Initial scene saved";});
-    ImGui::PushItemWidth(-1);
-    if(ImGui::CollapsingHeader("Game camera",ImGuiTreeNodeFlags_DefaultOpen)) {
+    const auto relative=Utf8Text(m_scenePath.lexically_relative(m_project));
+    Design::Image("cube",ImGui::GetFontSize(),ImGui::GetColorU32(Design::Accent));ImGui::SameLine();
+    ImGui::TextUnformatted(relative.c_str());
+    const bool initial=Utf8Path(m_projectConfig.startupScene).make_preferred().lexically_normal()==m_scenePath.lexically_relative(m_project).lexically_normal();
+    if(initial)Design::Badge(Tr("Initial scene"),{0.45f,0.80f,0.52f,1});
+    else if(Design::Action("##makeInitial","play",Tr("Set as initial scene")))Attempt([&]{
+        auto settings=m_projectConfig;settings.startupScene=relative;ApplyProjectSettings(settings);m_status=Tr("Initial scene saved");
+    });
+    ImGui::Spacing();
+    if(ImGui::CollapsingHeader(TrId("Game camera").c_str(),ImGuiTreeNodeFlags_DefaultOpen)) {
         auto& camera=m_document.camera;
-        if(ImGui::Button("Use current 3D view")){Checkpoint();camera.position=m_eye;camera.target=m_target;changed=true;}
-        ImGui::TextDisabled("Position");changed|=ImGui::DragFloat3("##gameCameraPosition",&camera.position.x,0.1f,-10000,10000);RecordEdit();
-        ImGui::TextDisabled("Look at");changed|=ImGui::DragFloat3("##gameCameraTarget",&camera.target.x,0.1f,-10000,10000);RecordEdit();
-        bool orthographic=camera.orthographic;
-        if(ImGui::Checkbox("Orthographic",&orthographic)){Checkpoint();camera.orthographic=orthographic;changed=true;}
-        number("Field of view",camera.fovYDegrees,0.5f,5,160);
-        if(camera.orthographic)number("Orthographic size",camera.orthographicSize,0.1f,0.01f,10000);
-        number("Near plane",camera.nearPlane,0.01f,0.001f,camera.farPlane-0.01f);
-        number("Far plane",camera.farPlane,1,camera.nearPlane+0.01f,100000);
+        if(Design::Action("##useView","eye",Tr("Use current 3D view"))){Checkpoint();camera.position=m_eye;camera.target=m_target;changed=true;}
+        if(PropertyGrid::Begin("##camera")) {
+            changed|=PropertyGrid::Vector("Position",camera.position,0.1f,-10000,10000);RecordEdit();
+            changed|=PropertyGrid::Vector("Look at",camera.target,0.1f,-10000,10000);RecordEdit();
+            const char* projections[]={"Perspective","Orthographic"};
+            int projection=camera.orthographic?1:0;
+            if(PropertyGrid::Combo("Projection",projection,projections,2)){Checkpoint();camera.orthographic=projection==1;changed=true;}
+            if(camera.orthographic)number("Orthographic size",camera.orthographicSize,0.1f,0.01f,10000);
+            else {changed|=PropertyGrid::Slider("Field of view",camera.fovYDegrees,5,160,"%.0f deg");RecordEdit();}
+            number("Near plane",camera.nearPlane,0.01f,0.001f,camera.farPlane-0.01f);
+            number("Far plane",camera.farPlane,1,camera.nearPlane+0.01f,100000);
+            PropertyGrid::End();
+        }
     }
-    if(ImGui::CollapsingHeader("Sunlight",ImGuiTreeNodeFlags_DefaultOpen)) {
+    if(ImGui::CollapsingHeader(TrId("Sun light").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##sun")) {
         auto& sun=m_document.sun;
-        number("Elevation",sun.elevationDegrees,0.5f,-90,90);
-        number("Azimuth",sun.azimuthDegrees,0.5f,-360,360);
-        number("Intensity",sun.intensity,0.05f,0,100);color("Sun color",sun.color);
+        changed|=PropertyGrid::Slider("Elevation",sun.elevationDegrees,-90,90,"%.1f deg");RecordEdit();
+        changed|=PropertyGrid::Slider("Azimuth",sun.azimuthDegrees,-360,360,"%.1f deg");RecordEdit();
+        number("Intensity",sun.intensity,0.05f,0,100);
+        changed|=PropertyGrid::Color("Color",sun.color);RecordEdit();
         bool shadow=sun.castShadow;
-        if(ImGui::Checkbox("Cast shadows",&shadow)){Checkpoint();sun.castShadow=shadow;changed=true;}
+        if(PropertyGrid::Check("Cast shadows",shadow)){Checkpoint();sun.castShadow=shadow;changed=true;}
+        PropertyGrid::End();
     }
     auto& environment=m_document.environment;
-    if(ImGui::CollapsingHeader("Sky and ambient")) {
-        changed|=ImGui::ColorEdit3("Zenith",&environment.zenithColor.x);RecordEdit();
-        changed|=ImGui::ColorEdit3("Horizon",&environment.horizonColor.x);RecordEdit();
-        color("Clear color",environment.skyColor);color("Ambient color",environment.ambientColor);
+    if(ImGui::CollapsingHeader(TrId("Sky and ambient").c_str()) && PropertyGrid::Begin("##sky")) {
+        changed|=PropertyGrid::ColorFloat("Zenith",environment.zenithColor);RecordEdit();
+        changed|=PropertyGrid::ColorFloat("Horizon",environment.horizonColor);RecordEdit();
+        changed|=PropertyGrid::Color("Clear color",environment.skyColor);RecordEdit();
+        changed|=PropertyGrid::Color("Ambient color",environment.ambientColor);RecordEdit();
         number("Ambient intensity",environment.ambientIntensity,0.01f,0,10);
         number("Sun multiplier",environment.sunIntensity,0.01f,0,20);
-        number("Moon intensity",environment.moonIntensity,0.01f,0,20);
-        ImGui::TextDisabled("Moon direction");changed|=ImGui::DragFloat3("##moonDirection",&environment.moonDirection.x,0.01f,-1,1);RecordEdit();
+        number("Moon intensity",environment.moonIntensity,0.01f,0,1);
+        changed|=PropertyGrid::Vector("Moon direction",environment.moonDirection,0.01f,-1,1);RecordEdit();
+        PropertyGrid::End();
     }
-    if(ImGui::CollapsingHeader("Color and post processing")) {
+    if(ImGui::CollapsingHeader(TrId("Color and post processing").c_str()) && PropertyGrid::Begin("##post")) {
         number("Exposure",environment.exposure,0.01f,0.01f,20);
         number("Contrast",environment.contrast,0.01f,0,2);
         number("Saturation",environment.saturation,0.01f,0,3);
@@ -62,8 +76,9 @@ void Workspace::SceneSettings()
         number("Bloom intensity",environment.bloomIntensity,0.01f,0,10);
         number("Bloom radius",environment.bloomRadius,0.5f,0,100);
         number("Chromatic aberration",environment.chromaticAberration,0.001f,0,0.1f);
+        PropertyGrid::End();
     }
-    if(ImGui::CollapsingHeader("Volumetric clouds")) {
+    if(ImGui::CollapsingHeader(TrId("Volumetric clouds").c_str()) && PropertyGrid::Begin("##clouds")) {
         number("Coverage",environment.cloudCoverage,0.01f,0,1);
         number("Density",environment.cloudDensity,0.0001f,0,1);
         number("Altitude",environment.cloudAltitude,1,-10000,10000);
@@ -73,16 +88,14 @@ void Workspace::SceneSettings()
         number("Detail strength",environment.cloudDetailStrength,0.01f,0,1);
         number("Cloud type",environment.cloudType,0.01f,0,1);
         number("Drift speed",environment.cloudDriftSpeed,0.1f,-1000,1000);
-        number("Cloud light gain",environment.cloudLightGain,0.05f,0,20);
-        number("Cloud ambient gain",environment.cloudAmbientGain,0.05f,0,20);
-        int steps=static_cast<int>(environment.cloudSteps);
-        if(ImGui::SliderInt("March steps",&steps,0,128)){environment.cloudSteps=static_cast<u32>(steps);changed=true;}RecordEdit();
-        steps=static_cast<int>(environment.cloudCoarseSteps);
-        if(ImGui::SliderInt("Coarse steps",&steps,1,64)){environment.cloudCoarseSteps=static_cast<u32>(steps);changed=true;}RecordEdit();
-        steps=static_cast<int>(environment.cloudLightSteps);
-        if(ImGui::SliderInt("Light steps",&steps,0,32)){environment.cloudLightSteps=static_cast<u32>(steps);changed=true;}RecordEdit();
+        number("Light gain",environment.cloudLightGain,0.05f,0,20);
+        number("Ambient gain",environment.cloudAmbientGain,0.05f,0,20);
+        steps("March steps",environment.cloudSteps,128);
+        steps("Coarse steps",environment.cloudCoarseSteps,64,1);
+        steps("Light steps",environment.cloudLightSteps,32);
+        PropertyGrid::End();
     }
-    if(ImGui::CollapsingHeader("Volumetric fog")) {
+    if(ImGui::CollapsingHeader(TrId("Volumetric fog").c_str()) && PropertyGrid::Begin("##fog")) {
         number("Fog density",environment.fogDensity,0.0001f,0,1);
         number("Height falloff",environment.fogHeightFalloff,0.001f,0,10);
         number("Base height",environment.fogBaseHeight,0.1f,-10000,10000);
@@ -90,10 +103,12 @@ void Workspace::SceneSettings()
         number("Sun scattering",environment.fogSunScattering,0.01f,0,20);
         number("Ambient scattering",environment.fogAmbientScattering,0.01f,0,20);
         number("Step distance",environment.fogStepDistance,1,0.1f,10000);
-        int steps=static_cast<int>(environment.fogSteps);
-        if(ImGui::SliderInt("Fog steps",&steps,0,128)){environment.fogSteps=static_cast<u32>(steps);changed=true;}RecordEdit();
+        steps("Fog steps",environment.fogSteps,128);
+        PropertyGrid::End();
     }
-    ImGui::PopItemWidth();
+    ImGui::PushTextWrapPos();
+    ImGui::TextColored(Design::Muted,"%s",Tr("Clouds, fog and post processing are saved and exported to the game; the editor preview uses the raster path."));
+    ImGui::PopTextWrapPos();
     if(changed) {
         try{m_document.Validate();m_sceneDirty=true;Synchronize();}
         catch(const std::exception& error){m_document=before;Report(error);}

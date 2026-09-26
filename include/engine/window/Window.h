@@ -83,9 +83,14 @@ public:
     /** Enables or removes the native frame without changing the fullscreen state. */
     void SetDecorated(bool decorated);
     /** Sets the draggable rectangle in client coordinates; zero size disables it.
-     * Keep interactive title-bar buttons outside this rectangle. Borderless resize
-     * edges are handled by the engine whenever resizing is enabled. */
+     * Dragging it moves the window, double-clicking it maximizes and dragging to a
+     * screen edge snaps, exactly like a native caption. Replacing the region also
+     * clears every exclusion. Borderless resize edges are handled by the engine
+     * whenever resizing is enabled. */
     void SetDragRegion(Vec2 position, Vec2 size) noexcept;
+    /** Keeps a client rectangle inside the drag region interactive, such as a menu
+     * or caption button. At most 64 exclusions are kept until SetDragRegion. */
+    void ExcludeFromDragRegion(Vec2 position, Vec2 size) noexcept;
     /** Minimizes the attached native window. */
     void Minimize() noexcept;
     /** Maximizes to the monitor work area, preserving the taskbar. */

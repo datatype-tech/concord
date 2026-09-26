@@ -4,6 +4,7 @@
 #include "editor/UiDesignerState.h"
 #include "editor/Design.h"
 #include "editor/NativeDialogs.h"
+#include "editor/Localization.h"
 
 #include <algorithm>
 #include <cmath>
@@ -35,44 +36,44 @@ bool EditColor(const char* label, ColorRGBA& color)
 
 void UiDesigner::Impl::Properties()
 {
-    if (ImGui::Begin("UI Properties")) {
-        if (!loaded) ImGui::TextWrapped("Select an interface file to edit its properties.");
+    if (ImGui::Begin(TrId("UI Properties").c_str())) {
+        if (!loaded) ImGui::TextWrapped("%s", Tr("Select an interface file to edit its properties."));
         else {
             const auto before = document.Serialize();
             const int index = SelectedIndex();
             ImGui::PushItemWidth(-1);
             if (index < 0) {
-                Design::Eyebrow("DOCUMENT");
+                Design::Eyebrow(Tr("DOCUMENT"));
                 ImGui::TextWrapped("%s", path.empty() ? "Untitled.yu" : Utf8Text(path.filename()).c_str());
-                ImGui::Spacing(); ImGui::TextDisabled("Reference resolution");
+                ImGui::Spacing(); ImGui::TextDisabled("%s", Tr("Reference resolution"));
                 const bool changed = ImGui::DragFloat2("##uiResolution", &document.referenceSize.x, 1, 1, 100000, "%.0f", ImGuiSliderFlags_AlwaysClamp);
                 TrackItem(before, changed);
                 if (changed) fit = true;
                 if (ImGui::Button("1280 x 720")) { FinishEdit(); document.referenceSize = {1280, 720}; Checkpoint(before); fit = true; }
                 ImGui::SameLine(); if (ImGui::Button("1920 x 1080")) { FinishEdit(); document.referenceSize = {1920, 1080}; Checkpoint(before); fit = true; }
                 if (ImGui::Button("720 x 1280")) { FinishEdit(); document.referenceSize = {720, 1280}; Checkpoint(before); fit = true; }
-                ImGui::SeparatorText("Canvas tools");
-                ImGui::Checkbox("Grid", &showGrid); ImGui::Checkbox("Snap to grid", &snap);
-                ImGui::SliderFloat("Grid spacing", &grid, 1, 64, "%.0f px", ImGuiSliderFlags_AlwaysClamp);
+                ImGui::SeparatorText(Tr("Canvas tools"));
+                ImGui::Checkbox(TrId("Grid").c_str(), &showGrid); ImGui::Checkbox(TrId("Snap to grid").c_str(), &snap);
+                ImGui::TextDisabled("%s", Tr("Grid spacing")); ImGui::SliderFloat("##gridSpacing", &grid, 1, 64, "%.0f px", ImGuiSliderFlags_AlwaysClamp);
                 ImGui::Separator();
-                if (ImGui::Button("Save as...")) {
+                if (Design::Action("##saveUiAs", "save", Tr("Save as..."))) {
                     std::snprintf(fileName, sizeof(fileName), "%s", path.empty() ? "UI/Interface.yu" : Utf8Text(path.lexically_relative(project)).c_str());
                     saveDialog = true; error.clear();
                 }
-                ImGui::TextWrapped("Coordinates use reference pixels. Runtime layout scales uniformly to the host window; anchors follow the parent panel.");
+                ImGui::TextWrapped("%s", Tr("Coordinates use reference pixels. Runtime layout scales uniformly to the host window; anchors follow the parent panel."));
             } else {
                 auto& element = document.elements[index];
-                Design::Eyebrow("ELEMENT");
+                Design::Eyebrow(Tr("ELEMENT"));
                 ImGui::TextWrapped("%s", element.id.c_str());
-                if (ImGui::SmallButton("Rename ID")) {
+                if (ImGui::SmallButton(TrId("Rename ID").c_str())) {
                     std::snprintf(rename, sizeof(rename), "%s", element.id.c_str());
-                    ImGui::OpenPopup("Rename UI element"); error.clear();
+                    ImGui::OpenPopup("###RenameUiElement"); error.clear();
                 }
-                bool changed = ImGui::Checkbox("Visible", &element.visible); TrackItem(before, changed);
-                ImGui::SameLine(); changed = ImGui::Checkbox("Enabled", &element.enabled); TrackItem(before, changed);
-                ImGui::SeparatorText("Content");
-                ImGui::TextDisabled("Control type");
-                const char* kinds[]{"Panel", "Label", "Button", "Checkbox", "Slider", "Text input", "Progress"};
+                bool changed = ImGui::Checkbox(TrId("Visible").c_str(), &element.visible); TrackItem(before, changed);
+                ImGui::SameLine(); changed = ImGui::Checkbox(TrId("Enabled").c_str(), &element.enabled); TrackItem(before, changed);
+                ImGui::SeparatorText(Tr("Content"));
+                ImGui::TextDisabled("%s", Tr("Control type"));
+                const char* kinds[]{Tr("Panel"), Tr("Label"), Tr("Button"), Tr("Checkbox"), Tr("Slider"), Tr("Text input"), Tr("Progress")};
                 int kind = static_cast<int>(element.kind);
                 if (ImGui::Combo("##uiKind", &kind, kinds, 7)) {
                     FinishEdit(); const auto oldKind = element.kind; const auto oldAction = element.action;
@@ -81,25 +82,25 @@ void UiDesigner::Impl::Properties()
                     try { document.Validate(); Checkpoint(before); }
                     catch (const std::exception& exception) { element.kind = oldKind; element.action = oldAction; error = exception.what(); }
                 }
-                ImGui::TextDisabled(element.kind == UiElementKind::TextInput ? "Placeholder" : "Text");
+                ImGui::TextDisabled("%s", element.kind == UiElementKind::TextInput ? Tr("Placeholder") : Tr("Text"));
                 changed = EditString("##uiText", element.text, 16384, element.kind == UiElementKind::Label); TrackItem(before, changed);
                 if (element.kind == UiElementKind::TextInput) {
-                    ImGui::TextDisabled("Initial input value");
+                    ImGui::TextDisabled("%s", Tr("Initial input value"));
                     changed = EditString("##uiInitialInput", element.input, 4096); TrackItem(before, changed);
                 }
                 if (element.kind == UiElementKind::Checkbox) {
                     bool checked = element.value >= 0.5f;
-                    changed = ImGui::Checkbox("Initially checked", &checked);
+                    changed = ImGui::Checkbox(TrId("Initially checked").c_str(), &checked);
                     if (changed) element.value = checked ? 1.0f : 0.0f;
                     TrackItem(before, changed);
                 }
                 if (element.kind == UiElementKind::Slider || element.kind == UiElementKind::Progress) {
-                    ImGui::TextDisabled("Initial value");
+                    ImGui::TextDisabled("%s", Tr("Initial value"));
                     changed = ImGui::SliderFloat("##uiValue", &element.value, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
                 }
-                ImGui::SeparatorText("Layout");
-                ImGui::TextDisabled("Parent panel");
-                if (ImGui::BeginCombo("##uiParent", element.parent.empty() ? "Document canvas" : element.parent.c_str())) {
+                ImGui::SeparatorText(Tr("Layout"));
+                ImGui::TextDisabled("%s", Tr("Parent panel"));
+                if (ImGui::BeginCombo("##uiParent", element.parent.empty() ? Tr("Document canvas") : element.parent.c_str())) {
                     auto chooseParent = [&](const std::string& parent, const char* label, const UiElementLayout* parentRect) {
                         if (!ImGui::Selectable(label, element.parent == parent)) return;
                         FinishEdit();
@@ -113,7 +114,7 @@ void UiDesigner::Impl::Properties()
                         try { document.Validate(); Checkpoint(before); }
                         catch (const std::exception& exception) { element.parent = oldParent; element.position = oldPosition; error = exception.what(); }
                     };
-                    chooseParent("", "Document canvas", nullptr);
+                    chooseParent("", Tr("Document canvas"), nullptr);
                     const auto layout = document.ResolveLayout({.size = document.referenceSize});
                     for (size_t parentIndex = 0; parentIndex < document.elements.size(); ++parentIndex) {
                         const auto& parent = document.elements[parentIndex];
@@ -122,36 +123,36 @@ void UiDesigner::Impl::Properties()
                     }
                     ImGui::EndCombo();
                 }
-                ImGui::TextDisabled("Position");
+                ImGui::TextDisabled("%s", Tr("Position"));
                 changed = ImGui::DragFloat2("##uiPosition", &element.position.x, 1, -1000000, 1000000, "%.1f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
-                ImGui::TextDisabled("Size");
+                ImGui::TextDisabled("%s", Tr("Size"));
                 changed = ImGui::DragFloat2("##uiSize", &element.size.x, 1, 1, 100000, "%.1f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
-                ImGui::TextDisabled("Anchor (0 = start, 1 = end)");
+                ImGui::TextDisabled("%s", Tr("Anchor (0 = start, 1 = end)"));
                 changed = ImGui::SliderFloat2("##uiAnchor", &element.anchor.x, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
-                if (ImGui::SmallButton("Top left")) { FinishEdit(); element.anchor = {0, 0}; Checkpoint(before); }
-                ImGui::SameLine(); if (ImGui::SmallButton("Center")) { FinishEdit(); element.anchor = {0.5f, 0.5f}; element.position = {}; Checkpoint(before); }
-                ImGui::SameLine(); if (ImGui::SmallButton("Bottom right")) { FinishEdit(); element.anchor = {1, 1}; Checkpoint(before); }
-                ImGui::SeparatorText("Style");
-                changed = EditColor("Text / foreground", element.color); TrackItem(before, changed);
-                changed = EditColor("Background", element.background); TrackItem(before, changed);
-                ImGui::TextDisabled("Corner radius");
+                if (ImGui::SmallButton(TrId("Top left").c_str())) { FinishEdit(); element.anchor = {0, 0}; Checkpoint(before); }
+                ImGui::SameLine(); if (ImGui::SmallButton(TrId("Center").c_str())) { FinishEdit(); element.anchor = {0.5f, 0.5f}; element.position = {}; Checkpoint(before); }
+                ImGui::SameLine(); if (ImGui::SmallButton(TrId("Bottom right").c_str())) { FinishEdit(); element.anchor = {1, 1}; Checkpoint(before); }
+                ImGui::SeparatorText(Tr("Style"));
+                changed = EditColor(TrId("Text / foreground").c_str(), element.color); TrackItem(before, changed);
+                changed = EditColor(TrId("Background").c_str(), element.background); TrackItem(before, changed);
+                ImGui::TextDisabled("%s", Tr("Corner radius"));
                 changed = ImGui::DragFloat("##uiRounding", &element.rounding, 0.25f, 0, 4096, "%.1f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
-                ImGui::TextDisabled("Font scale");
+                ImGui::TextDisabled("%s", Tr("Font scale"));
                 changed = ImGui::SliderFloat("##uiFontScale", &element.fontScale, 0.25f, 8, "%.2fx", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
                 if (element.kind == UiElementKind::Button) {
-                    ImGui::SeparatorText("On click");
-                    const char* actions[]{"Custom event only", "Minimize window", "Maximize / restore", "Toggle fullscreen", "Close window"};
+                    ImGui::SeparatorText(Tr("On click"));
+                    const char* actions[]{Tr("Custom event only"), Tr("Minimize window"), Tr("Maximize / restore"), Tr("Toggle full screen"), Tr("Close window")};
                     int action = static_cast<int>(element.action);
                     changed = ImGui::Combo("##uiAction", &action, actions, 5);
                     if (changed) element.action = static_cast<UiAction>(action);
                     TrackItem(before, changed);
-                    ImGui::TextWrapped("Window actions execute in the game. The designer preview is always non-interactive.");
+                    ImGui::TextWrapped("%s", Tr("Window actions execute in the game. The designer preview is always non-interactive."));
                 }
-                if (ImGui::BeginPopupModal("Rename UI element", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::TextUnformatted("Stable element ID");
+                if (Design::BeginDialog(TrId("Rename UI element", "RenameUiElement").c_str(), 24)) {
+                    ImGui::TextUnformatted(Tr("Stable element ID"));
                     ImGui::InputText("##uiRename", rename, sizeof(rename));
                     if (!error.empty()) ImGui::TextWrapped("%s", error.c_str());
-                    if (ImGui::Button("Rename")) {
+                    if (Design::Action("##renameUi", "check", Tr("Rename"), false, true)) {
                         try {
                             auto replacement = document;
                             replacement.elements[index].id = rename;
@@ -160,7 +161,7 @@ void UiDesigner::Impl::Properties()
                             error.clear(); ImGui::CloseCurrentPopup();
                         } catch (const std::exception& exception) { error = exception.what(); }
                     }
-                    ImGui::SameLine(); if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+                    ImGui::SameLine(); if (Design::Action("##cancelRenameUi", "", Tr("Cancel"))) ImGui::CloseCurrentPopup();
                     ImGui::EndPopup();
                 }
             }

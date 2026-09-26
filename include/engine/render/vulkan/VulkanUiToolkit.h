@@ -7,9 +7,17 @@
 #include "engine/render/vulkan/VulkanDepthBuffer.h"
 #include "engine/render/vulkan/VulkanFrameLimits.h"
 #include "engine/render/vulkan/VulkanUiPipeline.h"
+#include <vector>
 
 namespace Concord {
 class UiToolkit;
+/** A sampled application image, uploaded once and alive until the toolkit is destroyed. */
+struct VulkanUiImage {
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    VkDescriptorSet texture = VK_NULL_HANDLE;
+};
 /** A frame-local render target sampled by the docking UI after the scene pass. */
 struct VulkanUiViewport {
     VkImage image = VK_NULL_HANDLE;
@@ -28,6 +36,7 @@ struct VulkanUiToolkit {
     bool initialized = false;
     VulkanUiPipeline pipeline{};
     VulkanUiViewport viewports[kMaxFramesInFlight]{};
+    std::vector<VulkanUiImage> images;
 };
 bool CreateVulkanUiToolkit(const VulkanContext& context, VkFormat format, UiToolkit& ui, VulkanUiToolkit& toolkit);
 /** Rebuilds format-dependent resources before the next UI frame creates texture references. */
@@ -35,6 +44,13 @@ bool RefreshVulkanUiFormat(const VulkanContext& context, VkFormat format, Vulkan
 void DestroyVulkanUiToolkit(const VulkanContext& context, VulkanUiToolkit& toolkit);
 bool EnsureVulkanUiViewport(const VulkanContext& context, VulkanUiToolkit& toolkit, u32 slot);
 void DestroyVulkanUiViewport(const VulkanContext& context, VulkanUiViewport& viewport);
+/**
+ * Uploads images queued on the UI toolkit and publishes their textures.
+ * Runs between frames; the one-time copy waits on the graphics queue.
+ * @return False if any image could not be created; the others still upload.
+ */
+bool UploadVulkanUiImages(const VulkanContext& context, VulkanUiToolkit& toolkit);
+void DestroyVulkanUiImage(const VulkanContext& context, VulkanUiImage& image);
 void RecordVulkanUiToolkit(VkCommandBuffer command, VulkanUiToolkit& toolkit, u32 slot,
                            VkImageView target, VkExtent2D extent);
 }

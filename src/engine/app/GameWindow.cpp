@@ -68,7 +68,8 @@ void Game::AttachWindow(Window& window)
             if (backend->Init(window, init)) {
                 if (m_impl->config.enableUiToolkit) {
                     m_impl->toolkit = std::make_unique<UiToolkit>();
-                    if (!m_impl->toolkit->Init(window) || !backend->InitializeUi(*m_impl->toolkit)) {
+                    if (!m_impl->toolkit->Init(window, m_impl->config.uiGlyphText) ||
+                        !backend->InitializeUi(*m_impl->toolkit)) {
                         throw std::runtime_error("rich UI initialization failed");
                     }
                 }

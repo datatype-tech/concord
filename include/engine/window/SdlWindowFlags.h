@@ -19,8 +19,12 @@ namespace Concord {
  */
 SDL_WindowFlags ToSdlWindowFlags(const WindowDesc& desc, bool enableVulkan);
 
-/** Applies the presentation mode to an already-open SDL window. */
-void ApplySdlWindowMode(SDL_Window* handle, WindowMode mode);
+/**
+ * Applies the presentation mode to an already-open SDL window. An undecorated
+ * window never gains a native frame on the way in or out of fullscreen, which
+ * would otherwise flash a system caption and shift the client area.
+ */
+void ApplySdlWindowMode(SDL_Window* handle, WindowMode mode, bool decorated);
 
 } // namespace Concord
 

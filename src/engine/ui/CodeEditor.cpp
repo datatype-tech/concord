@@ -67,15 +67,15 @@ CodeEditor::CodeEditor() : m_impl(std::make_unique<Impl>())
     m_impl->editor.SetImGuiChildIgnored(true);
     auto palette=TextEditor::GetDarkPalette();
     using Index=TextEditor::PaletteIndex;
-    palette[static_cast<size_t>(Index::Background)]=IM_COL32(19,22,29,255);
+    palette[static_cast<size_t>(Index::Background)]=IM_COL32(12,12,13,255);
     palette[static_cast<size_t>(Index::Default)]=IM_COL32(215,223,237,255);
     palette[static_cast<size_t>(Index::Keyword)]=IM_COL32(182,157,255,255);
     palette[static_cast<size_t>(Index::String)]=IM_COL32(166,208,148,255);
     palette[static_cast<size_t>(Index::Number)]=IM_COL32(237,188,129,255);
     palette[static_cast<size_t>(Index::Comment)]=palette[static_cast<size_t>(Index::MultiLineComment)]=IM_COL32(115,135,147,255);
     palette[static_cast<size_t>(Index::LineNumber)]=IM_COL32(89,102,125,255);
-    palette[static_cast<size_t>(Index::CurrentLineFill)]=IM_COL32(32,38,51,255);
-    palette[static_cast<size_t>(Index::CurrentLineFillInactive)]=IM_COL32(25,29,39,255);
+    palette[static_cast<size_t>(Index::CurrentLineFill)]=IM_COL32(32,32,34,255);
+    palette[static_cast<size_t>(Index::CurrentLineFillInactive)]=IM_COL32(24,24,25,255);
     palette[static_cast<size_t>(Index::CurrentLineEdge)]=IM_COL32(0,0,0,0);
     palette[static_cast<size_t>(Index::Selection)]=IM_COL32(66,84,135,180);
     m_impl->editor.SetPalette(palette);

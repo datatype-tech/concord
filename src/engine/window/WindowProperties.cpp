@@ -27,8 +27,7 @@ void Window::Set(WindowDesc desc)
                              static_cast<int>(state.desc.minimumResolution.height));
     SDL_SetWindowSize(state.handle, static_cast<int>(state.desc.resolution.width),
                       static_cast<int>(state.desc.resolution.height));
-    ApplySdlWindowMode(state.handle, state.desc.mode);
-    SDL_SetWindowBordered(state.handle, state.desc.decorated && state.desc.mode == WindowMode::Windowed);
+    ApplySdlWindowMode(state.handle, state.desc.mode, state.desc.decorated);
     SetVisible(state.desc.visible);
     SDL_SyncWindow(state.handle);
 
@@ -57,8 +56,7 @@ void Window::SetMode(WindowMode mode)
     if (mode == WindowMode::Fullscreen) state.restoreMode = state.desc.mode;
     state.desc.mode = mode;
     if (state.handle) {
-        ApplySdlWindowMode(state.handle, mode);
-        SDL_SetWindowBordered(state.handle, state.desc.decorated && mode == WindowMode::Windowed);
+        ApplySdlWindowMode(state.handle, mode, state.desc.decorated);
         state.resized = true;
     }
 }

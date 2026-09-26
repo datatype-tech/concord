@@ -4,6 +4,7 @@
 #include "editor/UiDesignerState.h"
 #include "editor/Design.h"
 #include "editor/NativeDialogs.h"
+#include "editor/Localization.h"
 
 #include <algorithm>
 #include <cmath>
@@ -15,7 +16,7 @@ namespace {
 const char* KindName(UiElementKind kind)
 {
     static const char* names[]{"Panel", "Label", "Button", "Checkbox", "Slider", "Text input", "Progress"};
-    return names[static_cast<int>(kind)];
+    return Tr(names[static_cast<int>(kind)]);
 }
 bool Inside(ImVec2 point, Vec2 position, Vec2 size)
 {
@@ -43,10 +44,10 @@ std::vector<size_t> PaintOrder(const UiDocument& document)
 
 void UiDesigner::Impl::Hierarchy()
 {
-    if (ImGui::Begin("UI Elements")) {
+    if (ImGui::Begin(TrId("UI Elements").c_str())) {
         ImGui::BeginDisabled(!loaded);
-        if (Design::Action("Add UI element", "plus", "Add")) ImGui::OpenPopup("Add UI element");
-        if (ImGui::BeginPopup("Add UI element")) {
+        if (Design::Action("##addUiElement", "plus", Tr("Add"))) ImGui::OpenPopup("##addUiElementMenu");
+        if (ImGui::BeginPopup("##addUiElementMenu")) {
             for (int kind = 0; kind < 7; ++kind)
                 if (ImGui::MenuItem(KindName(static_cast<UiElementKind>(kind)))) Add(static_cast<UiElementKind>(kind));
             ImGui::EndPopup();
@@ -57,7 +58,7 @@ void UiDesigner::Impl::Hierarchy()
         ImGui::EndDisabled(); ImGui::EndDisabled();
         ImGui::Separator();
         if (loaded) {
-            if (ImGui::Selectable("Document canvas", selected.empty())) Select("");
+            if (ImGui::Selectable(Tr("Document canvas"), selected.empty())) Select("");
             bool remove = false, duplicate = false;
             std::function<void(const std::string&, int)> visit = [&](const std::string& parent, int depth) {
                 if (depth > 64) return;
@@ -71,11 +72,11 @@ void UiDesigner::Impl::Hierarchy()
                     const bool expanded = ImGui::TreeNodeEx(element.id.c_str(), flags, "%s", element.id.c_str());
                     if (!element.visible) ImGui::PopStyleColor();
                     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) Select(element.id);
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s", KindName(element.kind), element.visible ? "" : " (hidden)");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s", KindName(element.kind), element.visible ? "" : Tr(" (hidden)"));
                     if (ImGui::BeginPopupContextItem()) {
                         Select(element.id);
-                        if (ImGui::MenuItem("Duplicate subtree")) duplicate = true;
-                        if (ImGui::MenuItem("Delete subtree")) remove = true;
+                        if (ImGui::MenuItem(Tr("Duplicate subtree"))) duplicate = true;
+                        if (ImGui::MenuItem(Tr("Delete subtree"))) remove = true;
                         ImGui::EndPopup();
                     }
                     if (expanded) { if (children) visit(element.id, depth + 1); ImGui::TreePop(); }
@@ -83,9 +84,9 @@ void UiDesigner::Impl::Hierarchy()
             };
             visit("", 0);
             if (remove) Delete(); else if (duplicate) Duplicate();
-            ImGui::Separator(); ImGui::TextDisabled("%zu elements", document.elements.size());
-            ImGui::TextWrapped("Select a panel before adding a child. Parent and anchors are editable in Properties.");
-        } else ImGui::TextWrapped("Create or open a .yu file to design an interface.");
+            ImGui::Separator(); ImGui::TextDisabled(Tr("%zu elements"), document.elements.size());
+            ImGui::TextWrapped("%s", Tr("Select a panel before adding a child. Parent and anchors are editable in Properties."));
+        } else ImGui::TextWrapped("%s", Tr("Create or open a .yu file to design an interface."));
     }
     ImGui::End();
 }
@@ -93,25 +94,30 @@ void UiDesigner::Impl::Hierarchy()
 void UiDesigner::Impl::Canvas()
 {
     const auto flags = loaded && Dirty() ? ImGuiWindowFlags_UnsavedDocument : ImGuiWindowFlags_None;
-    if (ImGui::Begin("UI Canvas", nullptr, flags)) {
+    if (ImGui::Begin(TrId("UI Canvas").c_str(), nullptr, flags)) {
         if (Design::Action("New UI document", "plus")) Request(Pending::New);
-        InlineIfFits(ImGui::GetFrameHeight()); if (Design::Action("Open .yu document", "folder")) { openDialog = true; error.clear(); }
+        InlineIfFits(ImGui::GetFrameHeight()); if (Design::Action("Open .yu document", "folder")) {
+            error.clear();
+            const auto folder = std::filesystem::is_directory(project / "UI") ? project / "UI" : project;
+            const auto file = project.empty() ? std::filesystem::path{} : ChooseFile(WideText(Tr("Open UI document")).c_str(), L"Concord UI (*.yu)", L"*.yu", folder);
+            if (!file.empty()) Request(Pending::Load, file);
+        }
         InlineIfFits(ImGui::GetFrameHeight()); ImGui::BeginDisabled(!loaded);
         if (Design::Action("Save UI document", "save")) Save();
         InlineIfFits(ImGui::GetFrameHeight()); ImGui::BeginDisabled(undo.empty()); if (Design::Action("Undo UI edit", "undo")) Undo(false); ImGui::EndDisabled();
         InlineIfFits(ImGui::GetFrameHeight()); ImGui::BeginDisabled(redo.empty()); if (Design::Action("Redo UI edit", "redo")) Undo(true); ImGui::EndDisabled();
         InlineIfFits(ImGui::GetFrameHeight()); if (Design::Action("Fit UI canvas", "focus", nullptr, fit)) fit = !fit;
         InlineIfFits(ImGui::GetFrameHeight()); if (Design::Action("Show UI grid", "grid", nullptr, showGrid)) showGrid = !showGrid;
-        InlineIfFits(ImGui::GetFrameHeight() + ImGui::CalcTextSize("Snap").x + ImGui::GetStyle().ItemInnerSpacing.x); ImGui::Checkbox("Snap", &snap);
+        InlineIfFits(ImGui::GetFrameHeight() + ImGui::CalcTextSize(Tr("Snap")).x + ImGui::GetStyle().ItemInnerSpacing.x); ImGui::Checkbox(TrId("Snap").c_str(), &snap);
         ImGui::EndDisabled();
         if (!loaded) {
-            ImGui::Spacing(); Design::Heading("Design your interface");
-            ImGui::TextWrapped("Create reusable panels, controls and window buttons. The canvas uses Concord's runtime UI renderer.");
-            if (ImGui::Button("Create interface")) Request(Pending::New);
+            ImGui::Spacing(); Design::Heading(Tr("Design your interface"));
+            ImGui::TextWrapped("%s", Tr("Create reusable panels, controls and window buttons. The canvas uses Concord's runtime UI renderer."));
+            if (Design::Action("##createInterface", "plus", Tr("Create interface"), false, true)) Request(Pending::New);
         } else {
             ImGui::TextDisabled("%s%s", path.empty() ? "Untitled.yu" : Utf8Text(path.filename()).c_str(), Dirty() ? " *" : "");
             InlineIfFits(ImGui::GetFontSize() * 9); ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
-            if (ImGui::SliderFloat("Zoom", &zoom, 0.1f, 2.0f, "%.2fx", ImGuiSliderFlags_AlwaysClamp)) fit = false;
+            if (ImGui::SliderFloat(TrId("Zoom").c_str(), &zoom, 0.1f, 2.0f, "%.2fx", ImGuiSliderFlags_AlwaysClamp)) fit = false;
             const float footer = ImGui::GetTextLineHeightWithSpacing() + (error.empty() ? 0 :
                 ImGui::CalcTextSize(error.c_str(), nullptr, false, std::max(1.0f, ImGui::GetContentRegionAvail().x)).y + ImGui::GetStyle().ItemSpacing.y);
             ImGui::BeginChild("Canvas surface", {0, -footer}, ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
@@ -202,7 +208,7 @@ void UiDesigner::Impl::Canvas()
             draw->PopClipRect();
             draw->AddRect(origin, {origin.x + size.x, origin.y + size.y}, ImGui::GetColorU32(ImGuiCol_Border));
             ImGui::EndChild();
-            ImGui::TextDisabled("%.0f%%  |  Drag / resize corner  |  Shift: snap", scale * 100);
+            ImGui::TextDisabled(Tr("%.0f%%  |  Drag to move, corner to resize  |  Shift toggles snapping"), scale * 100);
         }
         if (!error.empty()) { ImGui::PushTextWrapPos(); ImGui::TextColored({1,0.55f,0.45f,1}, "%s", error.c_str()); ImGui::PopTextWrapPos(); }
     }

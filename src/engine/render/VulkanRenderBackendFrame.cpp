@@ -8,6 +8,8 @@
 #include "engine/render/vulkan/VulkanPresent.h"
 #include "engine/window/WindowAccess.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
 
 namespace Concord {
@@ -15,6 +17,15 @@ namespace Concord {
 bool VulkanRenderBackend::BeginFrame()
 {
     Impl& impl = *m_impl;
+    if (std::getenv("CONCORD_EDITOR_DEBUG")) {
+        static int dbg = 0;
+        if (++dbg % 60 == 0)
+            std::fprintf(stderr,
+                         "[dbg-gfx] BeginFrame state: syncReady=%d acquirePending=%d dirty=%d swapchain=%p tkInit=%d tkFmt=%d scFmt=%d\n",
+                         (int)impl.frameSyncReady, (int)impl.imageAcquirePending, (int)impl.swapchainDirty,
+                         (void*)impl.swapchain.handle, (int)impl.toolkit.initialized, (int)impl.toolkit.format,
+                         (int)impl.swapchain.format);
+    }
     if (impl.context.device == VK_NULL_HANDLE || !impl.window || !impl.frameSyncReady) {
         return false;
     }
@@ -134,6 +145,11 @@ void VulkanRenderBackend::EndFrame()
 
     if (PresentFrame(impl.context, impl.swapchain, impl.imageIndex)) {
         impl.swapchainDirty = true;
+    }
+    if (std::getenv("CONCORD_EDITOR_DEBUG")) {
+        static int presents = 0;
+        if (++presents % 30 == 0)
+            std::fprintf(stderr, "[dbg-gfx] EndFrame presented %d frames, imageIndex=%u\n", presents, impl.imageIndex);
     }
     // A still is written before this call returns, which costs a full device
     // wait. That is the right trade for a frame somebody asked for by name:

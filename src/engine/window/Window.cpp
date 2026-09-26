@@ -109,6 +109,10 @@ bool Window::Open(bool enableVulkan)
     }
     state.sdlVideoInitialized = true;
 
+    // A resizable borderless window keeps WS_THICKFRAME and WS_MAXIMIZEBOX, so
+    // the compositor still plays the native minimize/maximize animations and
+    // Aero Snap works from an application-drawn caption.
+    SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
     state.handle = SDL_CreateWindow(state.desc.title.c_str(),
                                     static_cast<int>(state.desc.resolution.width),
                                     static_cast<int>(state.desc.resolution.height),

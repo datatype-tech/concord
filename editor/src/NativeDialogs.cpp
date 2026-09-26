@@ -8,14 +8,31 @@
 #include <stdexcept>
 namespace Concord::Editor {
 namespace {
-std::filesystem::path Choose(const wchar_t* title,bool folder)
+struct DialogOptions {
+    const wchar_t* title=L"";
+    bool folder=false;
+    const wchar_t* filterName=nullptr;
+    const wchar_t* pattern=nullptr;
+    std::filesystem::path initial;
+};
+std::filesystem::path Choose(const DialogOptions& options)
 {
     const HRESULT initialized=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
     IFileOpenDialog* dialog=nullptr;std::filesystem::path result;
     if(SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)))) {
-        DWORD options=0;dialog->GetOptions(&options);
-        dialog->SetOptions(options|FOS_FORCEFILESYSTEM|(folder?FOS_PICKFOLDERS:FOS_FILEMUSTEXIST));dialog->SetTitle(title);
-        COMDLG_FILTERSPEC filter{L"Windows executable",L"*.exe"};if(!folder)dialog->SetFileTypes(1,&filter);
+        DWORD flags=0;dialog->GetOptions(&flags);
+        dialog->SetOptions(flags|FOS_FORCEFILESYSTEM|(options.folder?FOS_PICKFOLDERS:FOS_FILEMUSTEXIST));dialog->SetTitle(options.title);
+        if(!options.folder && options.pattern) {
+            COMDLG_FILTERSPEC filter{options.filterName?options.filterName:options.pattern,options.pattern};
+            dialog->SetFileTypes(1,&filter);
+        }
+        std::error_code error;
+        if(!options.initial.empty() && std::filesystem::is_directory(options.initial,error)) {
+            IShellItem* folder=nullptr;
+            if(SUCCEEDED(SHCreateItemFromParsingName(options.initial.c_str(),nullptr,IID_PPV_ARGS(&folder)))) {
+                dialog->SetFolder(folder);folder->Release();
+            }
+        }
         if(SUCCEEDED(dialog->Show(GetActiveWindow()))) {
             IShellItem* item=nullptr;
             if(SUCCEEDED(dialog->GetResult(&item))) {
@@ -29,11 +46,17 @@ std::filesystem::path Choose(const wchar_t* title,bool folder)
     if(SUCCEEDED(initialized))CoUninitialize();return result;
 }
 }
-std::filesystem::path ChooseFolder(const wchar_t* title) {return Choose(title,true);}
-std::filesystem::path ChooseExecutable() {return Choose(L"Select concord.exe",false);}
+std::filesystem::path ChooseFolder(const wchar_t* title) {return Choose({.title=title,.folder=true});}
+std::filesystem::path ChooseExecutable() {return Choose({.title=L"concord.exe",.filterName=L"Windows executable",.pattern=L"*.exe"});}
+std::filesystem::path ChooseFile(const wchar_t* title,const wchar_t* filterName,const wchar_t* pattern,const std::filesystem::path& folder)
+{
+    return Choose({.title=title,.filterName=filterName,.pattern=pattern,.initial=folder});
+}
 std::filesystem::path Utf8Path(const std::string& text) {return std::filesystem::path(reinterpret_cast<const char8_t*>(text.c_str()));}
 std::string Utf8Text(const std::filesystem::path& path) {auto text=path.u8string();return {reinterpret_cast<const char*>(text.data()),text.size()};}
+std::wstring WideText(const std::string& text) {return Utf8Path(text).wstring();}
 void RevealFolder(const std::filesystem::path& path) {ShellExecuteW(nullptr,L"open",path.c_str(),nullptr,nullptr,SW_SHOWNORMAL);}
+void OpenExternal(const std::wstring& target) {ShellExecuteW(nullptr,L"open",target.c_str(),nullptr,nullptr,SW_SHOWNORMAL);}
 void LaunchWorkspace(const std::filesystem::path& project,const std::filesystem::path& cli,const std::filesystem::path& sdk)
 {
     wchar_t executable[32768]{};GetModuleFileNameW(nullptr,executable,32768);

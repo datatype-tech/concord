@@ -141,6 +141,7 @@ target_sources(concord_render PRIVATE
     src/engine/render/vulkan/VulkanUiToolkit.cpp
     src/engine/render/vulkan/VulkanUiPipeline.cpp
     src/engine/render/vulkan/VulkanUiViewport.cpp
+    src/engine/render/vulkan/VulkanUiImage.cpp
     src/engine/render/VulkanRenderBackendUi.cpp
     src/3rd/imgui/backends/imgui_impl_vulkan.cpp)
 

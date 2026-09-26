@@ -94,25 +94,25 @@ HelloImGui::DockingParams DefaultLayout(int page,bool compact,bool output)
     HelloImGui::DockingParams layout;
     layout.layoutName=LayoutNames[LayoutIndex(page,compact)];
     layout.mainDockSpaceNodeFlags=ImGuiDockNodeFlags_None;
-    layout.dockingSplits.emplace_back("MainDockSpace","ProjectSpace",ImGuiDir_Left,compact?0.27f:0.19f);
+    layout.dockingSplits.emplace_back("MainDockSpace","ProjectSpace",ImGuiDir_Left,compact?0.29f:0.215f);
     if(page==1) {
-        if(!compact)layout.dockingSplits.emplace_back("MainDockSpace","InspectorSpace",ImGuiDir_Right,0.25f);
+        if(!compact)layout.dockingSplits.emplace_back("MainDockSpace","InspectorSpace",ImGuiDir_Right,0.27f);
         layout.dockingSplits.emplace_back("ProjectSpace","HierarchySpace",ImGuiDir_Up,0.58f);
-        layout.dockableWindows.emplace_back("Hierarchy","HierarchySpace");
-        layout.dockableWindows.emplace_back("Inspector",compact?"HierarchySpace":"InspectorSpace");
-        layout.dockableWindows.emplace_back("Scene","MainDockSpace");
-    } else if(page==2)layout.dockableWindows.emplace_back("ConcordScript","MainDockSpace");
+        layout.dockableWindows.emplace_back("###Hierarchy","HierarchySpace");
+        layout.dockableWindows.emplace_back("###Inspector",compact?"HierarchySpace":"InspectorSpace");
+        layout.dockableWindows.emplace_back("###Scene","MainDockSpace");
+    } else if(page==2)layout.dockableWindows.emplace_back("###ConcordScript","MainDockSpace");
     else {
-        if(!compact)layout.dockingSplits.emplace_back("MainDockSpace","UiPropertiesSpace",ImGuiDir_Right,0.25f);
+        if(!compact)layout.dockingSplits.emplace_back("MainDockSpace","UiPropertiesSpace",ImGuiDir_Right,0.27f);
         layout.dockingSplits.emplace_back("ProjectSpace","UiElementsSpace",ImGuiDir_Up,0.58f);
-        layout.dockableWindows.emplace_back("UI Elements","UiElementsSpace");
-        layout.dockableWindows.emplace_back("UI Properties",compact?"UiElementsSpace":"UiPropertiesSpace");
-        layout.dockableWindows.emplace_back("UI Canvas","MainDockSpace");
+        layout.dockableWindows.emplace_back("###UI Elements","UiElementsSpace");
+        layout.dockableWindows.emplace_back("###UI Properties",compact?"UiElementsSpace":"UiPropertiesSpace");
+        layout.dockableWindows.emplace_back("###UI Canvas","MainDockSpace");
     }
-    layout.dockableWindows.emplace_back("Project","ProjectSpace");
+    layout.dockableWindows.emplace_back("###Project","ProjectSpace");
     if(output) {
         layout.dockingSplits.emplace_back("MainDockSpace","OutputSpace",ImGuiDir_Down,0.26f);
-        layout.dockableWindows.emplace_back("Build output","OutputSpace");
+        layout.dockableWindows.emplace_back("###Build output","OutputSpace");
     }
     return layout;
 }
@@ -148,7 +148,7 @@ void BuildDefault(ImGuiID id,int page,bool compact,bool output,ImGuiViewport& vi
 
 void PlaceOutput(ImGuiID root,int page)
 {
-    const auto* content=ImGui::FindWindowByName(page==1?"Scene":page==2?"ConcordScript":"UI Canvas");
+    const auto* content=ImGui::FindWindowByName(page==1?"###Scene":page==2?"###ConcordScript":"###UI Canvas");
     auto* node=content?content->DockNode:nullptr;
     if(node && ImGui::DockNodeGetRootNode(node)->ID!=root)node=nullptr;
     if(!node)node=ImGui::DockBuilderGetCentralNode(root);
@@ -157,7 +157,7 @@ void PlaceOutput(ImGuiID root,int page)
     while(node->ChildNodes[0])node=node->ChildNodes[0];
     auto center=node->ID;
     const auto bottom=ImGui::DockBuilderSplitNode(center,ImGuiDir_Down,0.26f,nullptr,&center);
-    ImGui::DockBuilderDockWindow("Build output",bottom);
+    ImGui::DockBuilderDockWindow("###Build output",bottom);
     ImGui::DockBuilderFinish(root);
 }
 }
@@ -233,7 +233,7 @@ void WorkspaceLayouts::Draw(int page,bool compact,bool& showOutput,bool restoreD
         if(state.active>=0) {state.layouts[state.active].output=showOutput;Save();}
         state.Load(next);
         state.active=next;state.lastPage=page;
-        state.dockId=ImHashStr((std::string("Concord/HelloImGui/")+LayoutNames[next]).c_str());
+        state.dockId=ImHashStr((std::string("Concord/Workspace/v3/")+LayoutNames[next]).c_str());
         auto& layout=state.layouts[next];showOutput=layout.output || revealOutput;
         ImGui::ClearIniSettings();
         if(!restoreDefault && ValidDockingIni(layout.ini,state.dockId))ImGui::LoadIniSettingsFromMemory(layout.ini.data(),layout.ini.size());

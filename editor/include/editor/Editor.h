@@ -13,29 +13,54 @@
 #include <Concord/CCodeEditor.h>
 #include <Concord/CUiToolkit.h>
 #include <deque>
+#include <optional>
 
 namespace Concord::Editor {
+/** Engine release shown in the About dialog and the project manager. */
+inline constexpr const char* EditorVersion="1.0.0";
+
+/** Presets offered by the Add object menus of the hierarchy and viewport. */
+enum class ObjectPreset { Cube, Plane, Ground, Wall, StaticBody, DynamicBody };
+
 /** Native docking workspace sharing one live Scene with the Vulkan renderer. */
 class Workspace {
 public:
     Workspace(Game& game,Window& window,std::filesystem::path cli,std::filesystem::path sdk,bool projectManager=false);
     ~Workspace();
     void Open(const std::filesystem::path& project);
+    /** Opens the project containing a .scene, .yu or script file, then that file in its workspace. */
+    void OpenFile(const std::filesystem::path& file);
     void Tick();
     void Save();
     Scene& LiveScene() {return m_scene;}
 private:
     void DockLayout();
     void Toolbar();
+    void TitleBar();
+    void MainMenus();
+    void CommandBar();
+    void StatusBar();
     void Home();
+    void HomeProjects(float width);
+    void HomeToolchain();
+    void HomeAbout();
     void SwitchPage(int page);
     void FileBrowser();
     void CloseDialog();
+    void AboutDialog();
+    void ShortcutsDialog();
+    void ScreenTransition();
+    void ToggleFullscreen();
     void RememberProject();
     void Preferences();
+    void ApplyLanguage();
     void Hierarchy();
     void Inspector();
+    void ObjectInspector();
     void Viewport();
+    void ViewportOverlay(ImVec2 origin,ImVec2 size);
+    void ViewportContextMenu();
+    void DrawSceneGizmos(ImDrawList& draw,const Mat4& view,const Mat4& projection,ImVec2 origin,ImVec2 size);
     void Scripts();
     void Console();
     void ProjectDialog();
@@ -46,13 +71,20 @@ private:
     void SaveScript();
     void Build(bool run);
     void AddBox();
+    void AddObject(ObjectPreset preset);
+    void AddObjectMenu();
     void DeleteSelection();
     void DuplicateSelection();
+    void CopySelection();
+    void PasteObject();
+    void BeginRename(int index);
     void FocusSelection();
+    void FrameAll();
     void UpdateCamera();
     void Pick(ImVec2 origin,ImVec2 size);
     void RecordEdit();
     bool IsSelected() const;
+    bool ToolchainReady(bool build);
     void Report(const std::exception& error);
     template<class Fn> void Attempt(Fn action) {try {action();} catch(const std::exception& error) {Report(error);}}
 
@@ -110,9 +142,14 @@ private:
     void LoadPreferences();
     void SavePreferences();
     int m_uiTheme=1;
-    float m_uiRounding=8;
+    int m_uiLanguage=0;
+    float m_uiRounding=6;
     void SaveScene();
     void OpenScene(const std::filesystem::path& file);
+    void RequestOpenScene(const std::filesystem::path& file);
+    void SceneSwitchDialog();
+    void OpenSceneDialog();
+    void OpenUiDialog();
     void OpenAsset(const std::filesystem::path& file);
     void SceneFileDialog();
     void ProjectSettings();
@@ -131,6 +168,20 @@ private:
     char m_gameTitle[256]{},m_startupScene[512]{},m_startupUi[512]{};
     std::string m_sceneFileError;
     EntityHandle m_sun;
+    std::filesystem::path m_pendingScene;
+    bool m_askSceneSwitch=false,m_showAbout=false,m_showShortcuts=false,m_showToolchain=false;
+    bool m_selectWorldTab=false,m_showGameCamera=true,m_contextMenu=false;
+    std::optional<SceneObject> m_copiedObject;
+    int m_renaming=-1;
+    char m_renameBuffer[256]{};
+    bool m_focusRename=false;
+    int m_homePage=0;
+    float m_snapTranslate=0.5f,m_snapRotate=15.0f,m_snapScale=0.1f;
+    double m_transitionStart=-10.0;
+    ImVec2 m_rightPress{};
+    std::string m_createError;
+    int m_lastInspected=-2;
+    bool m_orbiting=false,m_panning=false;
 };
 }
 #endif

@@ -6,6 +6,8 @@
 #include "editor/NativeDialogs.h"
 #include "editor/ProjectDocument.h"
 #include "editor/SceneDocument.h"
+#include "editor/Design.h"
+#include "editor/Localization.h"
 
 #include <windows.h>
 
@@ -259,26 +261,26 @@ void UiDesigner::Impl::Duplicate()
 }
 void UiDesigner::Impl::Dialogs()
 {
-    if (askUnsaved) { ImGui::OpenPopup("Unsaved interface"); askUnsaved = false; }
-    if (ImGui::BeginPopupModal("Unsaved interface", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("Save the current interface before switching?");
+    if (askUnsaved) { ImGui::OpenPopup("###UnsavedInterface"); askUnsaved = false; }
+    if (Design::BeginDialog(TrId("Unsaved interface", "UnsavedInterface").c_str(), 28)) {
+        Design::Heading(Tr("Save the current interface before switching?"));
         if (!error.empty()) ImGui::TextWrapped("%s", error.c_str());
-        if (ImGui::Button("Save and continue")) {
+        if (Design::Action("##saveContinue", "", Tr("Save and continue"), false, true)) {
             if (Save()) { ApplyPending(); ImGui::CloseCurrentPopup(); }
             else if (saveDialog) { afterSave = true; ImGui::CloseCurrentPopup(); }
         }
-        ImGui::SameLine(); if (ImGui::Button("Discard")) { ApplyPending(); ImGui::CloseCurrentPopup(); }
-        ImGui::SameLine(); if (ImGui::Button("Cancel")) { pending = Pending::None; ImGui::CloseCurrentPopup(); }
+        ImGui::SameLine(); if (Design::Action("##discardUi", "", Tr("Don't save"))) { ApplyPending(); ImGui::CloseCurrentPopup(); }
+        ImGui::SameLine(); if (Design::Action("##cancelUiSwitch", "", Tr("Cancel"))) { pending = Pending::None; ImGui::CloseCurrentPopup(); }
         ImGui::EndPopup();
     }
-    if (saveDialog) { ImGui::OpenPopup("Save interface"); saveDialog = false; overwrite = false; }
-    if (ImGui::BeginPopupModal("Save interface", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("Filename inside the current project");
+    if (saveDialog) { ImGui::OpenPopup("###SaveInterface"); saveDialog = false; overwrite = false; }
+    if (Design::BeginDialog(TrId("Save interface", "SaveInterface").c_str(), 28)) {
+        ImGui::TextUnformatted(Tr("File name inside the current project"));
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 26);
         if (ImGui::InputText("##uiFilename", fileName, sizeof(fileName))) overwrite = false;
         if (!error.empty()) ImGui::TextWrapped("%s", error.c_str());
-        if (overwrite) ImGui::TextColored({1,0.7f,0.3f,1}, "This file exists. Replace its contents?");
-        if (ImGui::Button(overwrite ? "Replace file" : "Save")) {
+        if (overwrite) ImGui::TextColored({1,0.7f,0.3f,1}, "%s", Tr("This file exists. Replace its contents?"));
+        if (Design::Action("##saveUiFile", "save", overwrite ? Tr("Replace file") : Tr("Save"), false, true)) {
             try {
                 const auto file = ResolvePath(fileName);
                 if (std::filesystem::exists(file) && file != path && !overwrite) overwrite = true;
@@ -288,20 +290,20 @@ void UiDesigner::Impl::Dialogs()
                 }
             } catch (const std::exception& exception) { error = exception.what(); }
         }
-        ImGui::SameLine(); if (ImGui::Button("Cancel")) { afterSave = false; pending = Pending::None; ImGui::CloseCurrentPopup(); }
+        ImGui::SameLine(); if (Design::Action("##cancelUiSave", "", Tr("Cancel"))) { afterSave = false; pending = Pending::None; ImGui::CloseCurrentPopup(); }
         ImGui::EndPopup();
     }
-    if (openDialog) { ImGui::OpenPopup("Open interface"); openDialog = false; }
-    if (ImGui::BeginPopupModal("Open interface", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted(".yu path inside the current project");
+    if (openDialog) { ImGui::OpenPopup("###OpenInterface"); openDialog = false; }
+    if (Design::BeginDialog(TrId("Open interface", "OpenInterface").c_str(), 28)) {
+        ImGui::TextUnformatted(Tr(".yu path inside the current project"));
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 26);
         ImGui::InputText("##openUiFilename", fileName, sizeof(fileName));
         if (!error.empty()) ImGui::TextWrapped("%s", error.c_str());
-        if (ImGui::Button("Open")) {
+        if (Design::Action("##openUiFile", "folder", Tr("Open"), false, true)) {
             try { const auto file = ResolvePath(fileName); Request(Pending::Load, file); ImGui::CloseCurrentPopup(); }
             catch (const std::exception& exception) { error = exception.what(); }
         }
-        ImGui::SameLine(); if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+        ImGui::SameLine(); if (Design::Action("##cancelUiOpen", "", Tr("Cancel"))) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 }

@@ -58,6 +58,7 @@ void DestroyVulkanUiToolkit(const VulkanContext& context, VulkanUiToolkit& toolk
     if (!toolkit.initialized) { toolkit={}; return; }
     toolkit.ui->Activate();
     for (auto& viewport : toolkit.viewports) DestroyVulkanUiViewport(context,viewport);
+    for (auto& image : toolkit.images) DestroyVulkanUiImage(context,image);
     if (toolkit.sampler) vkDestroySampler(context.device,toolkit.sampler,nullptr);
     DestroyVulkanUiPipeline(context,toolkit.pipeline);
     ImGui_ImplVulkan_Shutdown(); toolkit={};

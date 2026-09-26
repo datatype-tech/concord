@@ -37,6 +37,12 @@ struct GameConfig {
     u32 frameRateLimit = 0;
     /** Activates docking, native text input and an offscreen scene viewport. */
     bool enableUiToolkit = false;
+    /**
+     * Optional UTF-8 text whose glyphs the rich UI must be able to draw beyond
+     * Latin and the common simplified Chinese set, such as an application's
+     * translations. Must stay valid until the window is attached.
+     */
+    const char* uiGlyphText = nullptr;
 };
 
 } // namespace Concord

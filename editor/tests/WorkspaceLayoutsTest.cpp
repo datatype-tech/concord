@@ -29,11 +29,11 @@ public:
     {
         ImGui::GetIO().DisplaySize=compact?ImVec2{960,720}:ImVec2{1500,900};
         ImGui::NewFrame();layouts.Draw(page,compact,output,reset);
-        Panel("Project");
-        if(page==1){Panel("Hierarchy");Panel("Inspector");Panel("Scene");}
-        else if(page==2)Panel("ConcordScript");
-        else {Panel("UI Elements");Panel("UI Properties");Panel("UI Canvas");}
-        if(output)Panel("Build output");
+        Panel("###Project");
+        if(page==1){Panel("###Hierarchy");Panel("###Inspector");Panel("###Scene");}
+        else if(page==2)Panel("###ConcordScript");
+        else {Panel("###UI Elements");Panel("###UI Properties");Panel("###UI Canvas");}
+        if(output)Panel("###Build output");
         ImGui::Render();
     }
     static ImGuiID DockId(const char* name)
@@ -54,31 +54,31 @@ int main(int argc,char** argv)
         Fixture fixture;Concord::Editor::WorkspaceLayouts layouts;layouts.Open(directory);
         bool output=false;
         fixture.Frame(layouts,1,false,output);fixture.Frame(layouts,1,false,output);
-        const auto hierarchy=Fixture::DockId("Hierarchy");
-        Require(Fixture::DockId("Inspector")!=hierarchy,"Wide layout should have a separate inspector");
-        ImGui::DockBuilderDockWindow("Inspector",hierarchy);
+        const auto hierarchy=Fixture::DockId("###Hierarchy");
+        Require(Fixture::DockId("###Inspector")!=hierarchy,"Wide layout should have a separate inspector");
+        ImGui::DockBuilderDockWindow("###Inspector",hierarchy);
         fixture.Frame(layouts,1,false,output);
-        Require(Fixture::DockId("Inspector")==hierarchy,"Fixture failed to customize Scene layout");
+        Require(Fixture::DockId("###Inspector")==hierarchy,"Fixture failed to customize Scene layout");
         layouts.Save();
 
         fixture.Frame(layouts,2,false,output);fixture.Frame(layouts,2,false,output);
-        const auto project=Fixture::DockId("Project");output=true;
+        const auto project=Fixture::DockId("###Project");output=true;
         fixture.Frame(layouts,2,false,output);fixture.Frame(layouts,2,false,output);
-        Require(Fixture::DockId("Project")==project,"Showing output replaced the source sidebar layout");
-        Require(Fixture::DockId("Build output")!=Fixture::DockId("ConcordScript"),"Output did not get its own panel");
+        Require(Fixture::DockId("###Project")==project,"Showing output replaced the source sidebar layout");
+        Require(Fixture::DockId("###Build output")!=Fixture::DockId("###ConcordScript"),"Output did not get its own panel");
         output=false;fixture.Frame(layouts,2,false,output);fixture.Frame(layouts,2,false,output);
         output=true;fixture.Frame(layouts,2,false,output);fixture.Frame(layouts,2,false,output);
-        Require(Fixture::DockId("Project")==project,"Toggling output destroyed the sidebar layout");
+        Require(Fixture::DockId("###Project")==project,"Toggling output destroyed the sidebar layout");
 
         fixture.Frame(layouts,1,false,output);fixture.Frame(layouts,1,false,output);
-        Require(Fixture::DockId("Inspector")==Fixture::DockId("Hierarchy"),"Scene customization was lost after switching from Code");
+        Require(Fixture::DockId("###Inspector")==Fixture::DockId("###Hierarchy"),"Scene customization was lost after switching from Code");
         Require(!output,"Output visibility was not independent per workspace");
         fixture.Frame(layouts,1,true,output);fixture.Frame(layouts,1,true,output);
-        Require(Fixture::DockId("Inspector")==Fixture::DockId("Hierarchy"),"Compact mode did not use tabbed inspector");
+        Require(Fixture::DockId("###Inspector")==Fixture::DockId("###Hierarchy"),"Compact mode did not use tabbed inspector");
         fixture.Frame(layouts,1,false,output);fixture.Frame(layouts,1,false,output);
-        Require(Fixture::DockId("Inspector")==Fixture::DockId("Hierarchy"),"Compact transition discarded the wide customization");
+        Require(Fixture::DockId("###Inspector")==Fixture::DockId("###Hierarchy"),"Compact transition discarded the wide customization");
         fixture.Frame(layouts,1,false,output,true);fixture.Frame(layouts,1,false,output);
-        Require(Fixture::DockId("Inspector")!=Fixture::DockId("Hierarchy"),"Restore default did not reset current layout");
+        Require(Fixture::DockId("###Inspector")!=Fixture::DockId("###Hierarchy"),"Restore default did not reset current layout");
 
         fixture.Frame(layouts,2,false,output);fixture.Frame(layouts,2,false,output);layouts.Save();
         Require(output,"Code output preference was lost after switching workspace");
@@ -86,22 +86,22 @@ int main(int argc,char** argv)
         Require(reopened.LastPage()==2,"Last active workspace did not persist");
         bool restoredOutput=false;fixture.Frame(reopened,2,false,restoredOutput);fixture.Frame(reopened,2,false,restoredOutput);
         Require(restoredOutput,"Restart lost output visibility");
-        Require(Fixture::DockId("Project")==project,"Restart did not restore saved node identities");
+        Require(Fixture::DockId("###Project")==project,"Restart did not restore saved node identities");
         Require(std::filesystem::is_regular_file(directory/"SceneWide.ini") && std::filesystem::is_regular_file(directory/"SceneCompact.ini") &&
                 std::filesystem::is_regular_file(directory/"CodeWide.ini"),"Named layout snapshots were not written");
 
         fixture.Frame(reopened,3,false,restoredOutput);fixture.Frame(reopened,3,false,restoredOutput);
-        Require(Fixture::DockId("UI Elements")!=Fixture::DockId("UI Properties"),"Wide UI workspace did not separate element and property panels");
-        const auto elements=Fixture::DockId("UI Elements");ImGui::DockBuilderDockWindow("UI Properties",elements);
+        Require(Fixture::DockId("###UI Elements")!=Fixture::DockId("###UI Properties"),"Wide UI workspace did not separate element and property panels");
+        const auto elements=Fixture::DockId("###UI Elements");ImGui::DockBuilderDockWindow("###UI Properties",elements);
         fixture.Frame(reopened,3,false,restoredOutput);
         fixture.Frame(reopened,2,false,restoredOutput);fixture.Frame(reopened,2,false,restoredOutput);
-        Require(Fixture::DockId("Project")==project,"UI workspace replaced the Code layout");
+        Require(Fixture::DockId("###Project")==project,"UI workspace replaced the Code layout");
         fixture.Frame(reopened,1,false,restoredOutput);fixture.Frame(reopened,1,false,restoredOutput);
-        Require(Fixture::DockId("Inspector")!=Fixture::DockId("Hierarchy"),"UI workspace replaced the Scene layout");
+        Require(Fixture::DockId("###Inspector")!=Fixture::DockId("###Hierarchy"),"UI workspace replaced the Scene layout");
         fixture.Frame(reopened,3,false,restoredOutput);fixture.Frame(reopened,3,false,restoredOutput);
-        Require(Fixture::DockId("UI Properties")==Fixture::DockId("UI Elements"),"UI customization was lost across all three workspaces");
+        Require(Fixture::DockId("###UI Properties")==Fixture::DockId("###UI Elements"),"UI customization was lost across all three workspaces");
         fixture.Frame(reopened,3,true,restoredOutput);fixture.Frame(reopened,3,true,restoredOutput);
-        Require(Fixture::DockId("UI Properties")==Fixture::DockId("UI Elements"),"Compact UI workspace did not combine properties with elements");
+        Require(Fixture::DockId("###UI Properties")==Fixture::DockId("###UI Elements"),"Compact UI workspace did not combine properties with elements");
         reopened.Save();Concord::Editor::WorkspaceLayouts uiRestart;uiRestart.Open(directory);
         Require(uiRestart.LastPage()==3,"UI was not restored as the startup workspace");
         Require(std::filesystem::is_regular_file(directory/"UIWide.ini") && std::filesystem::is_regular_file(directory/"UICompact.ini"),"UI snapshots were not written independently");
@@ -116,7 +116,7 @@ int main(int argc,char** argv)
 
         Concord::Editor::WriteText(directory/"SceneWide.ini","[Docking][Data]\nDockSpace ID=0x00000001 Parent=0x00000001 SizeRef=900,600\n");
         reopened.Open(directory);fixture.Frame(reopened,1,false,restoredOutput);fixture.Frame(reopened,1,false,restoredOutput);
-        Require(Fixture::DockId("Inspector")!=Fixture::DockId("Hierarchy"),"Damaged docking data did not restore a usable default");
+        Require(Fixture::DockId("###Inspector")!=Fixture::DockId("###Hierarchy"),"Damaged docking data did not restore a usable default");
         std::cout<<"Hello ImGui Scene/Code/UI layouts, width persistence, output toggling, restart, v1 migration and damaged-layout recovery passed\n";
         return 0;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}

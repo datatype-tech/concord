@@ -6,9 +6,11 @@
 #include "Concord/CExport.h"
 #include "engine/core/Types.h"
 #include "engine/ui/UiAppearance.h"
+#include "engine/ui/UiImage.h"
 #include <imgui.h>
 #include <ImGuizmo.h>
 #include <memory>
+#include <vector>
 
 namespace Concord {
 class Window;
@@ -19,8 +21,11 @@ public:
     ~UiToolkit();
     UiToolkit(const UiToolkit&) = delete;
     UiToolkit& operator=(const UiToolkit&) = delete;
-    /** Attaches platform input and a scalable system font to the engine window. */
-    bool Init(Window& window);
+    /**
+     * Attaches platform input and a scalable system font to the engine window.
+     * @param extraGlyphs Optional UTF-8 text whose characters are added to the font atlas.
+     */
+    bool Init(Window& window, const char* extraGlyphs = nullptr);
     /** Releases platform state after the renderer has released its UI resources. */
     void Shutdown();
     /** Starts the optional UI frame; Game calls this before OnUpdate. */
@@ -42,6 +47,17 @@ public:
     [[nodiscard]] bool SceneVisible() const noexcept;
     /** Renderer bridge; no graphics API types cross into Runtime. */
     void SetSceneTexture(u64 texture) noexcept;
+    /**
+     * Queues straight-alpha RGBA8 pixels for upload at the next frame boundary.
+     * @return A stable image id, or 0 when the image is empty or exceeds 4096 pixels per side.
+     */
+    u32 AddImage(const u8* rgba, u32 width, u32 height);
+    /** Texture for ImGui::Image, or 0 until the renderer has uploaded the image. */
+    [[nodiscard]] ImTextureID ImageTexture(u32 image) const noexcept;
+    /** Renderer bridge: hands queued pixels over exactly once. */
+    [[nodiscard]] std::vector<UiImagePixels> TakePendingImages();
+    /** Renderer bridge: publishes the texture created for an image id. */
+    void SetImageTexture(u32 image, u64 texture) noexcept;
     /** Completed draw data, owned by this context until the next Begin. */
     [[nodiscard]] void* DrawData() const noexcept;
 private:

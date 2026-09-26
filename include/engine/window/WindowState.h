@@ -9,11 +9,18 @@
 #include "engine/input/InputSnapshot.h"
 
 #include "engine/window/WindowDesc.h"
+#include <array>
 #include <functional>
 
 struct SDL_Window;
 
 namespace Concord {
+
+/** A client-space rectangle used by native hit testing. */
+struct WindowRegion {
+    Vec2 position{};
+    Vec2 size{};
+};
 
 /**
  * The live state behind a Window, kept out of the public header so that
@@ -41,6 +48,9 @@ struct WindowState {
     u32 pixelHeight = 0;
     bool mouseCaptured = false;
     Vec2 dragPosition{}, dragSize{};
+    /** Interactive holes in the drag region; fixed capacity keeps hit testing allocation-free. */
+    std::array<WindowRegion, 64> dragExclusions{};
+    u32 dragExclusionCount = 0;
     WindowMode restoreMode = WindowMode::Windowed;
     InputSnapshot input{};
     /** Optional platform UI observer; never owns or retains the event. */
