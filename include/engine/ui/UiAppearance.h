@@ -10,7 +10,7 @@ enum class UiToolkitTheme { SoDark, Darcula, Photoshop, Gray };
 struct UiAppearance {
     UiToolkitTheme theme = UiToolkitTheme::Darcula;
     float scale = 1.0f;
-    float rounding = 8.0f;
+    float rounding = 2.0f;
 };
 }
 #endif

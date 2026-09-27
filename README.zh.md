@@ -15,7 +15,7 @@
 
 # Concord Flash
 
-Concord Flash 是 [Concord](https://github.com/lattice-tech/concord) 引擎的第二代：
+Concord Flash 是 [Concord](https://github.com/datatype-tech/concord) 引擎的第二代：
 一款面向 Windows 的原生 Forward+ Vulkan 3D 引擎。它继承了第一代面向用户的
 语法设计，但重写了渲染后端、深化了 ECS 模型，并主动砍掉了不必要的复杂度。
 

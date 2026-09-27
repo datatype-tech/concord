@@ -23,14 +23,17 @@ void Workspace::LoadPreferences()
     const auto file=m_preferences/"Preferences.txt";
     if(std::filesystem::exists(file)) {
         std::istringstream input(ReadText(file));
-        int version=0,theme=1,language=0;float scale=1,rounding=6;std::string cli,sdk;
+        int version=0,theme=1,language=0,wrap=1;float scale=1,rounding=0;std::string cli,sdk;
         input>>version>>theme>>scale;
         if(version>=2)input>>rounding;
         if(version>=3)input>>language;
-        if(input>>std::quoted(cli)>>std::quoted(sdk); input && version>=1 && version<=4 && std::isfinite(scale) && std::isfinite(rounding)) {
+        if(version>=5)input>>wrap;
+        if(input>>std::quoted(cli)>>std::quoted(sdk); input && version>=1 && version<=7 && std::isfinite(scale) && std::isfinite(rounding)) {
             if(version==3)language=language==1?2:0;
+            if(version<6 && std::abs(rounding-2.0f)<0.01f)rounding=0;
+            if(version<7 && rounding<0.5f)rounding=3;
             m_uiTheme=std::clamp(theme,0,3);m_uiScale=std::clamp(scale,0.85f,1.6f);m_uiRounding=std::clamp(rounding,0.0f,16.0f);
-            m_uiLanguage=std::clamp(language,0,2);
+            m_uiLanguage=std::clamp(language,0,2);m_wrapPlay=wrap!=0;
             if(!cli.empty() && std::filesystem::is_regular_file(Utf8Path(cli)))std::snprintf(m_cli,sizeof(m_cli),"%s",cli.c_str());
             if(!sdk.empty() && std::filesystem::is_directory(Utf8Path(sdk)))std::snprintf(m_sdk,sizeof(m_sdk),"%s",sdk.c_str());
         }
@@ -41,7 +44,7 @@ void Workspace::LoadPreferences()
 void Workspace::SavePreferences()
 {
     std::ostringstream text;
-    text<<4<<' '<<m_uiTheme<<' '<<m_uiScale<<' '<<m_uiRounding<<' '<<m_uiLanguage<<'\n'<<std::quoted(m_cli)<<'\n'<<std::quoted(m_sdk)<<'\n';
+    text<<7<<' '<<m_uiTheme<<' '<<m_uiScale<<' '<<m_uiRounding<<' '<<m_uiLanguage<<' '<<(m_wrapPlay?1:0)<<'\n'<<std::quoted(m_cli)<<'\n'<<std::quoted(m_sdk)<<'\n';
     WriteText(m_preferences/"Preferences.txt",text.str());
 }
 void Workspace::Preferences()
@@ -64,6 +67,9 @@ void Workspace::Preferences()
         appearance|=PropertyGrid::Slider("Corner radius",m_uiRounding,0.0f,16.0f,"%.0f px");
         PropertyGrid::End();
     }
+    ImGui::SeparatorText(Tr("Game window"));
+    if(ImGui::Checkbox(Tr("Wrap the game in a Concord window"),&m_wrapPlay))Attempt([&]{SavePreferences();});
+    ImGui::TextWrapped("%s",Tr("Run and Preview draw the game under a Concord bar. The bar can switch to a direct game window."));
     if(appearance) {
         m_game.Toolkit()->SetAppearance({.theme=static_cast<UiToolkitTheme>(m_uiTheme),.scale=m_uiScale,.rounding=m_uiRounding});
         Attempt([&]{SavePreferences();});

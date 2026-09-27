@@ -49,7 +49,7 @@ void Workspace::OpenScene(const std::filesystem::path& file)
     if(path==m_scenePath){SwitchPage(1);return;}
     const auto source=ReadText(path);SceneDocument document;document.Parse(source);
     m_document=std::move(document);m_scenePath=path;m_sceneSource=source;
-    m_lastSaved=m_document.Serialize();m_sceneDirty=false;m_undo.clear();m_redo.clear();m_selection=m_document.objects.empty()?-1:0;
+    m_lastSaved=m_document.Serialize();m_sceneDirty=false;m_undo.clear();m_redo.clear();m_selection=m_document.objects.empty()?-1:0;m_worldSelection=WorldSelection::None;
     Synchronize();SwitchPage(1);FrameAll();
     m_status=std::string(Tr("Opened"))+" "+relative;
 }
@@ -105,6 +105,100 @@ void Workspace::OpenAsset(const std::filesystem::path& file)
     else if(file.filename()=="Concord.project")m_showProjectSettings=true;
     else {OpenScript(file);SwitchPage(2);m_focusSource=true;}
 }
+void Workspace::RememberSdkStamp() const
+{
+    std::error_code error;
+    const auto directory=m_project/"build-cli";
+    if(m_project.empty() || !std::filesystem::is_directory(directory,error))return;
+    try {WriteText(directory/".concord-editor-sdk",m_sdk);} catch(const std::exception&) {}
+}
+bool Workspace::CachedGameReady() const
+{
+    namespace fs=std::filesystem;
+    std::error_code error;
+    const auto game=m_project/"build-cli"/"game.exe";
+    if(!fs::is_regular_file(game,error))return false;
+    const auto main=m_project/"Main.cx";
+    const auto runtime=m_project/"ProjectRuntime.cx";
+    if(!fs::is_regular_file(main,error) || !fs::is_regular_file(runtime,error))return false;
+    if(!IsProjectEntryScript(ReadText(main)))return false;
+    if(ReadText(runtime).find("LoadSceneOverride")==std::string::npos)return false;
+    const auto stamp=m_project/"build-cli"/".concord-editor-sdk";
+    if(fs::is_regular_file(stamp,error) && ReadText(stamp)!=m_sdk)return false;
+    const auto gameTime=fs::last_write_time(game,error);
+    if(error)return false;
+    const auto consider=[&](const fs::path& file) {
+        const auto name=file.filename().string();
+        if(name=="SceneLayout.cx")return false;
+        auto extension=file.extension().string();
+        for(char& c:extension)c=static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if(extension==".scene" || extension==".yu")return false;
+        if(name=="CMakeLists.txt" || name=="Concord.project")return true;
+        return extension==".cx" || extension==".cpp" || extension==".h" || extension==".hpp" || extension==".c" || extension==".cmake";
+    };
+    fs::recursive_directory_iterator it(m_project,fs::directory_options::skip_permission_denied,error),end;
+    if(error)return false;
+    for(;it!=end;it.increment(error)) {
+        if(error)return false;
+        if(it->is_directory(error)) {
+            const auto leaf=it->path().filename().string();
+            if(leaf=="build-cli" || leaf==".editor" || leaf==".git" || leaf=="build")it.disable_recursion_pending();
+            continue;
+        }
+        if(error || !it->is_regular_file(error) || !consider(it->path()))continue;
+        const auto time=fs::last_write_time(it->path(),error);
+        if(!error && time>gameTime)return false;
+    }
+    return true;
+}
+void Workspace::LaunchGame(const std::filesystem::path& scene)
+{
+    if(m_project.empty() || m_process.Busy())return;
+    Save();m_code.ClearErrors();m_diagnostics.clear();
+    std::wstring ui;
+    if(!m_projectConfig.startupUi.empty()) {
+        std::error_code error;
+        const auto path=ResolveProjectPath(m_project,m_projectConfig.startupUi,false);
+        if(std::filesystem::is_regular_file(path,error))ui=path.wstring();
+    }
+    const auto game=m_project/"build-cli"/"game.exe";
+    if(CachedGameReady()) {
+        RememberSdkStamp();
+        m_process.Start(game,{},m_project/"build-cli",m_wrapPlay,scene.wstring(),ui);
+        m_wasBusy=true;m_status=Tr("Launching the cached game...");m_showOutput=true;
+        return;
+    }
+    if(!ToolchainReady(true))return;
+    std::vector<std::wstring> arguments={L"run",m_project.wstring()};
+    if(m_sdk[0]) {arguments.push_back(L"--sdk");arguments.push_back(Utf8Path(m_sdk).wstring());}
+    m_process.Start(Utf8Path(m_cli),arguments,m_project,m_wrapPlay,scene.wstring(),ui);
+    m_wasBusy=true;m_status=Tr("Building and launching the game...");m_showOutput=true;
+}
+void Workspace::Preview()
+{
+    if(m_project.empty())return;
+    if(m_scenePath.empty()) {
+        m_status=Tr("Open a scene to preview it.");
+        return;
+    }
+    const auto relative=InsideProject(m_project,m_scenePath);
+    if(relative.empty())throw std::runtime_error(Tr("Choose a scene inside the current project."));
+    const auto fold=[](std::string path) {
+        for(char& c:path)if(c=='\\')c='/';
+        if(path.starts_with("./"))path.erase(0,2);
+        return path;
+    };
+    const bool startup=fold(relative)==fold(m_projectConfig.startupScene);
+    if(!IsProjectEntryScript(ReadText(m_project/"Main.cx"))) {
+        if(!startup) {
+            m_status=Tr("Enable the project entry point to preview the open scene.");
+            return;
+        }
+        Build(true);
+        return;
+    }
+    LaunchGame(m_scenePath);
+}
 void Workspace::GenerateProjectRuntime()
 {
     if(!IsProjectEntryScript(ReadText(m_project/"Main.cx")))return;
@@ -121,7 +215,10 @@ void Workspace::ApplyProjectSettings(const ProjectDocument& settings)
     }
     const auto prepared=PrepareProjectRuntime(m_project,settings);
     if(IsProjectEntryScript(ReadText(m_project/"Main.cx")))SaveProjectRuntime(m_project,prepared);
-    WriteText(m_project/"Concord.project",settings.Serialize());m_projectConfig=settings;
+    const auto projectText=settings.Serialize();
+    const auto projectFile=m_project/"Concord.project";
+    if(!std::filesystem::exists(projectFile) || ReadText(projectFile)!=projectText)WriteText(projectFile,projectText);
+    m_projectConfig=settings;
     if((m_script.filename()=="SceneLayout.cx" || m_script.filename()=="ProjectRuntime.cx") && !m_scriptDirty) {
         m_code.SetText(ReadText(m_script));m_sourceSaved=m_code.GetText();
     }

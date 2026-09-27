@@ -11,6 +11,24 @@ struct Handle {
     HANDLE value=nullptr;
     ~Handle() { if(value && value!=INVALID_HANDLE_VALUE) CloseHandle(value); }
 };
+std::wstring EnvironmentBlock(bool playHost,const std::wstring& scene,const std::wstring& ui)
+{
+    wchar_t* source=GetEnvironmentStringsW();
+    if(!source)throw std::runtime_error("Cannot read the process environment");
+    std::wstring block;
+    for(const wchar_t* entry=source;*entry;) {
+        const std::wstring line=entry;
+        entry+=line.size()+1;
+        if(line.rfind(L"CONCORD_PLAY_HOST=",0)==0 || line.rfind(L"CONCORD_SCENE=",0)==0 || line.rfind(L"CONCORD_UI=",0)==0)continue;
+        block.append(line);block.push_back(L'\0');
+    }
+    FreeEnvironmentStringsW(source);
+    if(playHost){block.append(L"CONCORD_PLAY_HOST=1");block.push_back(L'\0');}
+    if(!scene.empty()){block.append(L"CONCORD_SCENE=");block.append(scene);block.push_back(L'\0');}
+    if(!ui.empty()){block.append(L"CONCORD_UI=");block.append(ui);block.push_back(L'\0');}
+    block.push_back(L'\0');
+    return block;
+}
 std::wstring Quote(const std::wstring& value)
 {
     std::wstring result=L"\""; size_t slashes=0;
@@ -31,14 +49,15 @@ void BuildProcess::Append(const std::string& text)
 }
 std::string BuildProcess::Output() const {std::lock_guard lock(m_mutex);return m_output;}
 void BuildProcess::Start(const std::filesystem::path& executable,const std::vector<std::wstring>& arguments,
-                         const std::filesystem::path& workingDirectory)
+                         const std::filesystem::path& workingDirectory,bool playHost,
+                         std::wstring sceneOverride,std::wstring uiOverride)
 {
     if(Busy()) throw std::runtime_error("A build or game is already running");
     if(!std::filesystem::is_regular_file(executable)) throw std::runtime_error("CLI executable not found: "+executable.string());
     if(m_worker.joinable())m_worker.join();
     {std::lock_guard lock(m_mutex);m_output.clear();}
     m_stop=false;m_exitCode=-1;m_busy=true;
-    m_worker=std::thread([this,executable,arguments,workingDirectory] {
+    m_worker=std::thread([this,executable,arguments,workingDirectory,playHost,sceneOverride,uiOverride] {
         try {
             Handle read,write,job,process,thread,input;
             SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES),nullptr,TRUE};
@@ -54,8 +73,10 @@ void BuildProcess::Start(const std::filesystem::path& executable,const std::vect
             STARTUPINFOW startup{};startup.cb=sizeof(startup);startup.dwFlags=STARTF_USESTDHANDLES;
             startup.hStdOutput=write.value;startup.hStdError=write.value;startup.hStdInput=input.value;
             PROCESS_INFORMATION info{};
-            if(!CreateProcessW(executable.c_str(),command.data(),nullptr,nullptr,TRUE,CREATE_NO_WINDOW|CREATE_SUSPENDED,
-                               nullptr,workingDirectory.c_str(),&startup,&info))
+            std::wstring environment=EnvironmentBlock(playHost,sceneOverride,uiOverride);
+            if(!CreateProcessW(executable.c_str(),command.data(),nullptr,nullptr,TRUE,
+                               CREATE_NO_WINDOW|CREATE_SUSPENDED|CREATE_UNICODE_ENVIRONMENT,
+                               environment.data(),workingDirectory.c_str(),&startup,&info))
                 throw std::runtime_error("Cannot start CLI (Windows error "+std::to_string(GetLastError())+")");
             process.value=info.hProcess;thread.value=info.hThread;
             if(!AssignProcessToJobObject(job.value,process.value)) {

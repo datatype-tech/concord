@@ -34,6 +34,12 @@ public:
     void Save();
     Scene& LiveScene() {return m_scene;}
 private:
+    enum class WorldSelection { None, Camera, Sun, Sky, Clouds };
+    void SelectWorld(WorldSelection selection);
+    /** Launches game.exe immediately when the binary is current; otherwise builds, then runs. */
+    void LaunchGame(const std::filesystem::path& scene);
+    bool CachedGameReady() const;
+    void RememberSdkStamp() const;
     void DockLayout();
     void Toolbar();
     void TitleBar();
@@ -70,6 +76,8 @@ private:
     void OpenScript(const std::filesystem::path& file);
     void SaveScript();
     void Build(bool run);
+    /** Saves, then launches the scene open in the viewport rather than the project's initial scene. */
+    void Preview();
     void AddBox();
     void AddObject(ObjectPreset preset);
     void AddObjectMenu();
@@ -105,6 +113,8 @@ private:
     char m_cli[1024]{},m_sdk[1024]{},m_projectInput[1024]{},m_projectName[128]="MyGame";
     int m_selection=1;
     bool m_scriptDirty=false,m_sceneDirty=false,m_resetLayout=false,m_wasBusy=false,m_codeFocused=false;
+    /** Generated startup files were swapped for the open scene and must be restored when the run ends. */
+    bool m_restoreRuntimeAfterRun=false;
     bool m_gizmoWasUsing=false,m_local=true,m_snap=false;
     bool m_showProject=false;
     bool m_closeRequested=false,m_showOutput=false,m_compact=false;
@@ -142,8 +152,10 @@ private:
     void LoadPreferences();
     void SavePreferences();
     int m_uiTheme=1;
+    /** Run and Preview open under the Concord bar. Build never does. */
+    bool m_wrapPlay=true;
     int m_uiLanguage=0;
-    float m_uiRounding=6;
+    float m_uiRounding=3;
     void SaveScene();
     void OpenScene(const std::filesystem::path& file);
     void RequestOpenScene(const std::filesystem::path& file);
@@ -154,6 +166,12 @@ private:
     void SceneFileDialog();
     void ProjectSettings();
     void SceneSettings();
+    /** Copies a chosen equirectangular image into the project and assigns it as the sky. */
+    void AddSkybox();
+    /** Clears a custom sky image and restores the analytic sky colours. */
+    void UseDefaultSky();
+    /** Applies the built-in volumetric cloud preset and opens that section. */
+    void UseDefaultClouds();
     void GenerateProjectRuntime();
     void ApplyProjectSettings(const ProjectDocument& settings);
     void UseProjectEntry();
@@ -171,6 +189,8 @@ private:
     std::filesystem::path m_pendingScene;
     bool m_askSceneSwitch=false,m_showAbout=false,m_showShortcuts=false,m_showToolchain=false;
     bool m_selectWorldTab=false,m_showGameCamera=true,m_contextMenu=false;
+    WorldSelection m_worldSelection=WorldSelection::None;
+    bool m_focusWorldSection=false;
     std::optional<SceneObject> m_copiedObject;
     int m_renaming=-1;
     char m_renameBuffer[256]{};

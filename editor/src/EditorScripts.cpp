@@ -278,7 +278,7 @@ void Workspace::Scripts()
             if(Design::Action("##go","arrow",Tr("Go")) || go){m_code.GoToLine(std::max(1,m_goToLine));m_focusSource=true;ImGui::CloseCurrentPopup();}
             ImGui::EndPopup();
         }
-        ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4{0.047f,0.047f,0.052f,1.0f});
+        ImGui::PushStyleColor(ImGuiCol_ChildBg,ImGui::GetStyleColorVec4(ImGuiCol_DockingEmptyBg));
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,ImGui::GetStyle().FrameRounding);
         ImGui::BeginChild("SourceArea",{0,-ImGui::GetTextLineHeightWithSpacing()},ImGuiChildFlags_Borders,ImGuiWindowFlags_NoScrollbar);
         if(m_focusSource){ImGui::SetNextWindowFocus();m_focusSource=false;}
@@ -379,7 +379,7 @@ void Workspace::Console()
         }
         std::vector<size_t> visible;
         for(size_t i=0;i<m_consoleLines.size();++i)if((!m_outputErrorsOnly || HasDiagnostic(m_consoleLines[i])) && ContainsText(m_consoleLines[i],m_outputFilter))visible.push_back(i);
-        ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4{0.047f,0.047f,0.052f,1.0f});
+        ImGui::PushStyleColor(ImGuiCol_ChildBg,ImGui::GetStyleColorVec4(ImGuiCol_DockingEmptyBg));
         ImGui::BeginChild("OutputLines",{},ImGuiChildFlags_Borders,ImGuiWindowFlags_HorizontalScrollbar);
         auto& fonts=ImGui::GetIO().Fonts->Fonts;
         if(fonts.Size>1)ImGui::PushFont(fonts[1]);

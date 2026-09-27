@@ -10,7 +10,7 @@
 namespace Concord::Editor {
 void Workspace::SceneSettings()
 {
-    const SceneDocument before=m_document;
+    SceneDocument before=m_document;
     bool changed=false;
     const auto number=[&](const char* label,float& value,float step,float low,float high) {
         changed|=PropertyGrid::Float(label,value,step,low,high);RecordEdit();
@@ -29,7 +29,14 @@ void Workspace::SceneSettings()
         auto settings=m_projectConfig;settings.startupScene=relative;ApplyProjectSettings(settings);m_status=Tr("Initial scene saved");
     });
     ImGui::Spacing();
-    if(ImGui::CollapsingHeader(TrId("Game camera").c_str(),ImGuiTreeNodeFlags_DefaultOpen)) {
+    const bool focus=m_focusWorldSection;m_focusWorldSection=false;
+    const auto section=[&](const char* id,WorldSelection which,ImGuiTreeNodeFlags flags) {
+        if(focus && m_worldSelection==which)ImGui::SetNextItemOpen(true,ImGuiCond_Always);
+        const bool open=Design::Section(TrId(id).c_str(),flags);
+        if(focus && m_worldSelection==which && open)ImGui::SetScrollHereY(0.15f);
+        return open;
+    };
+    if(section("Game camera",WorldSelection::Camera,ImGuiTreeNodeFlags_DefaultOpen)) {
         auto& camera=m_document.camera;
         if(Design::Action("##useView","eye",Tr("Use current 3D view"))){Checkpoint();camera.position=m_eye;camera.target=m_target;changed=true;}
         if(PropertyGrid::Begin("##camera")) {
@@ -45,7 +52,7 @@ void Workspace::SceneSettings()
             PropertyGrid::End();
         }
     }
-    if(ImGui::CollapsingHeader(TrId("Sun light").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##sun")) {
+    if(section("Sun light",WorldSelection::Sun,ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##sun")) {
         auto& sun=m_document.sun;
         changed|=PropertyGrid::Slider("Elevation",sun.elevationDegrees,-90,90,"%.1f deg");RecordEdit();
         changed|=PropertyGrid::Slider("Azimuth",sun.azimuthDegrees,-360,360,"%.1f deg");RecordEdit();
@@ -56,7 +63,18 @@ void Workspace::SceneSettings()
         PropertyGrid::End();
     }
     auto& environment=m_document.environment;
-    if(ImGui::CollapsingHeader(TrId("Sky and ambient").c_str()) && PropertyGrid::Begin("##sky")) {
+    if(section("Sky and ambient",WorldSelection::Sky,0)) {
+        if(Design::Action("##defaultSky","",Tr("Default sky"))){UseDefaultSky();before=m_document;}
+        ImGui::SameLine();
+        if(Design::Action("##imageSky","plus",Tr(environment.skybox.empty()?"From image...":"Replace skybox")))AddSkybox();
+        if(!environment.skybox.empty()) {
+            ImGui::SameLine();
+            if(Design::Action("##removeSkybox","",Tr("Remove skybox"))) {
+                Checkpoint();environment.skybox.clear();m_sceneDirty=true;Synchronize();before=m_document;
+            }
+            ImGui::TextUnformatted(Utf8Text(Utf8Path(environment.skybox).filename()).c_str());
+        }
+        if(PropertyGrid::Begin("##sky")) {
         changed|=PropertyGrid::ColorFloat("Zenith",environment.zenithColor);RecordEdit();
         changed|=PropertyGrid::ColorFloat("Horizon",environment.horizonColor);RecordEdit();
         changed|=PropertyGrid::Color("Clear color",environment.skyColor);RecordEdit();
@@ -66,8 +84,9 @@ void Workspace::SceneSettings()
         number("Moon intensity",environment.moonIntensity,0.01f,0,1);
         changed|=PropertyGrid::Vector("Moon direction",environment.moonDirection,0.01f,-1,1);RecordEdit();
         PropertyGrid::End();
+        }
     }
-    if(ImGui::CollapsingHeader(TrId("Color and post processing").c_str()) && PropertyGrid::Begin("##post")) {
+    if(section("Color and post processing",WorldSelection::None,0) && PropertyGrid::Begin("##post")) {
         number("Exposure",environment.exposure,0.01f,0.01f,20);
         number("Contrast",environment.contrast,0.01f,0,2);
         number("Saturation",environment.saturation,0.01f,0,3);
@@ -78,7 +97,9 @@ void Workspace::SceneSettings()
         number("Chromatic aberration",environment.chromaticAberration,0.001f,0,0.1f);
         PropertyGrid::End();
     }
-    if(ImGui::CollapsingHeader(TrId("Volumetric clouds").c_str()) && PropertyGrid::Begin("##clouds")) {
+    if(section("Volumetric clouds",WorldSelection::Clouds,0)) {
+        if(Design::Action("##defaultClouds","plus",Tr(environment.cloudCoverage>0.001f?"Default clouds":"Add volumetric clouds"))){UseDefaultClouds();before=m_document;}
+        if(PropertyGrid::Begin("##clouds")) {
         number("Coverage",environment.cloudCoverage,0.01f,0,1);
         number("Density",environment.cloudDensity,0.0001f,0,1);
         number("Altitude",environment.cloudAltitude,1,-10000,10000);
@@ -94,8 +115,9 @@ void Workspace::SceneSettings()
         steps("Coarse steps",environment.cloudCoarseSteps,64,1);
         steps("Light steps",environment.cloudLightSteps,32);
         PropertyGrid::End();
+        }
     }
-    if(ImGui::CollapsingHeader(TrId("Volumetric fog").c_str()) && PropertyGrid::Begin("##fog")) {
+    if(section("Volumetric fog",WorldSelection::None,0) && PropertyGrid::Begin("##fog")) {
         number("Fog density",environment.fogDensity,0.0001f,0,1);
         number("Height falloff",environment.fogHeightFalloff,0.001f,0,10);
         number("Base height",environment.fogBaseHeight,0.1f,-10000,10000);
@@ -113,5 +135,79 @@ void Workspace::SceneSettings()
         try{m_document.Validate();m_sceneDirty=true;Synchronize();}
         catch(const std::exception& error){m_document=before;Report(error);}
     }
+}
+void Workspace::AddSkybox()
+{
+    if(m_project.empty() || m_scenePath.empty())return;
+    const auto chosen=ChooseFile(WideText(Tr("Add skybox")).c_str(),L"Image",L"*.png;*.jpg;*.jpeg;*.tga;*.bmp",m_project);
+    if(chosen.empty())return;
+    std::error_code error;
+    const auto canonical=std::filesystem::weakly_canonical(chosen,error);
+    const auto source=error?chosen:canonical;
+    error.clear();
+    const auto project=std::filesystem::weakly_canonical(m_project,error);
+    const auto root=error?m_project:project;
+    error.clear();
+    const auto projectRelative=std::filesystem::relative(source,root,error);
+    const auto projectText=projectRelative.generic_string();
+    const bool outside=error || projectText.empty() || projectText==".." || projectText.starts_with("../");
+    std::filesystem::path stored=source;
+    if(outside) {
+        error.clear();
+        const auto folder=root/"Skyboxes";
+        std::filesystem::create_directories(folder,error);
+        if(error){m_status=Tr("Could not copy the skybox into the project");return;}
+        const auto destination=folder/source.filename();
+        error.clear();
+        if(!std::filesystem::equivalent(source,destination,error)) {
+            error.clear();
+            std::filesystem::copy_file(source,destination,std::filesystem::copy_options::overwrite_existing,error);
+            if(error){m_status=Tr("Could not copy the skybox into the project");return;}
+        }
+        stored=destination;
+    }
+    error.clear();
+    const auto relative=std::filesystem::relative(stored,m_scenePath.parent_path(),error);
+    if(error || relative.empty()){m_status=Tr("Could not copy the skybox into the project");return;}
+    const auto text=relative.lexically_normal().generic_u8string();
+    Checkpoint();
+    m_document.environment.skybox.assign(reinterpret_cast<const char*>(text.data()),text.size());
+    m_sceneDirty=true;
+    SelectWorld(WorldSelection::Sky);
+    Synchronize();
+}
+void Workspace::UseDefaultSky()
+{
+    Checkpoint();
+    const EnvironmentSettings defaults{};
+    auto& environment=m_document.environment;
+    environment.skybox.clear();
+    environment.zenithColor=defaults.zenithColor;
+    environment.horizonColor=defaults.horizonColor;
+    environment.skyColor=defaults.skyColor;
+    SelectWorld(WorldSelection::Sky);
+    Synchronize();
+}
+void Workspace::UseDefaultClouds()
+{
+    Checkpoint();
+    const EnvironmentSettings defaults{};
+    auto& environment=m_document.environment;
+    environment.cloudCoverage=0.48f;
+    environment.cloudDensity=defaults.cloudDensity;
+    environment.cloudAltitude=defaults.cloudAltitude;
+    environment.cloudThickness=defaults.cloudThickness;
+    environment.cloudWeatherScale=defaults.cloudWeatherScale;
+    environment.cloudDetailScale=defaults.cloudDetailScale;
+    environment.cloudDetailStrength=defaults.cloudDetailStrength;
+    environment.cloudType=defaults.cloudType;
+    environment.cloudDriftSpeed=defaults.cloudDriftSpeed;
+    environment.cloudLightGain=defaults.cloudLightGain;
+    environment.cloudAmbientGain=defaults.cloudAmbientGain;
+    environment.cloudSteps=defaults.cloudSteps;
+    environment.cloudCoarseSteps=defaults.cloudCoarseSteps;
+    environment.cloudLightSteps=defaults.cloudLightSteps;
+    SelectWorld(WorldSelection::Clouds);
+    Synchronize();
 }
 }

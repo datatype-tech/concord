@@ -134,8 +134,8 @@ void UiDesigner::Impl::Canvas()
             ImGui::InvisibleButton("##uiSurface", size, ImGuiButtonFlags_MouseButtonLeft);
             const bool hovered = ImGui::IsItemHovered();
             auto* draw = ImGui::GetWindowDrawList();
-            draw->AddRectFilled({origin.x + 5, origin.y + 7}, {origin.x + size.x + 5, origin.y + size.y + 7}, IM_COL32(0,0,0,50), 2);
-            draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y}, IM_COL32(20,23,30,255));
+            draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y}, IM_COL32(22, 24, 27, 255));
+            draw->AddRect(origin, {origin.x + size.x, origin.y + size.y}, IM_COL32(58, 61, 66, 255));
             draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);
             if (showGrid) {
                 float spacing = grid * scale;

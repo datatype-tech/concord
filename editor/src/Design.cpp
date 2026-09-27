@@ -34,18 +34,24 @@ ImU32 WithAlpha(ImU32 color,float alpha)
     const auto a=static_cast<ImU32>(std::clamp(alpha,0.0f,1.0f)*((color>>IM_COL32_A_SHIFT)&0xFF));
     return (color&~IM_COL32_A_MASK)|(a<<IM_COL32_A_SHIFT);
 }
+/** Places the original transparent lockup in a square without cropping or restroking it. */
 void QueueLogo(UiToolkit& toolkit)
 {
     int width=0,height=0,channels=0;
     auto* source=stbi_load_from_memory(ConcordLogoPng,static_cast<int>(sizeof(ConcordLogoPng)),&width,&height,&channels,4);
-    if(!source)return;
+    if(!source || width<=0 || height<=0){stbi_image_free(source);return;}
+    const int side=std::max(width,height);
+    std::vector<unsigned char> framed(static_cast<size_t>(side)*side*4,0);
+    const int ox=(side-width)/2,oy=(side-height)/2;
+    for(int y=0;y<height;++y)
+        std::copy_n(source+static_cast<size_t>(y)*width*4,width*4,framed.data()+(static_cast<size_t>(oy+y)*side+ox)*4);
+    stbi_image_free(source);
     for(size_t index=0;index<LogoSizes.size();++index) {
         const int size=LogoSizes[index];
         std::vector<unsigned char> pixels(static_cast<size_t>(size)*size*4);
-        if(stbir_resize_uint8_srgb(source,width,height,0,pixels.data(),size,size,0,STBIR_RGBA))
+        if(stbir_resize_uint8_srgb(framed.data(),side,side,0,pixels.data(),size,size,0,STBIR_RGBA))
             logoImages[index]=toolkit.AddImage(pixels.data(),static_cast<u32>(size),static_cast<u32>(size));
     }
-    stbi_image_free(source);
 }
 void DrawCaptionGlyph(ImDrawList& draw,CaptionGlyph glyph,ImVec2 center,float unit,ImU32 color)
 {
@@ -170,8 +176,10 @@ bool Design::Action(const char* id,const char* icon,const char* label,bool activ
     const ImVec4 accent=Accent;
     ImU32 fill,text;
     if(primary) {
-        const ImU32 base=ImGui::GetColorU32(accent),bright=ImGui::GetColorU32({std::min(1.0f,accent.x*1.15f),std::min(1.0f,accent.y*1.12f),std::min(1.0f,accent.z*1.06f),1.0f});
-        fill=Blend(base,bright,hover);if(held)fill=ImGui::GetColorU32({accent.x*0.85f,accent.y*0.85f,accent.z*0.85f,1});
+        const ImVec4 base{accent.x*0.72f,accent.y*0.62f,accent.z*0.55f,1.0f};
+        const ImVec4 bright{std::min(1.0f,accent.x*0.92f),std::min(1.0f,accent.y*0.82f),std::min(1.0f,accent.z*0.72f),1.0f};
+        fill=Blend(ImGui::GetColorU32(base),ImGui::GetColorU32(bright),hover);
+        if(held)fill=ImGui::GetColorU32({accent.x*0.55f,accent.y*0.48f,accent.z*0.42f,1});
         text=IM_COL32(255,255,255,255);
     } else {
         const ImU32 base=active?ImGui::GetColorU32({accent.x,accent.y,accent.z,0.22f}):ImGui::GetColorU32(ImGuiCol_Button);
@@ -181,7 +189,11 @@ bool Design::Action(const char* id,const char* icon,const char* label,bool activ
     }
     if(disabled){fill=WithAlpha(fill,0.5f);text=ImGui::GetColorU32(ImGuiCol_TextDisabled);}
     auto* draw=ImGui::GetWindowDrawList();
-    draw->AddRectFilled(position,{position.x+width,position.y+height},fill,ImGui::GetStyle().FrameRounding);
+    const float rounding=ImGui::GetStyle().FrameRounding;
+    const ImVec2 max{position.x+width,position.y+height};
+    draw->AddRectFilled(position,max,fill,rounding);
+    const float border=std::max(1.0f,ImGui::GetStyle().FrameBorderSize);
+    draw->AddRect(position,max,primary?WithAlpha(IM_COL32(0,0,0,255),0.28f):ImGui::GetColorU32(ImGuiCol_Border),rounding,0,border);
     const ImU32 iconColor=!primary && active && !disabled?ImGui::GetColorU32(accent):text;
     const float iconSize=unit*0.95f;
     if(label) {
@@ -206,12 +218,12 @@ bool Design::Ghost(const char* id,const char* icon,const char* label,bool active
     const float hover=Fade(ImGui::GetItemID(),hovered && !disabled);
     auto* draw=ImGui::GetWindowDrawList();
     const ImVec4 accent=Accent;
-    ImU32 fill=active?ImGui::GetColorU32({accent.x,accent.y,accent.z,0.20f}):IM_COL32(255,255,255,0);
-    fill=Blend(fill,active?ImGui::GetColorU32({accent.x,accent.y,accent.z,0.28f}):IM_COL32(255,255,255,20),hover);
-    if(held && !disabled)fill=IM_COL32(255,255,255,12);
+    ImU32 fill=active?ImGui::GetColorU32({accent.x,accent.y,accent.z,0.22f}):IM_COL32(255,255,255,0);
+    fill=Blend(fill,active?ImGui::GetColorU32({accent.x,accent.y,accent.z,0.32f}):IM_COL32(255,255,255,18),hover);
+    if(held && !disabled)fill=ImGui::GetColorU32(ImGuiCol_ButtonActive);
     if(fill>>IM_COL32_A_SHIFT)draw->AddRectFilled(position,{position.x+width,position.y+height},fill,ImGui::GetStyle().FrameRounding);
     const ImU32 text=disabled?ImGui::GetColorU32(ImGuiCol_TextDisabled):ImGui::GetColorU32(ImGuiCol_Text);
-    const ImU32 iconColor=disabled?text:active?ImGui::GetColorU32(accent):Blend(ImGui::GetColorU32({0.78f,0.80f,0.84f,1}),text,hover);
+    const ImU32 iconColor=disabled?text:active?ImGui::GetColorU32(Accent):Blend(ImGui::GetColorU32({0.82f,0.82f,0.82f,1}),text,hover);
     const float iconSize=unit*0.95f;
     if(label) {
         float x=position.x+padding;
@@ -247,9 +259,9 @@ int Design::Segmented(const char* id,const Segment* segments,int count,int selec
         const bool hovered=ImGui::IsItemHovered();
         const float hover=Fade(ImGui::GetItemID(),hovered);
         const float chosen=Fade(ImGui::GetItemID()+1,index==selected,20.0f);
-        if(chosen>0.01f)draw->AddRectFilled({x,origin.y+inset},{x+size.x,origin.y+inset+size.y},
-            ImGui::GetColorU32({0.26f,0.27f,0.30f,chosen}),rounding);
-        else if(hover>0.01f)draw->AddRectFilled({x,origin.y+inset},{x+size.x,origin.y+inset+size.y},IM_COL32(255,255,255,static_cast<int>(12*hover)),rounding);
+        if(chosen>0.01f)
+            draw->AddRectFilled({x,origin.y+inset},{x+size.x,origin.y+inset+size.y},ImGui::GetColorU32(ImGuiCol_Button,chosen),std::max(0.0f,rounding-1.0f));
+        else if(hover>0.01f)draw->AddRectFilled({x,origin.y+inset},{x+size.x,origin.y+inset+size.y},IM_COL32(255,255,255,static_cast<int>(16*hover)),rounding);
         const ImU32 text=Blend(ImGui::GetColorU32({0.66f,0.68f,0.72f,1}),ImGui::GetColorU32(ImGuiCol_Text),std::max(chosen,hover));
         const ImU32 iconColor=Blend(text,ImGui::GetColorU32(Accent),chosen);
         const bool hasLabel=segments[index].label && segments[index].label[0];
@@ -300,17 +312,42 @@ void Design::Heading(const char* text)
     auto& fonts=ImGui::GetIO().Fonts->Fonts;
     if(fonts.Size>2)ImGui::PushFont(fonts[2]);ImGui::TextUnformatted(text);if(fonts.Size>2)ImGui::PopFont();
 }
+bool Design::Section(const char* label,ImGuiTreeNodeFlags flags)
+{
+    ImGui::Dummy({0,ImGui::GetStyle().ItemSpacing.y*0.25f});
+    ImGui::PushStyleColor(ImGuiCol_Header,ImVec4{1,1,1,0.045f});
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered,ImVec4{1,1,1,0.09f});
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive,ImVec4{1,1,1,0.07f});
+    const bool open=ImGui::CollapsingHeader(label,flags);
+    ImGui::PopStyleColor(3);
+    return open;
+}
 void Design::Eyebrow(const char* text)
 {
+    const float unit=ImGui::GetFontSize();
+    const ImVec2 position=ImGui::GetCursorScreenPos();
+    ImGui::SetWindowFontScale(0.82f);
+    const ImVec2 textSize=ImGui::CalcTextSize(text);
+    const float tick=std::max(2.0f,std::round(unit*0.12f));
+    ImGui::GetWindowDrawList()->AddRectFilled({position.x,position.y+textSize.y*0.18f},{position.x+tick,position.y+textSize.y*0.82f},
+        ImGui::GetColorU32(Accent),tick);
+    ImGui::SetCursorScreenPos({position.x+tick+std::round(unit*0.38f),position.y});
     ImGui::PushStyleColor(ImGuiCol_Text,Muted);
-    ImGui::SetWindowFontScale(0.86f);ImGui::TextUnformatted(text);ImGui::SetWindowFontScale(1.0f);
+    ImGui::TextUnformatted(text);
     ImGui::PopStyleColor();
+    ImGui::SetWindowFontScale(1.0f);
 }
 void Design::Badge(const char* text,ImVec4 color)
 {
-    const float unit=ImGui::GetFontSize();
-    auto position=ImGui::GetCursorScreenPos();auto size=ImGui::CalcTextSize(text);size.x+=unit*0.8f;size.y+=unit*0.3f;
-    ImGui::GetWindowDrawList()->AddRectFilled(position,{position.x+size.x,position.y+size.y},ImGui::GetColorU32({color.x,color.y,color.z,0.16f}),size.y*0.5f);
-    ImGui::GetWindowDrawList()->AddText({position.x+unit*0.4f,position.y+unit*0.15f},ImGui::GetColorU32(color),text);ImGui::Dummy(size);
+    const float unit=ImGui::GetFontSize(),pad=std::round(unit*0.4f);
+    const auto position=ImGui::GetCursorScreenPos();
+    const ImVec2 textSize=ImGui::CalcTextSize(text);
+    const ImVec2 size{textSize.x+pad*2.0f,std::max(ImGui::GetFrameHeight()*0.86f,textSize.y+pad*0.6f)};
+    const float rounding=ImGui::GetStyle().FrameRounding;
+    auto* draw=ImGui::GetWindowDrawList();
+    draw->AddRectFilled(position,{position.x+size.x,position.y+size.y},ImGui::GetColorU32({color.x,color.y,color.z,0.14f}),rounding);
+    draw->AddRect(position,{position.x+size.x,position.y+size.y},ImGui::GetColorU32({color.x,color.y,color.z,0.45f}),rounding);
+    draw->AddText({position.x+pad,position.y+(size.y-textSize.y)*0.5f},ImGui::GetColorU32(color),text);
+    ImGui::Dummy(size);
 }
 }

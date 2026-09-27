@@ -15,71 +15,76 @@
 
 namespace Concord {
 namespace {
-/** Neutral charcoal surfaces with the Concord logo blue as the only accent. */
+/** Godot-style surfaces: blue-gray panels, inset fields, raised buttons, a quiet accent. */
 void ApplyConcordColors(ImGuiStyle& style)
 {
-    const ImVec4 accent{0.36f, 0.56f, 0.90f, 1.0f};
-    const ImVec4 accentHover{0.45f, 0.64f, 0.96f, 1.0f};
-    const auto tint = [](ImVec4 color, float alpha) { return ImVec4{color.x, color.y, color.z, alpha}; };
+    const ImVec4 accent{0.44f, 0.73f, 0.98f, 1.0f};
+    const ImVec4 panel{0.210f, 0.240f, 0.290f, 1.0f};
+    const ImVec4 chrome{0.147f, 0.168f, 0.203f, 1.0f};
+    const ImVec4 well{0.118f, 0.135f, 0.165f, 1.0f};
+    const ImVec4 raised{0.275f, 0.310f, 0.365f, 1.0f};
+    const ImVec4 raisedHover{0.330f, 0.368f, 0.428f, 1.0f};
+    const ImVec4 selection{0.275f, 0.455f, 0.655f, 1.0f};
+    const ImVec4 selectionHover{0.330f, 0.520f, 0.730f, 1.0f};
     auto& c = style.Colors;
-    c[ImGuiCol_Text] = {0.92f, 0.93f, 0.95f, 1.0f};
-    c[ImGuiCol_TextDisabled] = {0.50f, 0.53f, 0.58f, 1.0f};
-    c[ImGuiCol_WindowBg] = {0.118f, 0.122f, 0.133f, 1.0f};
+    c[ImGuiCol_Text] = {0.925f, 0.940f, 0.960f, 1.0f};
+    c[ImGuiCol_TextDisabled] = {0.580f, 0.620f, 0.680f, 1.0f};
+    c[ImGuiCol_WindowBg] = panel;
     c[ImGuiCol_ChildBg] = {0.0f, 0.0f, 0.0f, 0.0f};
-    c[ImGuiCol_PopupBg] = {0.141f, 0.145f, 0.160f, 0.99f};
-    c[ImGuiCol_Border] = {1.0f, 1.0f, 1.0f, 0.075f};
+    c[ImGuiCol_PopupBg] = {0.125f, 0.145f, 0.180f, 0.98f};
+    c[ImGuiCol_Border] = {0.520f, 0.570f, 0.640f, 0.45f};
     c[ImGuiCol_BorderShadow] = {0.0f, 0.0f, 0.0f, 0.0f};
-    c[ImGuiCol_FrameBg] = {0.165f, 0.169f, 0.184f, 1.0f};
-    c[ImGuiCol_FrameBgHovered] = {0.200f, 0.204f, 0.224f, 1.0f};
-    c[ImGuiCol_FrameBgActive] = {0.224f, 0.230f, 0.255f, 1.0f};
-    c[ImGuiCol_TitleBg] = {0.086f, 0.089f, 0.098f, 1.0f};
-    c[ImGuiCol_TitleBgActive] = c[ImGuiCol_TitleBg];
-    c[ImGuiCol_TitleBgCollapsed] = c[ImGuiCol_TitleBg];
-    c[ImGuiCol_MenuBarBg] = c[ImGuiCol_TitleBg];
+    c[ImGuiCol_FrameBg] = well;
+    c[ImGuiCol_FrameBgHovered] = {0.155f, 0.175f, 0.210f, 1.0f};
+    c[ImGuiCol_FrameBgActive] = {0.100f, 0.115f, 0.145f, 1.0f};
+    c[ImGuiCol_TitleBg] = chrome;
+    c[ImGuiCol_TitleBgActive] = chrome;
+    c[ImGuiCol_TitleBgCollapsed] = chrome;
+    c[ImGuiCol_MenuBarBg] = chrome;
     c[ImGuiCol_ScrollbarBg] = {0.0f, 0.0f, 0.0f, 0.0f};
-    c[ImGuiCol_ScrollbarGrab] = {1.0f, 1.0f, 1.0f, 0.12f};
-    c[ImGuiCol_ScrollbarGrabHovered] = {1.0f, 1.0f, 1.0f, 0.20f};
-    c[ImGuiCol_ScrollbarGrabActive] = {1.0f, 1.0f, 1.0f, 0.28f};
+    c[ImGuiCol_ScrollbarGrab] = {0.780f, 0.830f, 0.900f, 0.22f};
+    c[ImGuiCol_ScrollbarGrabHovered] = {0.780f, 0.830f, 0.900f, 0.36f};
+    c[ImGuiCol_ScrollbarGrabActive] = accent;
     c[ImGuiCol_CheckMark] = accent;
     c[ImGuiCol_SliderGrab] = accent;
-    c[ImGuiCol_SliderGrabActive] = accentHover;
-    c[ImGuiCol_Button] = {0.176f, 0.180f, 0.198f, 1.0f};
-    c[ImGuiCol_ButtonHovered] = {0.227f, 0.233f, 0.259f, 1.0f};
-    c[ImGuiCol_ButtonActive] = {0.263f, 0.271f, 0.302f, 1.0f};
-    c[ImGuiCol_Header] = tint(accent, 0.24f);
-    c[ImGuiCol_HeaderHovered] = {1.0f, 1.0f, 1.0f, 0.07f};
-    c[ImGuiCol_HeaderActive] = tint(accent, 0.34f);
-    c[ImGuiCol_Separator] = {1.0f, 1.0f, 1.0f, 0.07f};
-    c[ImGuiCol_SeparatorHovered] = tint(accent, 0.70f);
+    c[ImGuiCol_SliderGrabActive] = {0.62f, 0.84f, 1.0f, 1.0f};
+    c[ImGuiCol_Button] = raised;
+    c[ImGuiCol_ButtonHovered] = raisedHover;
+    c[ImGuiCol_ButtonActive] = {0.210f, 0.240f, 0.290f, 1.0f};
+    c[ImGuiCol_Header] = selection;
+    c[ImGuiCol_HeaderHovered] = selectionHover;
+    c[ImGuiCol_HeaderActive] = {0.220f, 0.380f, 0.560f, 1.0f};
+    c[ImGuiCol_Separator] = {0.0f, 0.0f, 0.0f, 0.38f};
+    c[ImGuiCol_SeparatorHovered] = accent;
     c[ImGuiCol_SeparatorActive] = accent;
     c[ImGuiCol_ResizeGrip] = {0.0f, 0.0f, 0.0f, 0.0f};
-    c[ImGuiCol_ResizeGripHovered] = tint(accent, 0.55f);
+    c[ImGuiCol_ResizeGripHovered] = selectionHover;
     c[ImGuiCol_ResizeGripActive] = accent;
-    c[ImGuiCol_Tab] = c[ImGuiCol_TitleBg];
-    c[ImGuiCol_TabHovered] = {0.200f, 0.204f, 0.224f, 1.0f};
-    c[ImGuiCol_TabSelected] = c[ImGuiCol_WindowBg];
+    c[ImGuiCol_Tab] = chrome;
+    c[ImGuiCol_TabHovered] = raised;
+    c[ImGuiCol_TabSelected] = panel;
     c[ImGuiCol_TabSelectedOverline] = accent;
-    c[ImGuiCol_TabDimmed] = c[ImGuiCol_TitleBg];
-    c[ImGuiCol_TabDimmedSelected] = c[ImGuiCol_WindowBg];
-    c[ImGuiCol_TabDimmedSelectedOverline] = {1.0f, 1.0f, 1.0f, 0.10f};
-    c[ImGuiCol_DockingPreview] = tint(accent, 0.45f);
-    c[ImGuiCol_DockingEmptyBg] = {0.070f, 0.072f, 0.080f, 1.0f};
+    c[ImGuiCol_TabDimmed] = chrome;
+    c[ImGuiCol_TabDimmedSelected] = {0.185f, 0.210f, 0.255f, 1.0f};
+    c[ImGuiCol_TabDimmedSelectedOverline] = {1.0f, 1.0f, 1.0f, 0.22f};
+    c[ImGuiCol_DockingPreview] = {accent.x, accent.y, accent.z, 0.35f};
+    c[ImGuiCol_DockingEmptyBg] = {0.090f, 0.105f, 0.130f, 1.0f};
     c[ImGuiCol_PlotLines] = accent;
-    c[ImGuiCol_PlotLinesHovered] = accentHover;
+    c[ImGuiCol_PlotLinesHovered] = c[ImGuiCol_SliderGrabActive];
     c[ImGuiCol_PlotHistogram] = accent;
-    c[ImGuiCol_PlotHistogramHovered] = accentHover;
-    c[ImGuiCol_TableHeaderBg] = {0.141f, 0.145f, 0.160f, 1.0f};
-    c[ImGuiCol_TableBorderStrong] = {1.0f, 1.0f, 1.0f, 0.08f};
-    c[ImGuiCol_TableBorderLight] = {1.0f, 1.0f, 1.0f, 0.05f};
+    c[ImGuiCol_PlotHistogramHovered] = c[ImGuiCol_SliderGrabActive];
+    c[ImGuiCol_TableHeaderBg] = chrome;
+    c[ImGuiCol_TableBorderStrong] = {0.0f, 0.0f, 0.0f, 0.40f};
+    c[ImGuiCol_TableBorderLight] = {1.0f, 1.0f, 1.0f, 0.06f};
     c[ImGuiCol_TableRowBg] = {0.0f, 0.0f, 0.0f, 0.0f};
-    c[ImGuiCol_TableRowBgAlt] = {1.0f, 1.0f, 1.0f, 0.018f};
-    c[ImGuiCol_TextLink] = accentHover;
-    c[ImGuiCol_TextSelectedBg] = tint(accent, 0.35f);
-    c[ImGuiCol_DragDropTarget] = accentHover;
+    c[ImGuiCol_TableRowBgAlt] = {1.0f, 1.0f, 1.0f, 0.035f};
+    c[ImGuiCol_TextLink] = accent;
+    c[ImGuiCol_TextSelectedBg] = {selection.x, selection.y, selection.z, 0.55f};
+    c[ImGuiCol_DragDropTarget] = accent;
     c[ImGuiCol_NavCursor] = accent;
     c[ImGuiCol_NavWindowingHighlight] = {1.0f, 1.0f, 1.0f, 0.70f};
     c[ImGuiCol_NavWindowingDimBg] = {0.0f, 0.0f, 0.0f, 0.45f};
-    c[ImGuiCol_ModalWindowDimBg] = {0.0f, 0.0f, 0.0f, 0.55f};
+    c[ImGuiCol_ModalWindowDimBg] = {0.02f, 0.03f, 0.05f, 0.55f};
 }
 }
 
@@ -106,7 +111,7 @@ void UiToolkit::SetAppearance(const UiAppearance& appearance)
     m_impl->appearance = appearance;
     m_impl->appearance.theme = static_cast<UiToolkitTheme>(std::clamp(static_cast<int>(appearance.theme), 0, 3));
     m_impl->appearance.scale = std::isfinite(appearance.scale) ? std::clamp(appearance.scale, 0.85f, 1.6f) : 1.0f;
-    m_impl->appearance.rounding = std::isfinite(appearance.rounding) ? std::clamp(appearance.rounding, 0.0f, 16.0f) : 8.0f;
+    m_impl->appearance.rounding = std::isfinite(appearance.rounding) ? std::clamp(appearance.rounding, 0.0f, 16.0f) : 0.0f;
     m_impl->appearanceDirty = true;
 }
 UiAppearance UiToolkit::Appearance() const noexcept { return m_impl->appearance; }
@@ -195,11 +200,11 @@ void UiToolkit::Begin()
         theme.Tweaks.Rounding = m_impl->appearance.rounding;
         auto style = ImGuiTheme::TweakedThemeThemeToStyle(theme);
         const float rounding = m_impl->appearance.rounding;
-        style.WindowPadding = {12, 10};
-        style.FramePadding = {9, 5};
+        style.WindowPadding = {10, 8};
+        style.FramePadding = {8, 5};
         style.ItemSpacing = {8, 6};
-        style.ItemInnerSpacing = {6, 5};
-        style.CellPadding = {6, 4};
+        style.ItemInnerSpacing = {6, 4};
+        style.CellPadding = {8, 5};
         style.IndentSpacing = 16;
         style.WindowMinSize = {180, 100};
         style.WindowBorderSize = 0;
@@ -220,10 +225,34 @@ void UiToolkit::Begin()
         style.TabBarOverlineSize = 2;
         style.SeparatorTextBorderSize = 1;
         style.SeparatorTextPadding = {0, 3};
-        style.DockingSeparatorSize = 2;
+        style.DockingSeparatorSize = 1;
         style.WindowMenuButtonPosition = ImGuiDir_None;
         style.SelectableTextAlign = {0.0f, 0.5f};
-        if (m_impl->appearance.theme == UiToolkitTheme::Darcula) ApplyConcordColors(style);
+        if (m_impl->appearance.theme == UiToolkitTheme::Darcula) {
+            ApplyConcordColors(style);
+            const float radius = std::clamp(rounding, 0.0f, 8.0f);
+            style.WindowPadding = {6, 6};
+            style.FramePadding = {7, 4};
+            style.ItemSpacing = {6, 4};
+            style.ItemInnerSpacing = {5, 4};
+            style.CellPadding = {6, 3};
+            style.WindowRounding = 0;
+            style.ChildRounding = 0;
+            style.PopupRounding = radius;
+            style.FrameRounding = radius;
+            style.GrabRounding = radius;
+            style.TabRounding = radius;
+            style.ScrollbarRounding = std::max(radius, 6.0f);
+            style.FrameBorderSize = 1;
+            style.PopupBorderSize = 1;
+            style.ChildBorderSize = 0;
+            style.WindowBorderSize = 0;
+            style.ScrollbarSize = 9;
+            style.GrabMinSize = 12;
+            style.DockingSeparatorSize = 2;
+            style.TabBarOverlineSize = 2;
+            style.TabBarBorderSize = 0;
+        }
         const float scale = displayScale * m_impl->appearance.scale;
         style.ScaleAllSizes(scale);
         ImGui::GetStyle() = style;

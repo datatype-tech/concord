@@ -75,16 +75,18 @@ void Workspace::AboutDialog()
 {
     if(m_showAbout){ImGui::OpenPopup("###About");m_showAbout=false;}
     if(!Design::BeginDialog(TrId("About Concord Flash","About").c_str(),28))return;
-    const float unit=ImGui::GetFontSize(),logo=unit*5.2f;
-    ImGui::SetCursorPosX((ImGui::GetWindowWidth()-logo)*0.5f);Design::LogoImage(logo);
-    const auto centered=[](const char* text,bool heading) {
-        if(heading){auto& fonts=ImGui::GetIO().Fonts->Fonts;if(fonts.Size>2)ImGui::PushFont(fonts[2]);}
-        ImGui::SetCursorPosX((ImGui::GetWindowWidth()-ImGui::CalcTextSize(text).x)*0.5f);ImGui::TextUnformatted(text);
-        if(heading){auto& fonts=ImGui::GetIO().Fonts->Fonts;if(fonts.Size>2)ImGui::PopFont();}
-    };
-    centered("Concord Flash",true);
-    const std::string version=std::string(Tr("Version"))+" "+EditorVersion;
-    ImGui::PushStyleColor(ImGuiCol_Text,Design::Muted);centered(version.c_str(),false);ImGui::PopStyleColor();
+    const float unit=ImGui::GetFontSize(),logo=std::round(unit*2.4f);
+    const ImVec2 brand=ImGui::GetCursorScreenPos();
+    Design::Logo(brand,logo);
+    ImGui::Dummy({logo,logo});
+    ImGui::SameLine(0,unit*0.55f);
+    ImGui::BeginGroup();
+    auto& fonts=ImGui::GetIO().Fonts->Fonts;
+    if(fonts.Size>2)ImGui::PushFont(fonts[2]);
+    ImGui::TextUnformatted("Concord Flash");
+    if(fonts.Size>2)ImGui::PopFont();
+    ImGui::TextColored(Design::Muted,"%s %s",Tr("Version"),EditorVersion);
+    ImGui::EndGroup();
     ImGui::Spacing();ImGui::Separator();ImGui::Spacing();
     if(ImGui::BeginTable("stack",2,ImGuiTableFlags_SizingStretchProp)) {
         const std::pair<const char*,const char*> rows[]={
@@ -99,7 +101,7 @@ void Workspace::AboutDialog()
     ImGui::Spacing();
     const float width=Design::ButtonWidth("GitHub",false)+Design::ButtonWidth(Tr("Close"),false)+ImGui::GetStyle().ItemSpacing.x;
     Design::AlignRight(width);
-    if(Design::Action("##github","","GitHub"))OpenExternal(L"https://github.com/lattice-tech/concord");
+    if(Design::Action("##github","","GitHub"))OpenExternal(L"https://github.com/datatype-tech/concord");
     ImGui::SameLine();if(Design::Action("##closeAbout","",Tr("Close"),false,true))ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
@@ -119,7 +121,7 @@ void Workspace::ShortcutsDialog()
             ImGui::EndTable();
         }
     };
-    group("General",{{"Ctrl+S","Save all"},{"F5","Build and play"},{"Shift+F5","Stop"},{"Ctrl+B","Build project"},
+    group("General",{{"Ctrl+S","Save all"},{"F6","Preview open scene"},{"F5","Build and play"},{"Shift+F5","Stop"},{"Ctrl+B","Build project"},
         {"Ctrl+O","Open scene..."},{"Ctrl+1 / 2 / 3","Switch workspace"},{"Ctrl+,","Preferences..."},{"F11","Full screen"},{"F1","Keyboard shortcuts"}});
     group("3D scene",{{"W / E / R","Move / rotate / scale"},{"RMB + drag","Orbit the view"},{"RMB + W A S D Q E","Fly through the scene"},
         {"MMB + drag","Pan the view"},{"Wheel","Zoom"},{"F / Home","Focus selection / frame all"},{"Ctrl+C / V / D","Copy / paste / duplicate"},

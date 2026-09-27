@@ -35,13 +35,14 @@ bool ContainsFolded(const std::string& text,const char* query)
     for(auto* s:{&a,&b})for(char& c:*s)if(static_cast<unsigned char>(c)<128)c=static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return a.find(b)!=std::string::npos;
 }
-bool EnvironmentRow(const char* icon,const char* label,ImU32 tint)
+bool EnvironmentRow(const char* icon,const char* id,const char* label,ImU32 tint,bool selected)
 {
     const float unit=ImGui::GetFontSize();
     const auto position=ImGui::GetCursorScreenPos();
-    const bool clicked=ImGui::Selectable((std::string("##")+label).c_str(),false,ImGuiSelectableFlags_None,{0,unit*1.35f});
-    Design::Icon(icon,{position.x+unit*0.2f,position.y+unit*0.18f},unit,tint);
-    ImGui::GetWindowDrawList()->AddText({position.x+unit*1.6f,position.y+unit*0.18f},ImGui::GetColorU32(ImGuiCol_Text),label);
+    const bool clicked=ImGui::Selectable((std::string("##")+id).c_str(),selected,ImGuiSelectableFlags_None,{0,unit*1.35f});
+    const ImU32 text=selected?IM_COL32(255,255,255,255):ImGui::GetColorU32(ImGuiCol_Text);
+    Design::Icon(icon,{position.x+unit*0.2f,position.y+unit*0.18f},unit,selected?text:tint);
+    ImGui::GetWindowDrawList()->AddText({position.x+unit*1.6f,position.y+unit*0.18f},text,label);
     return clicked;
 }
 }
@@ -69,8 +70,41 @@ void Workspace::Hierarchy()
         if(ImGui::BeginPopup("##addObject")){AddObjectMenu();ImGui::EndPopup();}
         ImGui::Spacing();
         Design::Eyebrow(Tr("ENVIRONMENT"));
-        if(EnvironmentRow("eye",Tr("Game camera"),IM_COL32(236,208,120,255)))m_selectWorldTab=true;
-        if(EnvironmentRow("focus",Tr("Sun light"),IM_COL32(250,196,90,255)))m_selectWorldTab=true;
+        if(EnvironmentRow("eye","gameCamera",Tr("Game camera"),IM_COL32(214,214,214,255),m_worldSelection==WorldSelection::Camera)) {
+            SelectWorld(WorldSelection::Camera);
+            if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))FocusSelection();
+        }
+        if(EnvironmentRow("focus","sunLight",Tr("Sun light"),IM_COL32(250,196,90,255),m_worldSelection==WorldSelection::Sun)) {
+            SelectWorld(WorldSelection::Sun);
+            if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))FocusSelection();
+        }
+        {
+            const bool hasSky=!m_document.environment.skybox.empty();
+            const std::string skyName=hasSky?Utf8Text(Utf8Path(m_document.environment.skybox).filename()):Tr("Default sky");
+            if(EnvironmentRow("cube","skybox",skyName.c_str(),IM_COL32(126,176,232,255),m_worldSelection==WorldSelection::Sky)) {
+                SelectWorld(WorldSelection::Sky);
+                if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))FocusSelection();
+            }
+            if(ImGui::BeginPopupContextItem("##skyMenu")) {
+                if(ImGui::MenuItem(Tr("Default sky")))UseDefaultSky();
+                if(ImGui::MenuItem(hasSky?Tr("Replace skybox"):Tr("From image...")))AddSkybox();
+                if(hasSky && ImGui::MenuItem(Tr("Remove skybox"))) {
+                    Checkpoint();m_document.environment.skybox.clear();Synchronize();
+                }
+                ImGui::EndPopup();
+            }
+            const bool clouds=m_document.environment.cloudCoverage>0.001f;
+            if(EnvironmentRow(clouds?"check":"plus","clouds",clouds?Tr("Volumetric clouds"):Tr("Add volumetric clouds"),IM_COL32(186,206,232,255),m_worldSelection==WorldSelection::Clouds)) {
+                if(clouds) {
+                    SelectWorld(WorldSelection::Clouds);
+                    if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))FocusSelection();
+                } else UseDefaultClouds();
+            }
+            if(ImGui::BeginPopupContextItem("##cloudMenu")) {
+                if(ImGui::MenuItem(Tr("Default clouds")))UseDefaultClouds();
+                ImGui::EndPopup();
+            }
+        }
         ImGui::Spacing();
         Design::Eyebrow(Tr("SCENE OBJECTS"));
         const auto count=std::to_string(m_document.objects.size());
@@ -105,8 +139,8 @@ void Workspace::Hierarchy()
                     ImGui::PopID();continue;
                 }
                 ImGui::SetNextItemAllowOverlap();
-                if(ImGui::Selectable("##row",m_selection==i,ImGuiSelectableFlags_AllowDoubleClick,{0,row})) {
-                    m_selection=i;
+                if(ImGui::Selectable("##row",m_selection==i && m_worldSelection==WorldSelection::None,ImGuiSelectableFlags_AllowDoubleClick,{0,row})) {
+                    m_selection=i;m_worldSelection=WorldSelection::None;
                     if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))BeginRename(i);
                 }
                 if(ImGui::BeginDragDropSource()) {
@@ -120,7 +154,7 @@ void Workspace::Hierarchy()
                 }
                 const bool hovered=ImGui::IsItemHovered();
                 if(ImGui::BeginPopupContextItem("##objectMenu")) {
-                    m_selection=i;
+                    m_selection=i;m_worldSelection=WorldSelection::None;
                     if(ImGui::MenuItem(Tr("Rename"),"F2"))BeginRename(i);
                     if(ImGui::MenuItem(Tr("Duplicate"),"Ctrl+D"))DuplicateSelection();
                     if(ImGui::MenuItem(Tr("Copy"),"Ctrl+C"))CopySelection();
@@ -151,14 +185,16 @@ void Workspace::Hierarchy()
                 Checkpoint();auto moved=m_document.objects[moveFrom];
                 m_document.objects.erase(m_document.objects.begin()+moveFrom);
                 m_document.objects.insert(m_document.objects.begin()+moveTo,moved);
-                m_selection=moveTo;Synchronize();
+                m_selection=moveTo;m_worldSelection=WorldSelection::None;Synchronize();
             }
             if(m_document.objects.empty()) {
                 ImGui::Spacing();ImGui::TextColored(Design::Muted,"%s",Tr("This scene is empty."));
                 if(Design::Action("##addFirst","plus",Tr("Add object")))ImGui::OpenPopup("##addFirstObject");
                 if(ImGui::BeginPopup("##addFirstObject")){AddObjectMenu();ImGui::EndPopup();}
             }
-            if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsAnyItemHovered())m_selection=-1;
+            if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsAnyItemHovered()) {
+                m_selection=-1;m_worldSelection=WorldSelection::None;
+            }
         }
         ImGui::EndChild();
     }
@@ -199,27 +235,28 @@ void Workspace::ObjectInspector()
     }
     auto& object=m_document.objects[m_selection];const auto before=object;bool changed=false;
     char name[256]{};std::snprintf(name,sizeof(name),"%s",object.name.c_str());
-    Design::Image(KindIcon(object.kind),unit*1.2f,KindColor(object.kind,object.visible));ImGui::SameLine();
+    Design::Image(KindIcon(object.kind),unit*1.15f,KindColor(object.kind,object.visible));ImGui::SameLine();
+    ImGui::BeginGroup();
     ImGui::SetNextItemWidth(-FLT_MIN);
     if(ImGui::InputText("##objectName",name,sizeof(name)) && name[0]){object.name=name;changed=true;}
+    ImGui::TextColored(Design::Muted,"%s",KindName(object.kind));
+    ImGui::EndGroup();
     RecordEdit();
-    Design::Badge(KindName(object.kind),ImGui::ColorConvertU32ToFloat4(KindColor(object.kind,true)));
-    ImGui::Spacing();
-    if(ImGui::CollapsingHeader(TrId("Transform").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##transform")) {
+    if(Design::Section(TrId("Transform").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##transform")) {
         changed|=PropertyGrid::Vector("Position",object.transform.position,0.05f,-100000,100000);RecordEdit();
         changed|=PropertyGrid::Vector("Rotation",object.transform.rotation,0.5f,-36000,36000,"%.1f");RecordEdit();
         changed|=PropertyGrid::Vector("Scale",object.transform.scale,0.01f,0.001f,1000,"%.3f");RecordEdit();
         PropertyGrid::End();
         if(Design::Ghost("Reset transform","rotate",Tr("Reset"))){Checkpoint();object.transform={};changed=true;}
     }
-    if(ImGui::CollapsingHeader(TrId("Shape").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##shape")) {
+    if(Design::Section(TrId("Shape").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##shape")) {
         const char* kinds[]={"Box","Thin plane","Static physics box","Dynamic physics box"};
         int kind=static_cast<int>(object.kind);
         if(PropertyGrid::Combo("Type",kind,kinds,4)){Checkpoint();object.kind=static_cast<SceneObjectKind>(kind);changed=true;}
         changed|=PropertyGrid::Vector("Dimensions",object.size,0.05f,0.001f,1000,"%.3f");RecordEdit();
         PropertyGrid::End();
     }
-    if(ImGui::CollapsingHeader(TrId("Material").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##material")) {
+    if(Design::Section(TrId("Material").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##material")) {
         changed|=PropertyGrid::Color("Base color",object.material.albedo);RecordEdit();
         PropertyGrid::Row("Presets");
         const ColorRGBA presets[]={COLOR_RGB(62,190,181),COLOR_RGB(92,143,230),COLOR_RGB(146,115,238),COLOR_RGB(236,98,110),
@@ -240,7 +277,7 @@ void Workspace::ObjectInspector()
         changed|=PropertyGrid::Float("Emission",object.material.emissive,0.05f,0,100,"%.2f");RecordEdit();
         PropertyGrid::End();
     }
-    if(ImGui::CollapsingHeader(TrId("Rendering").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##rendering")) {
+    if(Design::Section(TrId("Rendering").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##rendering")) {
         bool visible=object.visible;
         if(PropertyGrid::Check("Visible in game",visible)){Checkpoint();object.visible=visible;changed=true;}
         bool shadow=object.castShadow;
@@ -248,7 +285,7 @@ void Workspace::ObjectInspector()
         PropertyGrid::End();
     }
     if(object.kind==SceneObjectKind::DynamicBox || object.kind==SceneObjectKind::StaticBox) {
-        if(ImGui::CollapsingHeader(TrId("Physics").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##physics")) {
+        if(Design::Section(TrId("Physics").c_str(),ImGuiTreeNodeFlags_DefaultOpen) && PropertyGrid::Begin("##physics")) {
             if(object.kind==SceneObjectKind::DynamicBox) {
                 changed|=PropertyGrid::Float("Mass (kg)",object.mass,0.1f,0.001f,100000,"%.2f");RecordEdit();
                 bool lock=object.lockRotation;
@@ -314,7 +351,7 @@ void Workspace::ProjectDialog()
     }
     const auto preview=Utf8Text(Utf8Path(m_projectInput)/Utf8Path(m_projectName));
     ImGui::PushTextWrapPos();ImGui::TextColored(Design::Muted,"%s  %s",Tr("Creates"),preview.c_str());ImGui::PopTextWrapPos();
-    if(ImGui::CollapsingHeader(TrId("Advanced toolchain settings").c_str())) {
+    if(Design::Section(TrId("Advanced toolchain settings").c_str())) {
         ImGui::TextUnformatted(Tr("Concord CLI"));
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x-Design::ButtonWidth(Tr("Browse..."))-spacing);ImGui::InputText("##cli",m_cli,sizeof(m_cli));
         ImGui::SameLine();if(Design::Action("##chooseCli","folder",Tr("Browse..."))){auto path=ChooseExecutable();if(!path.empty())std::snprintf(m_cli,sizeof(m_cli),"%s",Utf8Text(path).c_str());}

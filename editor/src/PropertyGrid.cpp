@@ -25,7 +25,8 @@ void Row(const char* label,const char* tooltip)
 {
     ImGui::TableNextRow();ImGui::TableSetColumnIndex(0);
     ImGui::AlignTextToFramePadding();
-    ImGui::PushStyleColor(ImGuiCol_Text,ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    const ImVec4 body=ImGui::GetStyleColorVec4(ImGuiCol_Text);
+    ImGui::PushStyleColor(ImGuiCol_Text,ImVec4{body.x*0.78f,body.y*0.82f,body.z*0.88f,1});
     const char* text=Tr(label);
     const float available=ImGui::GetContentRegionAvail().x;
     if(ImGui::CalcTextSize(text).x>available) {
@@ -60,18 +61,28 @@ bool Vector(const char* label,Vec3& value,float speed,float minimum,float maximu
     Row(label);ImGui::PushID(label);
     const float spacing=ImGui::GetStyle().ItemInnerSpacing.x;
     const float width=(ImGui::GetContentRegionAvail().x-spacing*2)/3.0f;
-    const ImU32 axes[]={IM_COL32(226,88,88,255),IM_COL32(118,196,98,255),IM_COL32(92,146,232,255)};
+    const ImU32 axes[]={IM_COL32(214,92,92,255),IM_COL32(98,176,104,255),IM_COL32(86,140,214,255)};
+    const char* letters[]={"X","Y","Z"};
     float* components[]={&value.x,&value.y,&value.z};
     bool changed=false;
+    const float unit=ImGui::GetFontSize();
+    const float tag=std::round(unit*0.95f);
+    const ImVec2 pad=ImGui::GetStyle().FramePadding;
     ImGui::BeginGroup();
     for(int axis=0;axis<3;++axis) {
         if(axis)ImGui::SameLine(0,spacing);
-        ImGui::PushID(axis);ImGui::SetNextItemWidth(width);
+        ImGui::PushID(axis);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,{tag+unit*0.15f,pad.y});
+        ImGui::SetNextItemWidth(width);
         const auto position=ImGui::GetCursorScreenPos();
         changed|=ImGui::DragFloat("##axis",components[axis],speed,minimum,maximum,format,ImGuiSliderFlags_AlwaysClamp);
-        const float marker=std::max(2.0f,std::round(ImGui::GetFontSize()*0.14f));
-        ImGui::GetWindowDrawList()->AddRectFilled(position,{position.x+marker,position.y+ImGui::GetFrameHeight()},axes[axis],
-            ImGui::GetStyle().FrameRounding,ImDrawFlags_RoundCornersLeft);
+        ImGui::PopStyleVar();
+        const float height=ImGui::GetFrameHeight();
+        const float rounding=ImGui::GetStyle().FrameRounding;
+        auto* draw=ImGui::GetWindowDrawList();
+        draw->AddRectFilled(position,{position.x+tag,position.y+height},axes[axis],rounding,ImDrawFlags_RoundCornersLeft);
+        const ImVec2 letter=ImGui::CalcTextSize(letters[axis]);
+        draw->AddText({position.x+(tag-letter.x)*0.5f,position.y+(height-letter.y)*0.5f},IM_COL32(16,20,28,255),letters[axis]);
         ImGui::PopID();
     }
     ImGui::EndGroup();ImGui::PopID();

@@ -14,8 +14,14 @@ namespace Concord::Editor {
 class BuildProcess {
 public:
     ~BuildProcess();
+    /**
+     * Starts a child process. playHost sets CONCORD_PLAY_HOST so Run and Preview
+     * open under the Concord bar. sceneOverride and uiOverride name the files
+     * the game loads when the binary is already current.
+     */
     void Start(const std::filesystem::path& executable,const std::vector<std::wstring>& arguments,
-               const std::filesystem::path& workingDirectory);
+               const std::filesystem::path& workingDirectory,bool playHost=false,
+               std::wstring sceneOverride={},std::wstring uiOverride={});
     void Stop();
     bool Busy() const { return m_busy.load(); }
     int ExitCode() const { return m_exitCode.load(); }

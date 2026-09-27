@@ -15,7 +15,7 @@
 
 # Concord Flash
 
-Concord Flash is the second generation of the [Concord](https://github.com/lattice-tech/concord)
+Concord Flash is the second generation of the [Concord](https://github.com/datatype-tech/concord)
 engine: a native Forward+ Vulkan 3D engine for Windows. It keeps the first
 generation's user-facing syntax, but rewrites the render backend, deepens the
 ECS model, and deliberately cuts complexity that never earned its keep.

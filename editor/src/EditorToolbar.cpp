@@ -15,8 +15,8 @@ constexpr ImGuiWindowFlags BarFlags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFla
 void VerticalDivider(float height)
 {
     const auto position=ImGui::GetCursorScreenPos();const float unit=ImGui::GetFontSize();
-    ImGui::GetWindowDrawList()->AddLine({position.x+unit*0.3f,position.y+height*0.2f},{position.x+unit*0.3f,position.y+height*0.8f},
-        ImGui::GetColorU32(ImGuiCol_Separator),1.0f);
+    ImGui::GetWindowDrawList()->AddLine({position.x+unit*0.3f,position.y+height*0.22f},{position.x+unit*0.3f,position.y+height*0.78f},
+        IM_COL32(255,255,255,32),1.0f);
     ImGui::Dummy({unit*0.6f,height});
 }
 }
@@ -43,7 +43,7 @@ void Workspace::TitleBar()
         const ImVec2 origin=ImGui::GetWindowPos();const float width=ImGui::GetWindowWidth();
         auto* draw=ImGui::GetWindowDrawList();
         m_window.SetDragRegion({origin.x-viewport->Pos.x,origin.y-viewport->Pos.y},{width,height});
-        const float logo=std::round(unit*1.2f),inset=std::round(unit*0.7f);
+        const float logo=std::round(unit*1.45f),inset=std::round(unit*0.55f);
         Design::Logo({origin.x+inset,origin.y+std::round((height-logo)*0.5f)},logo);
         float menusEnd=origin.x+inset+logo;
         const float caption=std::round(height*1.42f);
@@ -126,7 +126,7 @@ void Workspace::MainMenus()
         if(ImGui::MenuItem(Tr("Delete"),"Del",false,scene && IsSelected()))DeleteSelection();
         ImGui::Separator();
         if(ImGui::BeginMenu(Tr("Add object"),scene)){AddObjectMenu();ImGui::EndMenu();}
-        if(ImGui::MenuItem(Tr("Focus selection"),"F",false,scene && IsSelected()))FocusSelection();
+        if(ImGui::MenuItem(Tr("Focus selection"),"F",false,scene && (IsSelected() || m_worldSelection!=WorldSelection::None)))FocusSelection();
         if(ImGui::MenuItem(Tr("Frame all objects"),"Home",false,scene))FrameAll();
         ImGui::EndMenu();
     }
@@ -145,6 +145,7 @@ void Workspace::MainMenus()
     }
     if(ImGui::BeginMenu(Tr("Build"))) {
         const bool busy=m_process.Busy();
+        if(ImGui::MenuItem(Tr("Preview open scene"),"F6",false,!busy))Attempt([&]{Preview();});
         if(ImGui::MenuItem(Tr("Build project"),"Ctrl+B",false,!busy))Attempt([&]{Build(false);});
         if(ImGui::MenuItem(Tr("Build and play"),"F5",false,!busy))Attempt([&]{Build(true);});
         if(ImGui::MenuItem(Tr("Stop"),"Shift+F5",false,busy))m_process.Stop();
@@ -154,7 +155,7 @@ void Workspace::MainMenus()
     }
     if(ImGui::BeginMenu(Tr("Help"))) {
         if(ImGui::MenuItem(Tr("Keyboard shortcuts"),"F1"))m_showShortcuts=true;
-        if(ImGui::MenuItem(Tr("Concord on GitHub")))OpenExternal(L"https://github.com/lattice-tech/concord");
+        if(ImGui::MenuItem(Tr("Concord on GitHub")))OpenExternal(L"https://github.com/datatype-tech/concord");
         ImGui::Separator();
         if(ImGui::MenuItem(Tr("About Concord Flash")))m_showAbout=true;
         ImGui::EndMenu();
@@ -164,18 +165,24 @@ void Workspace::CommandBar()
 {
     auto* viewport=ImGui::GetMainViewport();
     const float unit=ImGui::GetFontSize(),frame=ImGui::GetFrameHeight(),height=std::round(frame+unit*0.6f);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg,ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
+    const ImVec4 title=ImGui::GetStyleColorVec4(ImGuiCol_TitleBg);
+    const ImVec4 panel=ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+    const ImVec4 command{title.x+(panel.x-title.x)*0.55f,title.y+(panel.y-title.y)*0.55f,title.z+(panel.z-title.z)*0.55f,1.0f};
+    ImGui::PushStyleColor(ImGuiCol_WindowBg,command);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,{std::round(unit*0.6f),std::round((height-frame)*0.5f)});
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,0);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,0);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,{std::round(unit*0.25f),0});
     if(ImGui::BeginViewportSideBar("##CommandBar",viewport,ImGuiDir_Up,height,BarFlags)) {
+        const ImVec2 barOrigin=ImGui::GetWindowPos();
+        ImGui::GetWindowDrawList()->AddLine(barOrigin,{barOrigin.x+ImGui::GetWindowWidth(),barOrigin.y},ImGui::GetColorU32(ImGuiCol_Border));
         const float width=ImGui::GetWindowWidth();
-        const bool labels=width>unit*44;
-        const Segment pages[]={{"cube",labels?Tr("3D"):nullptr},{"code",labels?Tr("Code"):nullptr},{"grid",labels?Tr("UI"):nullptr}};
+        const bool workspaceLabels=width>unit*34;
+        const bool transportLabels=width>unit*58;
+        const Segment pages[]={{"cube",workspaceLabels?Tr("3D"):nullptr},{"code",workspaceLabels?Tr("Code"):nullptr},{"grid",workspaceLabels?Tr("UI"):nullptr}};
         const int clicked=Design::Segmented("workspaces",pages,3,m_page-1);
         if(clicked>=0)SwitchPage(clicked+1);
-        if(!labels) {
+        if(!workspaceLabels) {
             const auto position=ImGui::GetItemRectMin();
             if(ImGui::IsMouseHoveringRect(position,ImGui::GetItemRectMax()))
                 ImGui::SetTooltip("%s",Tr("3D scene  /  Code  /  User interface"));
@@ -188,24 +195,45 @@ void Workspace::CommandBar()
         if(Design::Ghost("Redo (Ctrl+Y)","redo")){if(m_page==2)m_code.Redo();else if(m_page==3)m_uiDesigner.Redo();else Undo(true);}
         const bool busy=m_process.Busy();
         const auto& style=ImGui::GetStyle();
-        const float buildWidth=labels?unit+style.FramePadding.x*2.5f+ImGui::CalcTextSize(Tr("Build")).x:frame;
-        const float playWidth=labels?unit+style.FramePadding.x*2.8f+ImGui::CalcTextSize(Tr("Play")).x:frame;
-        const float busyWidth=busy && width>unit*52?unit*1.3f+ImGui::CalcTextSize(Tr("Running...")).x:0.0f;
-        const float right=buildWidth+playWidth+frame+style.ItemSpacing.x*3+busyWidth;
-        ImGui::SameLine(std::max(ImGui::GetCursorPosX()+unit,width-style.WindowPadding.x-right));
+        const auto labeled=[&](const char* text) {
+            return unit+style.FramePadding.x*3.1f+ImGui::CalcTextSize(text).x;
+        };
+        const float previewWidth=transportLabels?labeled(Tr("Preview")):frame;
+        const float buildWidth=transportLabels?labeled(Tr("Build")):frame;
+        const float playWidth=transportLabels?labeled(Tr("Play")):frame;
+        const float busyWidth=busy && width>unit*64?unit*1.3f+ImGui::CalcTextSize(Tr("Running...")).x:0.0f;
+        const float transport=previewWidth+buildWidth+playWidth+frame+style.ItemSpacing.x*4+busyWidth+unit*0.8f;
+        const float toolsEnd=ImGui::GetCursorPosX();
+        const float center=(width-transport)*0.5f;
+        const std::string sceneName=m_scenePath.empty()?std::string{}:Utf8Text(m_scenePath.filename());
+        ImGui::SameLine(std::max(toolsEnd+unit,center));
+        VerticalDivider(frame);ImGui::SameLine();
         if(busyWidth>0) {
             Design::Spinner(unit*0.45f,ImGui::GetColorU32(Design::Accent));ImGui::SameLine(0,unit*0.35f);
             ImGui::AlignTextToFramePadding();ImGui::TextColored(Design::Muted,"%s",Tr("Running..."));ImGui::SameLine();
         }
         ImGui::BeginDisabled(busy);
-        if(Design::Ghost("Build project (Ctrl+B)","build",labels?Tr("Build"):nullptr))Attempt([&]{Build(false);});
+        if(Design::Action("Preview the open scene (F6)","eye",transportLabels?Tr("Preview"):nullptr))Attempt([&]{Preview();});
+        if(transportLabels)Design::Tooltip(Tr("Preview the open scene (F6)"));
         ImGui::SameLine();
-        if(Design::Action("Build and play (F5)","play",labels?Tr("Play"):nullptr,false,true))Attempt([&]{Build(true);});
+        if(Design::Ghost("Build project (Ctrl+B)","build",transportLabels?Tr("Build"):nullptr))Attempt([&]{Build(false);});
+        ImGui::SameLine();
+        if(Design::Action("Play the project's initial scene (F5)","play",transportLabels?Tr("Play"):nullptr,false,true))Attempt([&]{Build(true);});
+        if(transportLabels)Design::Tooltip(Tr("Play the project's initial scene (F5)"));
         ImGui::EndDisabled();
         ImGui::SameLine();
         ImGui::BeginDisabled(!busy);
         if(Design::Ghost("Stop (Shift+F5)","stop"))m_process.Stop();
         ImGui::EndDisabled();
+        if(!sceneName.empty()) {
+            const float nameWidth=ImGui::CalcTextSize(sceneName.c_str()).x;
+            const float nameX=width-style.WindowPadding.x-nameWidth;
+            if(nameX>ImGui::GetCursorPosX()+unit) {
+                ImGui::SameLine(nameX);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextColored(Design::Muted,"%s",sceneName.c_str());
+            }
+        }
     }
     ImGui::End();
     ImGui::PopStyleVar(4);ImGui::PopStyleColor();
@@ -227,6 +255,7 @@ void Workspace::StatusBar()
         if(!m_projectManager) {
             const bool dirty=m_sceneDirty || m_scriptDirty || m_uiDesigner.Dirty();
             right=std::string(dirty?Tr("Unsaved changes"):Tr("All changes saved"))+"    "+std::to_string(static_cast<int>(ImGui::GetIO().Framerate+0.5f))+" FPS";
+            if(!m_scenePath.empty())right=Utf8Text(m_scenePath.filename())+"    "+right;
             if(m_page==1)right=std::to_string(m_document.objects.size())+" "+Tr("objects")+"    "+right;
         }
         right+=std::string("    ")+(IsChinese()?"中文":"English")+"    v"+EditorVersion;
@@ -234,10 +263,9 @@ void Workspace::StatusBar()
         if(busy){Design::Spinner(unit*0.4f,ImGui::GetColorU32(Design::Accent));ImGui::SameLine(0,unit*0.4f);}
         else if(!m_projectManager){Design::Image("console",unit*0.9f,ImGui::GetColorU32(ImGuiCol_TextDisabled));ImGui::SameLine(0,unit*0.4f);}
         if(!m_projectManager) {
-            ImGui::PushStyleColor(ImGuiCol_Text,ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-            if(ImGui::Selectable(m_showOutput?Tr("Hide output"):Tr("Show output"),false,ImGuiSelectableFlags_None,
-                {ImGui::CalcTextSize(m_showOutput?Tr("Hide output"):Tr("Show output")).x,0}))m_showOutput=!m_showOutput;
-            ImGui::PopStyleColor();ImGui::SameLine(0,unit);
+            if(Design::Ghost(m_showOutput?"Hide output":"Show output",nullptr,m_showOutput?Tr("Hide output"):Tr("Show output"),m_showOutput,unit*1.25f))
+                m_showOutput=!m_showOutput;
+            ImGui::SameLine(0,unit);
         }
         const float available=width-ImGui::GetCursorPosX()-rightWidth-unit*2;
         if(available>unit*3) {

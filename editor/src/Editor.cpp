@@ -66,7 +66,7 @@ void Workspace::Open(const std::filesystem::path& requested)
     SaveLayouts();
     m_project=project;m_projectConfig=settings;m_scenePath=scenePath;m_sceneSource=sceneSource;
     m_document=std::move(loaded);m_lastSaved=m_document.Serialize();
-    m_sceneDirty=sceneSource.empty();m_undo.clear();m_redo.clear();m_selection=m_document.objects.empty()?-1:0;
+    m_sceneDirty=sceneSource.empty();m_undo.clear();m_redo.clear();m_selection=m_document.objects.empty()?-1:0;m_worldSelection=WorldSelection::None;
     m_script=project/"Main.cx";m_code.SetLanguage(false);m_code.SetReadOnly(false);m_code.SetText(source);m_sourceSaved=source;m_scriptDirty=false;
     std::filesystem::create_directories(project/".editor");
     OpenLayouts();
@@ -121,7 +121,12 @@ void Workspace::OpenScript(const std::filesystem::path& file)
 void Workspace::Synchronize()
 {
     m_snapshot=m_document.Serialize();
-    m_scene.SetEnvironment(m_document.environment);
+    EnvironmentSettings environment=m_document.environment;
+    if(!environment.skybox.empty() && !m_scenePath.empty()) {
+        const auto sky=(m_scenePath.parent_path()/Utf8Path(environment.skybox)).lexically_normal();
+        environment.skybox=Utf8Text(sky);
+    }
+    m_scene.SetEnvironment(environment);
     if(auto* sun=m_sun.Get<LightComponent>()) {
         sun->elevationDegrees=m_document.sun.elevationDegrees;sun->azimuthDegrees=m_document.sun.azimuthDegrees;
         sun->color=m_document.sun.color;sun->intensity=m_document.sun.intensity;sun->castShadow=m_document.sun.castShadow;
@@ -145,6 +150,7 @@ void Workspace::Undo(bool redo)
     if(from.empty())return;
     to.push_back(m_document.Serialize());m_document.Parse(from.back());from.pop_back();
     if(!IsSelected())m_selection=m_document.objects.empty()?-1:static_cast<int>(m_document.objects.size())-1;
+    if(IsSelected())m_worldSelection=WorldSelection::None;
     m_sceneDirty=m_document.Serialize()!=m_lastSaved;Synchronize();
 }
 bool Workspace::IsSelected() const {return m_selection>=0 && static_cast<size_t>(m_selection)<m_document.objects.size();}
@@ -172,7 +178,7 @@ void Workspace::AddObject(ObjectPreset preset)
         object.name=std::string(Tr("Dynamic body"))+" "+count;object.kind=SceneObjectKind::DynamicBox;
         object.transform.position.y=std::max(3.0f,m_target.y+2);object.material.albedo=COLOR_RGB(236,154,72);break;
     }
-    m_document.objects.push_back(object);m_selection=static_cast<int>(m_document.objects.size())-1;Synchronize();
+    m_document.objects.push_back(object);m_selection=static_cast<int>(m_document.objects.size())-1;m_worldSelection=WorldSelection::None;Synchronize();
     m_status=std::string(Tr("Added"))+" "+object.name;
 }
 void Workspace::DeleteSelection()
@@ -187,7 +193,7 @@ void Workspace::DuplicateSelection()
 {
     if(!IsSelected())return;Checkpoint();auto copy=m_document.objects[m_selection];
     copy.name=(copy.name+" "+Tr("copy")).substr(0,255);copy.transform.position.x+=1;
-    m_document.objects.push_back(copy);m_selection=static_cast<int>(m_document.objects.size())-1;Synchronize();
+    m_document.objects.push_back(copy);m_selection=static_cast<int>(m_document.objects.size())-1;m_worldSelection=WorldSelection::None;Synchronize();
 }
 void Workspace::CopySelection()
 {
@@ -199,7 +205,7 @@ void Workspace::PasteObject()
 {
     if(!m_copiedObject || m_document.objects.size()>=10000)return;
     Checkpoint();auto copy=*m_copiedObject;copy.transform.position.x+=1;copy.transform.position.z+=1;
-    m_document.objects.push_back(copy);m_selection=static_cast<int>(m_document.objects.size())-1;Synchronize();
+    m_document.objects.push_back(copy);m_selection=static_cast<int>(m_document.objects.size())-1;m_worldSelection=WorldSelection::None;Synchronize();
     m_status=std::string(Tr("Pasted"))+" "+copy.name;
 }
 void Workspace::BeginRename(int index)
@@ -223,14 +229,23 @@ bool Workspace::ToolchainReady(bool build)
     m_status=build?Tr("Concord CLI (concord.exe) was not found. Choose it to build and play."):Tr("Concord CLI (concord.exe) was not found.");
     return false;
 }
+void Workspace::SelectWorld(WorldSelection selection)
+{
+    m_selection=-1;m_worldSelection=selection;m_selectWorldTab=true;m_focusWorldSection=true;
+}
 void Workspace::Build(bool run)
 {
-    if(m_project.empty() || !ToolchainReady(true))return;
+    if(m_project.empty())return;
+    if(run) {
+        LaunchGame(ResolveProjectPath(m_project,m_projectConfig.startupScene,true));
+        return;
+    }
+    if(!ToolchainReady(true))return;
     Save();m_code.ClearErrors();m_diagnostics.clear();
-    std::vector<std::wstring> arguments={run?L"run":L"build",m_project.wstring()};
+    std::vector<std::wstring> arguments={L"build",m_project.wstring()};
     if(m_sdk[0]) {arguments.push_back(L"--sdk");arguments.push_back(Utf8Path(m_sdk).wstring());}
-    m_process.Start(Utf8Path(m_cli),arguments,m_project);
-    m_wasBusy=true;m_status=run?Tr("Building and launching the game..."):Tr("Building the project...");
+    m_process.Start(Utf8Path(m_cli),arguments,m_project,false);
+    m_wasBusy=true;m_status=Tr("Building the project...");
     m_showOutput=true;
 }
 void Workspace::ToggleFullscreen()
@@ -265,6 +280,7 @@ void Workspace::Tick()
         if(!m_projectManager && ImGui::IsKeyPressed(ImGuiKey_F5,false)) {
             if(io.KeyShift)m_process.Stop();else if(!m_process.Busy())Attempt([&]{Build(true);});
         }
+        if(!m_projectManager && ImGui::IsKeyPressed(ImGuiKey_F6,false) && !io.KeyShift && !m_process.Busy())Attempt([&]{Preview();});
         if(!m_projectManager && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_B,false) && !m_process.Busy())Attempt([&]{Build(false);});
         if(!m_projectManager && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O,false))Attempt([&]{OpenSceneDialog();});
         if(ImGui::IsKeyPressed(ImGuiKey_F11,false))ToggleFullscreen();
@@ -283,7 +299,13 @@ void Workspace::Tick()
             if(ImGui::IsKeyPressed(ImGuiKey_Home,false))FrameAll();
         }
         if(m_wasBusy && !m_process.Busy()) {
-            m_wasBusy=false;m_diagnostics=m_process.Output();
+            m_wasBusy=false;
+            if(m_process.ExitCode()==0)RememberSdkStamp();
+            if(m_restoreRuntimeAfterRun) {
+                m_restoreRuntimeAfterRun=false;
+                try {GenerateProjectRuntime();} catch(const std::exception& error) {Report(error);}
+            }
+            m_diagnostics=m_process.Output();
             m_status=m_process.ExitCode()==0?Tr("Process completed successfully"):Tr("Process failed; see Build output");
             if(!m_pendingCreate.empty()) {
                 auto pending=Utf8Path(m_pendingCreate);m_pendingCreate.clear();

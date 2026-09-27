@@ -39,6 +39,8 @@ struct Design {
     static float Fade(ImGuiID id,bool on,float speed=16.0f);
     static void Spinner(float radius,ImU32 color);
     static void Heading(const char* text);
+    /** Collapsible inspector group. Stays quiet so it is not mistaken for a selected row. */
+    static bool Section(const char* label,ImGuiTreeNodeFlags flags=0);
     static void Eyebrow(const char* text);
     static void Badge(const char* text,ImVec4 color=Accent);
     /** Tooltip for the previous item after the platform hover delay. */

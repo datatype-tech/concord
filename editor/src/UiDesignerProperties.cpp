@@ -52,6 +52,23 @@ void UiDesigner::Impl::Properties()
                 if (ImGui::Button("1280 x 720")) { FinishEdit(); document.referenceSize = {1280, 720}; Checkpoint(before); fit = true; }
                 ImGui::SameLine(); if (ImGui::Button("1920 x 1080")) { FinishEdit(); document.referenceSize = {1920, 1080}; Checkpoint(before); fit = true; }
                 if (ImGui::Button("720 x 1280")) { FinishEdit(); document.referenceSize = {720, 1280}; Checkpoint(before); fit = true; }
+                ImGui::SeparatorText(Tr("Placement"));
+                ImGui::TextDisabled("%s", Tr("Where this interface sits"));
+                const char* documentPlaces[]{Tr("Free rectangle"), Tr("Fill window"), Tr("Top edge"), Tr("Bottom edge"), Tr("Left edge"), Tr("Right edge"), Tr("Center")};
+                int documentPlace = static_cast<int>(document.place);
+                if (ImGui::Combo("##uiDocumentPlace", &documentPlace, documentPlaces, 7)) {
+                    FinishEdit(); document.place = static_cast<UiPlace>(documentPlace); Checkpoint(before);
+                }
+                ImGui::BeginDisabled(document.place == UiPlace::Fill);
+                ImGui::TextDisabled("%s", Tr("Slot size (0 uses the reference size)"));
+                bool slotChanged = ImGui::DragFloat2("##uiSlot", &document.placeSize.x, 1, 0, 100000, "%.0f", ImGuiSliderFlags_AlwaysClamp);
+                TrackItem(before, slotChanged);
+                ImGui::EndDisabled();
+                ImGui::BeginDisabled(document.place != UiPlace::Free);
+                ImGui::TextDisabled("%s", Tr("Slot position"));
+                slotChanged = ImGui::DragFloat2("##uiSlotPosition", &document.placePosition.x, 1, -1000000, 1000000, "%.0f", ImGuiSliderFlags_AlwaysClamp);
+                TrackItem(before, slotChanged);
+                ImGui::EndDisabled();
                 ImGui::SeparatorText(Tr("Canvas tools"));
                 ImGui::Checkbox(TrId("Grid").c_str(), &showGrid); ImGui::Checkbox(TrId("Snap to grid").c_str(), &snap);
                 ImGui::TextDisabled("%s", Tr("Grid spacing")); ImGui::SliderFloat("##gridSpacing", &grid, 1, 64, "%.0f px", ImGuiSliderFlags_AlwaysClamp);
@@ -60,7 +77,7 @@ void UiDesigner::Impl::Properties()
                     std::snprintf(fileName, sizeof(fileName), "%s", path.empty() ? "UI/Interface.yu" : Utf8Text(path.lexically_relative(project)).c_str());
                     saveDialog = true; error.clear();
                 }
-                ImGui::TextWrapped("%s", Tr("Coordinates use reference pixels. Runtime layout scales uniformly to the host window; anchors follow the parent panel."));
+                ImGui::TextWrapped("%s", Tr("The reference size is the design canvas. Place chooses the screen slot and the design scales to fit it. A zero slot axis uses the reference size. Free uses slot position."));
             } else {
                 auto& element = document.elements[index];
                 Design::Eyebrow(Tr("ELEMENT"));
@@ -99,6 +116,12 @@ void UiDesigner::Impl::Properties()
                     changed = ImGui::SliderFloat("##uiValue", &element.value, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
                 }
                 ImGui::SeparatorText(Tr("Layout"));
+                ImGui::TextDisabled("%s", Tr("Element place"));
+                const char* elementPlaces[]{Tr("Free (anchors)"), Tr("Fill parent"), Tr("Top edge"), Tr("Bottom edge"), Tr("Left edge"), Tr("Right edge"), Tr("Center")};
+                int elementPlace = static_cast<int>(element.place);
+                if (ImGui::Combo("##uiElementPlace", &elementPlace, elementPlaces, 7)) {
+                    FinishEdit(); element.place = static_cast<UiPlace>(elementPlace); Checkpoint(before);
+                }
                 ImGui::TextDisabled("%s", Tr("Parent panel"));
                 if (ImGui::BeginCombo("##uiParent", element.parent.empty() ? Tr("Document canvas") : element.parent.c_str())) {
                     auto chooseParent = [&](const std::string& parent, const char* label, const UiElementLayout* parentRect) {
@@ -123,15 +146,17 @@ void UiDesigner::Impl::Properties()
                     }
                     ImGui::EndCombo();
                 }
-                ImGui::TextDisabled("%s", Tr("Position"));
-                changed = ImGui::DragFloat2("##uiPosition", &element.position.x, 1, -1000000, 1000000, "%.1f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
                 ImGui::TextDisabled("%s", Tr("Size"));
                 changed = ImGui::DragFloat2("##uiSize", &element.size.x, 1, 1, 100000, "%.1f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
+                ImGui::BeginDisabled(element.place != UiPlace::Free);
+                ImGui::TextDisabled("%s", Tr("Position"));
+                changed = ImGui::DragFloat2("##uiPosition", &element.position.x, 1, -1000000, 1000000, "%.1f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
                 ImGui::TextDisabled("%s", Tr("Anchor (0 = start, 1 = end)"));
                 changed = ImGui::SliderFloat2("##uiAnchor", &element.anchor.x, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp); TrackItem(before, changed);
                 if (ImGui::SmallButton(TrId("Top left").c_str())) { FinishEdit(); element.anchor = {0, 0}; Checkpoint(before); }
                 ImGui::SameLine(); if (ImGui::SmallButton(TrId("Center").c_str())) { FinishEdit(); element.anchor = {0.5f, 0.5f}; element.position = {}; Checkpoint(before); }
                 ImGui::SameLine(); if (ImGui::SmallButton(TrId("Bottom right").c_str())) { FinishEdit(); element.anchor = {1, 1}; Checkpoint(before); }
+                ImGui::EndDisabled();
                 ImGui::SeparatorText(Tr("Style"));
                 changed = EditColor(TrId("Text / foreground").c_str(), element.color); TrackItem(before, changed);
                 changed = EditColor(TrId("Background").c_str(), element.background); TrackItem(before, changed);

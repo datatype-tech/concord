@@ -2,7 +2,7 @@
 
 > This document defines the development standards for the C++ engine core (`concord/`) and the host application code at the repository root (e.g. `main.cpp`). Its purpose is to keep the codebase industrial-grade, consistent, and maintainable as the engine grows. Read the relevant section before adding or modifying code.
 >
-> **Lineage:** Concord Flash is the second generation of [Concord](https://github.com/lattice-tech/concord) (first generation at `E:\Concord`). It keeps the first generation's public API syntax, but replaces the bgfx backend with a **native Forward+ Vulkan renderer**, targets **Windows only**, and deliberately trims the API surface (see §11).
+> **Lineage:** Concord Flash is the second generation of [Concord](https://github.com/datatype-tech/concord) (first generation at `E:\Concord`). It keeps the first generation's public API syntax, but replaces the bgfx backend with a **native Forward+ Vulkan renderer**, targets **Windows only**, and deliberately trims the API surface (see §11).
 >
 > **Repository layout:** `concord/` is a fully self-contained project — headers, sources, vendored third-party code (`src/3rd/`) and prebuilt libraries (`lib/`) all live under it, so it can be dropped into any other project with `add_subdirectory(concord)`. The repository root holds only a thin host: a minimal `CMakeLists.txt` that registers `concord/` and an executable that consumes it, plus `main.cpp`. Never place engine sources, headers, or vendored dependencies outside `concord/`.
 >
