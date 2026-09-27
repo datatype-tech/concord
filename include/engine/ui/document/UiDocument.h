@@ -20,6 +20,13 @@ enum class UiElementKind { Panel, Label, Button, Checkbox, Slider, TextInput, Pr
 /** Optional engine window command performed by an activated button. */
 enum class UiAction { None, MinimizeWindow, ToggleMaximizeWindow, ToggleFullscreenWindow, CloseWindow };
 
+/**
+ * Where a document or control sits.
+ * On a document, Free is a rectangle and Fill covers the host. On a control,
+ * Free keeps anchors and the other values dock inside the parent.
+ */
+enum class UiPlace { Free, Fill, Top, Bottom, Left, Right, Center };
+
 /** Authored control. Positions and dimensions use document reference pixels. */
 struct UiElement {
     std::string id = "element";
@@ -30,9 +37,10 @@ struct UiElement {
     Vec2 position{0, 0};
     Vec2 size{160, 48};
     Vec2 anchor{0, 0};
-    ColorRGBA color = 0xffedf0f7;
-    ColorRGBA background = 0xff343c57;
-    float rounding = 6;
+    ColorRGBA color = 0xffe4e6ea;
+    ColorRGBA background = 0xff2a2e34;
+    float rounding = 2;
+    UiPlace place = UiPlace::Free;
     float fontScale = 1;
     float value = 0;
     bool visible = true;
@@ -73,11 +81,17 @@ struct UiEvent {
 /** Copyable editable hierarchy, serialized as a bounded versioned .yu text document. */
 struct CENGINE_API UiDocument {
     Vec2 referenceSize{1280, 720};
+    /** Screen slot for this document. Fill covers the host passed to Draw. */
+    UiPlace place = UiPlace::Fill;
+    /** Used when place is Free. Reference pixels, scaled with the host. */
+    Vec2 placePosition{0, 0};
+    /** Slot size in reference pixels. Zero on an axis uses referenceSize. */
+    Vec2 placeSize{0, 0};
     std::vector<UiElement> elements;
 
     /** Throws for duplicate ids, missing/non-panel parents, cycles or invalid values. */
     void Validate() const;
-    /** Returns deterministic version 1 text after validating this document. */
+    /** Returns deterministic version 2 text after validating this document. Version 1 files still parse. */
     [[nodiscard]] std::string Serialize() const;
     /** Validates before replacing this document; a failed parse leaves it unchanged. */
     void Parse(const std::string& text);
@@ -86,13 +100,31 @@ struct CENGINE_API UiDocument {
     /** Atomically replaces the destination after validating and flushing a sibling file. */
     void Save(const std::filesystem::path& path) const;
     /**
-     * Uniform scale is min(draw size / reference size). Each position is
+     * Rectangle this document occupies inside the host. Fill returns the host.
+     * Top and bottom span the width; left and right span the height. Center and
+     * Free use the slot size. A zero slot axis falls back to the reference size.
+     */
+    [[nodiscard]] UiDrawDesc Region(const UiDrawDesc& host) const;
+    /**
+     * Controls are laid out inside Region(desc). Uniform scale is
+     * min(region / reference). Free controls use
      * parent.position + anchor * (parent.size - scaled size) + scaled position.
-     * Parent visibility/enabled state and clipping are inherited.
+     * Other places dock to the parent. Visibility, enabled state and clipping
+     * are inherited.
      */
     [[nodiscard]] std::vector<UiElementLayout> ResolveLayout(const UiDrawDesc& desc) const;
     /** Renders controls, updates their values and returns events; preview mode consumes no input. */
     [[nodiscard]] std::vector<UiEvent> Draw(const UiDrawDesc& desc);
 };
+
+/**
+ * Replaces the document when CONCORD_UI names a .yu file.
+ *
+ * The editor sets that variable for Play and Preview so an interface edit
+ * opens from disk instead of the copy compiled into the game.
+ *
+ * @return True when the variable was set and the file loaded.
+ */
+CENGINE_API bool LoadUiOverride(UiDocument& document);
 }
 #endif

@@ -93,6 +93,8 @@ target_sources(concord_runtime PRIVATE
     src/engine/ui/document/UiDocument.cpp
     src/engine/ui/document/UiDocumentLayout.cpp
     src/engine/ui/document/UiDocumentDraw.cpp
+    src/engine/ui/UiView.cpp
+    src/engine/ui/PlayHost.cpp
     src/3rd/hello_imgui/imgui_theme.cpp
     src/3rd/ImGuizmo/ImGuizmo.cpp
     src/3rd/ImGuiColorTextEdit/TextEditor.cpp

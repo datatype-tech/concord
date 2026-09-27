@@ -6,7 +6,9 @@
 
 #include "engine/app/GameState.h"
 #include "engine/core/Vec2.h"
+#include "engine/ui/PlayHost.h"
 #include "engine/ui/UiCanvas.h"
+#include "engine/ui/UiView.h"
 #include "engine/window/Window.h"
 
 #include <chrono>
@@ -133,6 +135,10 @@ void Game::Run()
             }
             if (impl.window && impl.onUi) {
                 impl.onUi();
+            }
+            if (impl.toolkit && impl.window) {
+                UiView::Present(*impl.window);
+                PlayHost::Draw(*impl.window);
             }
             impl.ui.End();
             if (impl.toolkit) impl.toolkit->End();

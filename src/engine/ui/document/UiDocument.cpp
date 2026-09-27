@@ -23,7 +23,9 @@ std::string UiDocument::Serialize() const
     Validate();
     std::ostringstream out;
     out.imbue(std::locale::classic());
-    out << std::setprecision(9) << "CONCORD_UI 1\n" << referenceSize.x << ' ' << referenceSize.y << ' ' << elements.size() << '\n';
+    out << std::setprecision(9) << "CONCORD_UI 2\n" << referenceSize.x << ' ' << referenceSize.y << ' ' << elements.size() << ' '
+        << static_cast<int>(place) << ' ' << placePosition.x << ' ' << placePosition.y << ' '
+        << placeSize.x << ' ' << placeSize.y << '\n';
     for (const auto& element : elements) {
         out << static_cast<int>(element.kind) << ' ' << static_cast<int>(element.action) << ' '
             << std::quoted(element.id) << ' ' << std::quoted(element.parent) << ' '
@@ -31,7 +33,7 @@ std::string UiDocument::Serialize() const
             << element.position.x << ' ' << element.position.y << ' ' << element.size.x << ' ' << element.size.y << ' '
             << element.anchor.x << ' ' << element.anchor.y << ' ' << element.color << ' ' << element.background << ' '
             << element.rounding << ' ' << element.fontScale << ' ' << element.value << ' '
-            << element.visible << ' ' << element.enabled << '\n';
+            << element.visible << ' ' << element.enabled << ' ' << static_cast<int>(element.place) << '\n';
     }
     std::string text = out.str();
     if (text.size() > MaxDocumentBytes) throw std::runtime_error("UI document exceeds 4 MiB");
@@ -48,18 +50,28 @@ void UiDocument::Parse(const std::string& text)
     int version = 0;
     usize count = 0;
     if (!(input >> magic >> version >> parsed.referenceSize.x >> parsed.referenceSize.y >> count) ||
-        magic != "CONCORD_UI" || version != 1 || count > 2048)
+        magic != "CONCORD_UI" || (version != 1 && version != 2) || count > 2048)
         throw std::runtime_error("Unsupported or corrupt .yu document header");
+    if (version >= 2) {
+        int place = 0;
+        if (!(input >> place >> parsed.placePosition.x >> parsed.placePosition.y >> parsed.placeSize.x >> parsed.placeSize.y))
+            throw std::runtime_error("Unsupported or corrupt .yu document header");
+        parsed.place = static_cast<UiPlace>(place);
+    }
     parsed.elements.reserve(count);
     for (usize index = 0; index < count; ++index) {
         UiElement element;
-        int kind = 0, action = 0;
+        int kind = 0, action = 0, place = 0;
         if (!(input >> kind >> action >> std::quoted(element.id) >> std::quoted(element.parent) >>
             std::quoted(element.text) >> std::quoted(element.input) >>
             element.position.x >> element.position.y >> element.size.x >> element.size.y >>
             element.anchor.x >> element.anchor.y >> element.color >> element.background >>
             element.rounding >> element.fontScale >> element.value >> element.visible >> element.enabled))
             throw std::runtime_error("Invalid .yu element at index " + std::to_string(index));
+        if (version >= 2) {
+            if (!(input >> place)) throw std::runtime_error("Invalid .yu element at index " + std::to_string(index));
+            element.place = static_cast<UiPlace>(place);
+        }
         element.kind = static_cast<UiElementKind>(kind);
         element.action = static_cast<UiAction>(action);
         parsed.elements.push_back(std::move(element));
@@ -97,5 +109,17 @@ void UiDocument::Save(const std::filesystem::path& path) const
         DeleteFileW(temporary.c_str());
         throw std::runtime_error("Cannot atomically save .yu document");
     }
+}
+
+bool LoadUiOverride(UiDocument& document)
+{
+    const DWORD length = GetEnvironmentVariableW(L"CONCORD_UI", nullptr, 0);
+    if (length <= 1) return false;
+    std::wstring path(length, L'\0');
+    if (GetEnvironmentVariableW(L"CONCORD_UI", path.data(), length) == 0) return false;
+    if (!path.empty() && path.back() == L'\0') path.pop_back();
+    if (path.empty()) return false;
+    document.Load(path);
+    return true;
 }
 }

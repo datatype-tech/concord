@@ -13,7 +13,9 @@
  * code includes this file, never the ones under `engine/`.
  */
 
+#include "engine/ui/PlayHost.h"
 #include "engine/ui/UiCanvas.h"
 #include "engine/ui/UiDrawList.h"
+#include "engine/ui/UiView.h"
 
 #endif // CONCORD_CUI_H

@@ -52,6 +52,19 @@ void CheckSerialization()
     UiDocument parsed;
     parsed.Parse(text);
     Require(parsed.Serialize() == text, "UI round trip lost values, hierarchy or quoted UTF-8 text");
+    const char* legacy = "CONCORD_UI 1\n640 360 1\n2 0 \"button\" \"\" \"Ok\" \"\" 8 8 80 24 0 0 4294967295 4278190080 2 1 0 1 1\n";
+    UiDocument legacyDocument;
+    legacyDocument.Parse(legacy);
+    Require(legacyDocument.place == UiPlace::Fill && legacyDocument.elements.size() == 1 &&
+        legacyDocument.elements[0].place == UiPlace::Free, "version 1 .yu lost its default placement");
+    auto placed = original;
+    placed.place = UiPlace::Top;
+    placed.placeSize = {0, 64};
+    placed.elements[0].place = UiPlace::Left;
+    UiDocument placedParsed;
+    placedParsed.Parse(placed.Serialize());
+    Require(placedParsed.place == UiPlace::Top && placedParsed.placeSize.y == 64 &&
+        placedParsed.elements[0].place == UiPlace::Left, "placement did not round trip");
     for (const std::string& invalid : {
         std::string("CONCORD_UI 9\n640 360 0\n"), std::string("CONCORD_UI 1\n640 360 999999\n"),
         text + "unexpected", text.substr(0, text.size() / 2), std::string(4 * 1024 * 1024 + 1, 'x')}) {
@@ -117,6 +130,16 @@ void CheckLayout()
     document.elements[1].visible = true;
     result = document.ResolveLayout({.size={400,300}});
     Require(result[0].size.x == 50 && result[1].size.y == 100, "uniform preview scaling changed authored dimensions");
+    UiDocument bar;
+    bar.referenceSize = {800, 100};
+    bar.place = UiPlace::Top;
+    bar.elements = {{.id="strip", .text="", .kind=UiElementKind::Panel, .size={10, 10}, .place=UiPlace::Fill}};
+    auto docked = bar.ResolveLayout({.size={800, 600}});
+    Require(docked[0].position.x == 0 && docked[0].position.y == 0 && docked[0].size.x == 800 && docked[0].size.y == 100,
+        "top placement did not dock the panel");
+    bar.place = UiPlace::Bottom;
+    docked = bar.ResolveLayout({.size={800, 600}});
+    Require(docked[0].position.y == 500 && docked[0].size.y == 100, "bottom placement did not sit on the lower edge");
 }
 
 class FrameFixture {
