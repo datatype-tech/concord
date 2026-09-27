@@ -107,10 +107,50 @@ try {
     }
     if (-not (Test-Path -LiteralPath (Join-Path $Project 'CMakeLists.txt'))) { throw 'No game project found; use concord init first' }
     $build = Join-Path $Project 'build-cli'
-    Invoke-Checked $cmake @('-S', $Project, '-B', $build, '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release',
-        "-DCMAKE_PREFIX_PATH=$Sdk", "-DConcordFlash_DIR=$Sdk/lib/cmake/ConcordFlash",
-        "-DCONCORDSCRIPT_COMPILER=$compiler", "-DCMAKE_CXX_COMPILER=$mingw/g++.exe", "-DCMAKE_MAKE_PROGRAM=$mingw/ninja.exe")
-    Invoke-Checked $cmake @('--build', $build, '--parallel', '4')
+    $stampBody = $Sdk + "`n" + $compiler + "`n" + (Join-Path $mingw 'g++.exe') + "`n"
+    $stampFile = Join-Path $build '.concord-configure'
+    $configured = $false
+    if ((Test-Path -LiteralPath (Join-Path $build 'CMakeCache.txt')) -and
+        (Test-Path -LiteralPath (Join-Path $build 'build.ninja')) -and
+        (Test-Path -LiteralPath $stampFile)) {
+        $configured = ([IO.File]::ReadAllText($stampFile) -eq $stampBody)
+    }
+    if (-not $configured) {
+        Invoke-Checked $cmake @('-S', $Project, '-B', $build, '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release',
+            "-DCMAKE_PREFIX_PATH=$Sdk", "-DConcordFlash_DIR=$Sdk/lib/cmake/ConcordFlash",
+            "-DCONCORDSCRIPT_COMPILER=$compiler", "-DCMAKE_CXX_COMPILER=$mingw/g++.exe", "-DCMAKE_MAKE_PROGRAM=$mingw/ninja.exe")
+        [IO.File]::WriteAllText($stampFile, $stampBody)
+    }
+    $game = Join-Path $build 'game.exe'
+    $fresh = $false
+    if (Test-Path -LiteralPath $game) {
+        $fresh = $true
+        $gameTime = [IO.File]::GetLastWriteTimeUtc($game)
+        $pending = New-Object System.Collections.Generic.Stack[string]
+        $pending.Push($Project)
+        while ($fresh -and $pending.Count -gt 0) {
+            $dir = $pending.Pop()
+            foreach ($entry in [IO.Directory]::EnumerateFileSystemEntries($dir)) {
+                if ([IO.Directory]::Exists($entry)) {
+                    $leaf = [IO.Path]::GetFileName($entry)
+                    if ($leaf -eq 'build-cli' -or $leaf -eq '.editor' -or $leaf -eq '.git' -or $leaf -eq 'build') { continue }
+                    $pending.Push($entry)
+                } else {
+                    $ext = [IO.Path]::GetExtension($entry).ToLowerInvariant()
+                    $leaf = [IO.Path]::GetFileName($entry)
+                    $tracked = ($ext -eq '.cx' -or $ext -eq '.cpp' -or $ext -eq '.h' -or $ext -eq '.hpp' -or $ext -eq '.c' -or $ext -eq '.cmake' -or $leaf -eq 'CMakeLists.txt' -or $leaf -eq 'Concord.project')
+                    if ($tracked -and [IO.File]::GetLastWriteTimeUtc($entry) -gt $gameTime) { $fresh = $false }
+                }
+            }
+        }
+    }
+    if ($fresh) {
+        Write-Host "Using cached build: $game"
+    } else {
+        $parallel = [Environment]::ProcessorCount
+        if ($parallel -lt 1) { $parallel = 1 }
+        Invoke-Checked $cmake @('--build', $build, '--parallel', "$parallel")
+    }
     if ($Action -eq 'run') {
         Push-Location $build
         try { Invoke-Checked (Join-Path $build 'game.exe') @() } finally { Pop-Location }
