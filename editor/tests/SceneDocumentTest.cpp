@@ -31,7 +31,7 @@ void CheckLegacyAndVisibility(SceneDocument& document)
     Require(legacy.objects[0].name=="Legacy box" && legacy.objects[0].transform.position.x==1 &&
         legacy.objects[0].transform.scale.y==2 && legacy.objects[0].material.emissive==1.5f,
         "Version 1 lost existing object fields");
-    Require(legacy.Serialize().starts_with("CONCORD_SCENE 3\n"),"Legacy scene was not upgraded on save");
+    Require(legacy.Serialize().starts_with("CONCORD_SCENE 4\n"),"Legacy scene was not upgraded on save");
     SceneDocument upgraded;upgraded.Parse(legacy.Serialize());
     Require(upgraded.Serialize()==legacy.Serialize(),"Version 1 upgrade did not round trip");
 
@@ -52,14 +52,16 @@ void CheckSettingsAndRecipes(SceneDocument& document)
     document.camera.orthographic=true;document.camera.orthographicSize=18;document.camera.nearPlane=0.2f;document.camera.farPlane=3500;
     document.sun.elevationDegrees=32;document.sun.azimuthDegrees=123;document.sun.intensity=7.25f;document.sun.castShadow=false;
     document.environment.exposure=1.375f;document.environment.cloudCoverage=0.3f;document.environment.fogSteps=8;
+    document.environment.skybox="Skyboxes/Day.png";
     document.objects[1].kind=SceneObjectKind::DynamicBox;document.objects[1].mass=3.5f;document.objects[1].lockRotation=true;
     document.objects[2].kind=SceneObjectKind::Plane;document.objects[2].size.y=0.025f;document.objects[2].castShadow=false;
     Require(document.UsesPhysics(),"Physics recipes were not detected");
     SceneDocument restored;restored.Parse(document.Serialize());
-    Require(restored.Serialize()==document.Serialize(),"V3 camera, sun, environment or object recipe did not round trip");
+    Require(restored.Serialize()==document.Serialize(),"Camera, sun, environment, skybox or object recipe did not round trip");
+    Require(restored.environment.skybox=="Skyboxes/Day.png","Skybox path did not round trip");
     const auto script=restored.ExportScript();
     for(const auto* fragment:{".fovYDegrees=74.","CameraProjection::Orthographic",".elevationDegrees=32.",".intensity=7.25",
-                             "environment.exposure=1.375","environment.fogSteps=8u","Object::DynamicBox","BodyMotion::Static",".mass=3.5",".lockRotation=true"})
+                             "environment.exposure=1.375","environment.fogSteps=8u","environment.skybox=\"Skyboxes/Day.png\"","Object::DynamicBox","BodyMotion::Static",".mass=3.5",".lockRotation=true"})
         Require(script.find(fragment)!=std::string::npos,"Generated scene omitted an authored setting or physics component");
     auto header=document.Serialize();header.resize(header.find("\nobjects "));
     const std::string row="\"Bad recipe\" 0 0 0 0 0 0 1 1 1 1 1 1 4294967295 0 1 0 1 ";
@@ -69,6 +71,9 @@ void CheckSettingsAndRecipes(SceneDocument& document)
     auto invalid=document;invalid.camera.farPlane=invalid.camera.nearPlane;
     bool rejected=false;try {invalid.Serialize();}catch(const std::exception&){rejected=true;}
     Require(rejected,"Save accepted an invalid clip range");
+    invalid=document;invalid.environment.skybox="C:/outside.png";rejected=false;
+    try {invalid.Serialize();}catch(const std::exception&){rejected=true;}
+    Require(rejected,"Save accepted an absolute skybox path");
     invalid=document;invalid.environment.exposure=std::numeric_limits<float>::infinity();rejected=false;
     try {invalid.ExportScript();}catch(const std::exception&){rejected=true;}
     Require(rejected,"Export accepted non-finite environment settings");
@@ -94,7 +99,7 @@ int main(int argc,char** argv)
             WriteText(directory/"SceneLayout.cx",document.ExportScript());
             WriteText(directory/"Main.cx",StarterScript());
         }
-        std::cout<<"Scene v3 settings/physics, v1/v2 migration, round trip, bounded parsing, transactional rejection and export passed\n";
+        std::cout<<"Scene v4 settings/physics, skybox, v1/v2 migration, round trip, bounded parsing, transactional rejection and export passed\n";
         return 0;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

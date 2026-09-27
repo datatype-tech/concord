@@ -9,6 +9,8 @@
 #include "engine/core/Types.h"
 #include "engine/core/Vec3.h"
 
+#include <string>
+
 namespace Concord {
 
 /** Sky and ambient lighting for a scene. */
@@ -288,6 +290,16 @@ struct EnvironmentSettings {
      * Zero hides the disc and leaves night to starlight alone.
      */
     f32 moonIntensity = 0.0f;
+
+    /**
+     * Equirectangular sky image, empty when the scene keeps the analytic sky.
+     *
+     * A path relative to the scene file while the document is on disk. The
+     * editor and the scene loader turn it into an absolute path before the
+     * renderer samples it, so a moved project still finds the image beside
+     * the scene rather than beside the process working directory.
+     */
+    std::string skybox;
 };
 
 } // namespace Concord

@@ -12,6 +12,7 @@
 #include "engine/render/vulkan/VulkanModelPipeline.h"
 #include "engine/render/vulkan/VulkanSkinningResources.h"
 #include "engine/render/vulkan/VulkanSkinnedPipeline.h"
+#include "engine/render/vulkan/VulkanSkyPipeline.h"
 #include "engine/render/vulkan/VulkanSurface.h"
 
 namespace Concord {
@@ -48,6 +49,7 @@ void VulkanRenderBackend::Shutdown()
         }
         DestroyVulkanUiToolkit(impl.context, impl.toolkit);
         DestroyVulkanParticlePipeline(impl.context, impl.particlePipeline);
+        DestroyVulkanSkyPipeline(impl.context, impl.skyPipeline);
         DestroyVulkanTileLightCulling(impl.context, impl.tileCulling);
         DestroyVulkanBoxPipeline(impl.context, impl.boxPipeline);
         DestroyVulkanDebugOverlay(impl.context, impl.debugOverlay);

@@ -9,6 +9,7 @@
 #include "engine/render/vulkan/VulkanBoxPipeline.h"
 #include "engine/render/vulkan/VulkanModelPipeline.h"
 #include "engine/render/vulkan/VulkanSkinnedPipeline.h"
+#include "engine/render/vulkan/VulkanSkyPipeline.h"
 #include "engine/render/vulkan/VulkanDepthBuffer.h"
 #include "engine/render/vulkan/VulkanRayTracingOutput.h"
 #include "engine/render/vulkan/VulkanSwapchain.h"
@@ -107,6 +108,19 @@ bool VulkanRenderBackend::Impl::RecreateSwapchain()
     }
     for (VulkanDepthBuffer& buffer : depth) {
         DestroyVulkanDepthBuffer(context, buffer);
+    }
+    if (textureCache.IsReady()) {
+        VulkanSkyPipeline skyReplacement{};
+        const VkFormat previousFormat = swapchain.format;
+        if (CreateVulkanSkyPipeline(context, replacement.format, frameData.layout,
+                                    textureCache.DescriptorLayout(), skyReplacement)) {
+            DestroyVulkanSkyPipeline(context, skyPipeline);
+            skyPipeline = skyReplacement;
+        } else if (skyPipeline.IsReady() && replacement.format != previousFormat) {
+            DestroyVulkanSkyPipeline(context, skyPipeline);
+            std::fprintf(stderr,
+                         "[Concord] skybox pipeline unavailable after resize; scenes keep the clear colour\n");
+        }
     }
     DestroyVulkanSwapchain(context, swapchain);
     DestroyVulkanBoxPipeline(context, boxPipeline);

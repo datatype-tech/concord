@@ -21,6 +21,7 @@
 #include "engine/render/vulkan/VulkanTileLightCulling.h"
 #include "engine/render/vulkan/VulkanShadowMap.h"
 #include "engine/render/vulkan/VulkanShadowPipeline.h"
+#include "engine/render/vulkan/VulkanSkyPipeline.h"
 #include "engine/render/vulkan/VulkanRayTracingSceneRing.h"
 #include "engine/render/vulkan/VulkanRayTracingPipeline.h"
 #include "engine/render/vulkan/VulkanFrameProbe.h"
@@ -52,6 +53,8 @@ struct VulkanRenderBackend::Impl {
     VulkanFrameDataResources frameData{};
     VulkanTileLightCulling tileCulling{};
     VulkanParticlePipeline particlePipeline{};
+    /** Equirectangular sky for the raster path, including the editor viewport. */
+    VulkanSkyPipeline skyPipeline{};
     VulkanShadowMap shadowMaps[kMaxFramesInFlight]{};
     VulkanShadowPipeline shadowPipeline{};
     VulkanRayTracingSceneRing rayTracing{};

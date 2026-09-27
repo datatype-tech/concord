@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <locale>
@@ -97,7 +98,7 @@ SceneDocument SceneDocument::Starter()
 }
 std::string SceneDocument::Serialize() const
 {
-    Validate();std::ostringstream out;out.imbue(std::locale::classic());out<<std::setprecision(9)<<"CONCORD_SCENE 3\ncamera ";
+    Validate();std::ostringstream out;out.imbue(std::locale::classic());out<<std::setprecision(9)<<"CONCORD_SCENE 4\ncamera ";
     WriteVector(out,camera.position);out<<' ';WriteVector(out,camera.target);
     out<<' '<<camera.fovYDegrees<<' '<<camera.nearPlane<<' '<<camera.farPlane<<' '<<camera.orthographicSize<<' '<<camera.orthographic
        <<"\nsun "<<sun.elevationDegrees<<' '<<sun.azimuthDegrees<<' '<<sun.color<<' '<<sun.intensity<<' '<<sun.castShadow<<"\nenvironment ";
@@ -105,7 +106,7 @@ std::string SceneDocument::Serialize() const
     out<<' '<<environment.skyColor<<' '<<environment.ambientColor;
     for(const auto& field:EnvironmentFloats)out<<' '<<environment.*field.member;
     for(const auto& field:EnvironmentCounts)out<<' '<<environment.*field.member;
-    out<<"\nobjects "<<objects.size()<<'\n';
+    out<<"\nskybox "<<std::quoted(environment.skybox)<<"\nobjects "<<objects.size()<<'\n';
     for (const auto& object:objects) {
         out<<std::quoted(object.name);
         for (auto v:{object.transform.position,object.transform.rotation,object.transform.scale,object.size})
@@ -120,10 +121,10 @@ void SceneDocument::Parse(const std::string& text)
     if(text.size()>8*1024*1024 || text.find('\0')!=std::string::npos)throw std::runtime_error("Scene document is too large or contains a null byte");
     std::istringstream in(text); in.imbue(std::locale::classic());
     std::string magic; int version=0; size_t count=0;
-    if (!(in>>magic>>version) || magic!="CONCORD_SCENE" || version<1 || version>3)
+    if (!(in>>magic>>version) || magic!="CONCORD_SCENE" || version<1 || version>4)
         throw std::runtime_error("Unsupported or corrupt scene header");
     SceneDocument parsed;
-    if(version==3) {
+    if(version>=3) {
         Expect(in,"camera");ReadVector(in,parsed.camera.position);ReadVector(in,parsed.camera.target);
         in>>parsed.camera.fovYDegrees>>parsed.camera.nearPlane>>parsed.camera.farPlane>>parsed.camera.orthographicSize;ReadBoolean(in,parsed.camera.orthographic);
         Expect(in,"sun");in>>parsed.sun.elevationDegrees>>parsed.sun.azimuthDegrees;ReadColor(in,parsed.sun.color);
@@ -134,6 +135,11 @@ void SceneDocument::Parse(const std::string& text)
         for(const auto& field:EnvironmentCounts) {
             unsigned long long value=0;if(!(in>>value) || value>256)throw std::runtime_error("Invalid scene environment step count");
             parsed.environment.*field.member=static_cast<u32>(value);
+        }
+        if(version>=4) {
+            Expect(in,"skybox");
+            if(!(in>>std::quoted(parsed.environment.skybox)) || parsed.environment.skybox.size()>1024)
+                throw std::runtime_error("Invalid skybox path");
         }
         Expect(in,"objects");
     }
@@ -147,7 +153,7 @@ void SceneDocument::Parse(const std::string& text)
         ReadColor(in,material.albedo);
         if(!(in>>material.metallic>>material.roughness>>material.emissive))throw std::runtime_error("Invalid scene material");
         if(version>=2)ReadBoolean(in,object.visible);
-        if(version==3) {
+        if(version>=3) {
             int kind=0;if(!(in>>kind) || kind<0 || kind>3)throw std::runtime_error("Unsupported scene object kind");
             object.kind=static_cast<SceneObjectKind>(kind);ReadBoolean(in,object.castShadow);
             in>>object.mass>>object.friction>>object.restitution;ReadBoolean(in,object.lockRotation);
@@ -171,6 +177,10 @@ void SceneDocument::Validate() const
     if(Dot(environment.moonDirection,environment.moonDirection)<0.000001f)throw std::runtime_error("Moon direction must not be zero");
     for(const auto& field:EnvironmentFloats)CheckNumber(environment.*field.member,field.minimum,field.maximum,field.name);
     for(const auto& field:EnvironmentCounts)if(environment.*field.member>256)throw std::runtime_error("Environment step count exceeds 256");
+    if(environment.skybox.size()>1024)throw std::runtime_error("Skybox path is too long");
+    for(unsigned char c:environment.skybox)if(c<32 || c==127)throw std::runtime_error("Skybox path contains a control character");
+    const auto skyboxPath=std::filesystem::path(std::u8string(reinterpret_cast<const char8_t*>(environment.skybox.data()),environment.skybox.size()));
+    if(!skyboxPath.empty() && skyboxPath.is_absolute())throw std::runtime_error("Skybox path must stay inside the project");
     for(const auto& object:objects) {
         if(object.name.empty() || object.name.size()>255)throw std::runtime_error("Scene object name must contain between 1 and 255 bytes");
         for(unsigned char c:object.name)if(c<32 || c==127)throw std::runtime_error("Scene object name contains a control character");
@@ -191,7 +201,8 @@ std::string SceneDocument::ExportScript() const
     out<<"// Generated by Concord Editor. Edit the .scene file through the 3D viewport.\n"
           "use Concord.CScene;\nuse Concord.CObject;\nuse Concord.CCamera;\nuse Concord.CLight;\n";
     if(UsesPhysics())out<<"use Concord.CPhysics;\n";
-    out<<"class Layout {\npublic:\n    static void Build(Concord::Scene& scene) {\n";
+    out<<"class Layout {\npublic:\n    static bool UsesPhysics() { return "<<(UsesPhysics()?"true":"false")<<"; }\n"
+          "    static void Build(Concord::Scene& scene) {\n";
     auto vector=[&out](Vec3 value) {out<<'{'<<value.x<<"f,"<<value.y<<"f,"<<value.z<<"f}";};
     out<<"        scene.Spawn<Concord::Object::Camera>({.position=";vector(camera.position);out<<",.target=";vector(camera.target);
     out<<",.fovYDegrees="<<camera.fovYDegrees<<"f,.projection=Concord::CameraProjection::"<<(camera.orthographic?"Orthographic":"Perspective")
@@ -201,6 +212,7 @@ std::string SceneDocument::ExportScript() const
        <<"        Concord::EnvironmentSettings environment;\n        environment.zenithColor=";vector(environment.zenithColor);
     out<<";\n        environment.horizonColor=";vector(environment.horizonColor);out<<";\n        environment.moonDirection=";vector(environment.moonDirection);
     out<<";\n        environment.skyColor="<<environment.skyColor<<"u;\n        environment.ambientColor="<<environment.ambientColor<<"u;\n";
+    out<<"        environment.skybox="<<std::quoted(environment.skybox)<<";\n";
     for(const auto& field:EnvironmentFloats)out<<"        environment."<<field.name<<'='<<environment.*field.member<<"f;\n";
     for(const auto& field:EnvironmentCounts)out<<"        environment."<<field.name<<'='<<environment.*field.member<<"u;\n";
     out<<"        scene.SetEnvironment(environment);\n";

@@ -56,7 +56,8 @@ void DestroyVulkanRayTracingTextures(const VulkanContext& context,
 bool UpdateVulkanRayTracingTextures(const VulkanContext& context,
                                     VulkanRayTracingTextures& textures,
                                     const VulkanTextureCache& cache,
-                                    const RayTracingTextureSlots& slots) noexcept;
+                                    const RayTracingTextureSlots& slots,
+                                    std::string_view skyboxKey = {}) noexcept;
 
 } // namespace Concord
 

@@ -116,6 +116,23 @@ const VulkanTexture* VulkanTextureCache::Find(
     return fallback;
 }
 
+const VulkanTexture* VulkanTextureCache::FindResident(
+    std::string_view uri, const std::filesystem::path& baseDirectory) const noexcept
+{
+    if (uri.empty() || !IsReady()) return nullptr;
+    try {
+        const std::string key = MakeVulkanTextureCacheKey(uri, baseDirectory);
+        const auto found = index.find(key);
+        if (found != index.end() && found->second < entries.size() &&
+            entries[found->second].texture.IsUploaded()) {
+            return &entries[found->second].texture;
+        }
+    } catch (...) {
+        return nullptr;
+    }
+    return nullptr;
+}
+
 void VulkanTextureCache::CommitUploads() noexcept
 {
     if (fallbackTexture.uploadRecorded) fallbackTexture.uploadSubmitted = true;

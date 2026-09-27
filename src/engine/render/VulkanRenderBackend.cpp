@@ -167,6 +167,12 @@ bool VulkanRenderBackend::Init(Window& window, const RenderBackendInit& init)
             std::fprintf(stderr,
                          "[Concord] particle shaders unavailable; skipping the particle pass\n");
         }
+        if (!impl.textureCache.IsReady() ||
+            !CreateVulkanSkyPipeline(impl.context, impl.swapchain.format, impl.frameData.layout,
+                                     impl.textureCache.DescriptorLayout(), impl.skyPipeline)) {
+            std::fprintf(stderr,
+                         "[Concord] skybox shaders unavailable; scenes keep the clear colour\n");
+        }
         impl.CreateModelPipelines();
     }
     const bool extensionsReady = RunVulkanRenderExtensions(

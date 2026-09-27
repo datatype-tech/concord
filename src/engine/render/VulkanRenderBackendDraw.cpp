@@ -66,8 +66,12 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const bool modelUploadsReady =
         impl.PrepareModelAssets(snapshot, hasModelObjects, hasBoxObjects,
                                 hasStaticModelObjects, hasSkinnedModelObjects);
-    const bool textureUploadsReady = !hasModelObjects ||
-                                     impl.textureCache.RecordUploads(commandBuffer);
+    if (!snapshot.environment.skybox.empty()) {
+        impl.textureCache.Ensure(impl.context, snapshot.environment.skybox);
+    }
+    const bool textureUploadsReady =
+        (!hasModelObjects && snapshot.environment.skybox.empty()) ||
+        impl.textureCache.RecordUploads(commandBuffer);
     const bool skinningUploadReady =
         impl.UploadSkinningFrame(snapshot, impl.frames.currentFrame);
     impl.visibleObjectCount = snapshot.objects.size();
@@ -80,6 +84,11 @@ void VulkanRenderBackend::DrawScene(const Scene& scene)
     const f32 elapsedSeconds =
         std::chrono::duration<f32>(std::chrono::steady_clock::now() - impl.startedAt).count();
     frame.renderData = BuildRenderFrameData(snapshot, elapsedSeconds);
+    if (!snapshot.environment.skybox.empty()) {
+        if (impl.textureCache.FindResident(snapshot.environment.skybox) != nullptr) {
+            frame.renderData.horizonColor.w = 1.0f;
+        }
+    }
     // Angular size of one pixel. The wave sum fades any octave finer than this,
     // so the shader needs the number rather than a guess: it is the projection's
     // vertical scale and the viewport height, both of which only exist here.

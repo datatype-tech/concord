@@ -12,6 +12,7 @@
 #include "engine/render/vulkan/VulkanModelPipeline.h"
 #include "engine/render/vulkan/VulkanParticlePipeline.h"
 #include "engine/render/vulkan/VulkanSkinnedPipeline.h"
+#include "engine/render/vulkan/VulkanSkyPipeline.h"
 #include "engine/render/vulkan/VulkanTileLightCulling.h"
 
 namespace Concord {
@@ -23,6 +24,11 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
     bool canDrawSkinned, VkImage targetImage, VkImageView targetView, VkExtent2D targetExtent, VulkanDepthBuffer& depthBuffer)
 {
     const VkCommandBuffer commandBuffer = frames.Current().commandBuffer;
+    const VulkanTexture* skybox = nullptr;
+    if (!rayTracingComposited && !snapshot.environment.skybox.empty() && skyPipeline.IsReady() &&
+        frameDataSet != VK_NULL_HANDLE) {
+        skybox = textureCache.FindResident(snapshot.environment.skybox);
+    }
 
     VulkanShadowMap& shadowMap = shadowMaps[frames.currentFrame];
     VulkanRayTracingScene& rayScene = rayTracing.At(frames.currentFrame);
@@ -70,6 +76,10 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
         }
         InsertVulkanBoxDepthBarrier(commandBuffer, depthBuffer.image);
         EndVulkanDebugLabel(context, commandBuffer);
+        const bool skyDrawn = skybox != nullptr &&
+                              RecordVulkanSkyPass(commandBuffer, targetExtent, targetView, skyPipeline,
+                                                  frameDataSet, skybox->descriptorSet);
+        if (skyDrawn) InsertColorWriteBarrier(commandBuffer, targetImage);
         BeginVulkanDebugLabel(context, commandBuffer, "Concord.ForwardPass",
                               {1.0f, 0.4f, 0.2f});
         if (canDrawBoxes) {
@@ -80,17 +90,18 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
                                      rayTracingBuilt && boxPipeline.HasRayQuery() &&
                                              rayScene.IsReady()
                                          ? rayScene.descriptorSet
-                                         : VK_NULL_HANDLE);
+                                         : VK_NULL_HANDLE,
+                                     skyDrawn);
         }
         if (canDrawModels) {
-            if (canDrawBoxes) InsertColorWriteBarrier(commandBuffer, targetImage);
+            if (canDrawBoxes || skyDrawn) InsertColorWriteBarrier(commandBuffer, targetImage);
             RecordVulkanModelColorPass(commandBuffer, targetExtent,
                                        targetView, depthBuffer.view,
                                        modelPipeline, snapshot, frameDataSet, modelAssets,
-                                       textureCache, skyColor, !canDrawBoxes);
+                                       textureCache, skyColor, !(canDrawBoxes || skyDrawn));
         }
         if (canDrawSkinned) {
-            if (canDrawBoxes || canDrawModels) {
+            if (canDrawBoxes || canDrawModels || skyDrawn) {
                 InsertColorWriteBarrier(commandBuffer, targetImage);
             }
             RecordVulkanSkinnedColorPass(commandBuffer, targetExtent,
@@ -98,13 +109,17 @@ void VulkanRenderBackend::Impl::RecordRasterPasses(
                                          skinnedPipeline, snapshot, frameDataSet,
                                          skinningResources, frames.currentFrame, modelAssets,
                                          textureCache,
-                                         skyColor, !canDrawBoxes && !canDrawModels);
+                                         skyColor, !(canDrawBoxes || canDrawModels || skyDrawn));
         }
         EndVulkanDebugLabel(context, commandBuffer);
     } else if (!rayTracingComposited) {
         BeginVulkanDebugLabel(context, commandBuffer, "Concord.ClearPass", {0.2f, 0.8f, 0.4f});
         RecordClearPass(commandBuffer, targetView, targetExtent, skyColor,
                         depthBuffer.view);
+        if (skybox != nullptr) {
+            RecordVulkanSkyPass(commandBuffer, targetExtent, targetView, skyPipeline, frameDataSet,
+                                skybox->descriptorSet);
+        }
         EndVulkanDebugLabel(context, commandBuffer);
     }
     // The colour attachment is already in COLOR_ATTACHMENT_OPTIMAL here on

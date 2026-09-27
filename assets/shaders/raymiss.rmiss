@@ -34,6 +34,16 @@ layout(std140, set = 0, binding = 0) uniform FrameDataBlock {
     vec4 celestial;
 } frame;
 
+layout(set = 3, binding = 0) uniform sampler2D modelTextures[64];
+
+/** Equirectangular sky chosen for the scene; slot 63 is reserved for it. */
+vec3 EquirectangularSky(vec3 direction)
+{
+    float u = atan(direction.z, direction.x) * 0.15915494309 + 0.5;
+    float v = acos(clamp(direction.y, -1.0, 1.0)) * 0.31830988618;
+    return max(texture(modelTextures[63], vec2(u, clamp(v, 0.0, 1.0))).rgb, vec3(0.0));
+}
+
 /** Radiance the sun reaches at noon, mirroring the day cycle's own mapping. */
 const float kNoonSunIntensity = 6.5;
 
@@ -159,41 +169,50 @@ void main()
     vec3 toSun = TowardSun();
     float sunHeight = clamp(toSun.y, 0.0, 1.0);
 
-    vec3 zenith = max(frame.zenithColor.rgb, vec3(0.0));
-    vec3 horizon = max(frame.horizonColor.rgb, vec3(0.0));
-
     vec3 sunRadiance = SunRadiance();
-    // Single-scatter Rayleigh + Mie: the sun reddens itself through transSun,
-    // the horizon brightens through a longer view path, night falls out when
-    // the sun leaves. Scale puts noon on the 0..1 range the clouds use so the
-    // two cannot drift apart when a scene retunes its sun.
-    vec3 color = AnalyticSky(direction, toSun, sunRadiance, zenith, horizon);
-    // Kept before the sun disc is drawn into it. This is what lights the parts
-    // of a cloud the sun cannot reach, and a fill that carried the disc would
-    // put a second sun inside every cloud the first one happens to sit behind.
-    vec3 skyFill = color;
+    vec3 color;
+    vec3 skyFill;
+    // A chosen image replaces the analytic dome, including the sun disc and
+    // stars, because those already live in the picture the author supplied.
+    // Clouds and fog still sit in front of it.
+    if (frame.horizonColor.w > 0.5) {
+        color = EquirectangularSky(direction);
+        skyFill = color;
+    } else {
+        vec3 zenith = max(frame.zenithColor.rgb, vec3(0.0));
+        vec3 horizon = max(frame.horizonColor.rgb, vec3(0.0));
+        // Single-scatter Rayleigh + Mie: the sun reddens itself through transSun,
+        // the horizon brightens through a longer view path, night falls out when
+        // the sun leaves. Scale puts noon on the 0..1 range the clouds use so the
+        // two cannot drift apart when a scene retunes its sun.
+        color = AnalyticSky(direction, toSun, sunRadiance, zenith, horizon);
+        // Kept before the sun disc is drawn into it. This is what lights the parts
+        // of a cloud the sun cannot reach, and a fill that carried the disc would
+        // put a second sun inside every cloud the first one happens to sit behind.
+        skyFill = color;
 
-    float elevation = clamp(direction.y, 0.0, 1.0);
-    float alignment = max(dot(direction, toSun), 0.0);
-    float disc = pow(alignment, mix(280.0, 1600.0, sunHeight));
-    float glow = pow(alignment, mix(3.5, 14.0, sunHeight)) * mix(0.30, 0.08, sunHeight);
-    float haze = pow(alignment, 2.2) * 0.10 * (1.0 - elevation);
-    color += sunRadiance * (disc * 8.0 + glow + haze);
+        float elevation = clamp(direction.y, 0.0, 1.0);
+        float alignment = max(dot(direction, toSun), 0.0);
+        float disc = pow(alignment, mix(280.0, 1600.0, sunHeight));
+        float glow = pow(alignment, mix(3.5, 14.0, sunHeight)) * mix(0.30, 0.08, sunHeight);
+        float haze = pow(alignment, 2.2) * 0.10 * (1.0 - elevation);
+        color += sunRadiance * (disc * 8.0 + glow + haze);
 
-    float night = 1.0 - smoothstep(0.02, 0.14, max(sunHeight, 0.0));
-    night *= 1.0 - clamp(dot(sunRadiance, vec3(0.3333)), 0.0, 1.0);
-    if (night > 0.001) {
-        vec3 toMoon = length(frame.celestial.xyz) > 0.001
-                          ? normalize(frame.celestial.xyz)
-                          : vec3(0.0, 1.0, 0.0);
-        float moonAlign = max(dot(direction, toMoon), 0.0);
-        float moonDisc = pow(moonAlign, 2800.0);
-        float moonGlow = pow(moonAlign, 48.0) * 0.18;
-        color += vec3(0.78, 0.84, 0.96) * (moonDisc * 4.2 + moonGlow) *
-                 frame.celestial.w * night;
-        float cell = Hash13(floor(direction * 340.0));
-        float star = step(0.9965, cell) * step(0.08, direction.y);
-        color += vec3(0.82, 0.88, 1.0) * star * night * 1.15;
+        float night = 1.0 - smoothstep(0.02, 0.14, max(sunHeight, 0.0));
+        night *= 1.0 - clamp(dot(sunRadiance, vec3(0.3333)), 0.0, 1.0);
+        if (night > 0.001) {
+            vec3 toMoon = length(frame.celestial.xyz) > 0.001
+                              ? normalize(frame.celestial.xyz)
+                              : vec3(0.0, 1.0, 0.0);
+            float moonAlign = max(dot(direction, toMoon), 0.0);
+            float moonDisc = pow(moonAlign, 2800.0);
+            float moonGlow = pow(moonAlign, 48.0) * 0.18;
+            color += vec3(0.78, 0.84, 0.96) * (moonDisc * 4.2 + moonGlow) *
+                     frame.celestial.w * night;
+            float cell = Hash13(floor(direction * 340.0));
+            float star = step(0.9965, cell) * step(0.08, direction.y);
+            color += vec3(0.82, 0.88, 1.0) * star * night * 1.15;
+        }
     }
 
     // Composited over everything the dome produced and under the medium. The

@@ -6,6 +6,7 @@
 
 #include "engine/render/VulkanRenderBackendDebug.h"
 #include "engine/render/vulkan/VulkanRayTracingSceneInternal.h"
+#include "engine/render/vulkan/VulkanTextureKey.h"
 
 namespace Concord {
 
@@ -44,7 +45,11 @@ bool RecordVulkanRayTracingFrame(const VulkanContext& context, VkCommandBuffer c
     // only three sets and must not be handed a fourth.
     VkDescriptorSet textureSet = VK_NULL_HANDLE;
     if (textures.IsReady()) {
-        if (!UpdateVulkanRayTracingTextures(context, textures, textureCache, scene.textureSlots)) {
+        const std::string skyboxKey = snapshot.environment.skybox.empty()
+                                           ? std::string{}
+                                           : MakeVulkanTextureCacheKey(snapshot.environment.skybox, {});
+        if (!UpdateVulkanRayTracingTextures(context, textures, textureCache, scene.textureSlots,
+                                            skyboxKey)) {
             return false;
         }
         textureSet = textures.set;

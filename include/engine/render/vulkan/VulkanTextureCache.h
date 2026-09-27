@@ -68,6 +68,14 @@ struct VulkanTextureCache {
     /** Finds a sampled texture by URI and base directory. */
     [[nodiscard]] const VulkanTexture* Find(
         std::string_view uri, const std::filesystem::path& baseDirectory = {}) const noexcept;
+    /**
+     * The uploaded image for a URI, or nullptr while it is missing or copying.
+     *
+     * Find falls back to the white texture so a material never samples a hole.
+     * A skybox must not take that fallback, or a missing file becomes a white dome.
+     */
+    [[nodiscard]] const VulkanTexture* FindResident(
+        std::string_view uri, const std::filesystem::path& baseDirectory = {}) const noexcept;
     /** Destroys device resources and releases decoded images. */
     void Clear(const VulkanContext& context) noexcept;
 };

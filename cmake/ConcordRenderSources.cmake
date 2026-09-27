@@ -61,6 +61,7 @@ set(CONCORD_RENDER_SOURCES
     src/engine/render/vulkan/VulkanSkinnedPipelineDraw.cpp
     src/engine/render/vulkan/VulkanSkinnedPipelineRecord.cpp
     src/engine/render/vulkan/VulkanSkinnedPipelineState.cpp
+    src/engine/render/vulkan/VulkanSkyPipeline.cpp
     src/engine/render/vulkan/VulkanClearPass.cpp
     src/engine/render/vulkan/VulkanDepthBuffer.cpp
     src/engine/render/vulkan/VulkanDevice.cpp

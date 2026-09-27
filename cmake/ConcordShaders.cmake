@@ -40,7 +40,9 @@ set(CONCORD_SHADER_SOURCES
     "${CONCORD_SHADER_SOURCE_DIR}/ui_toolkit.vert"
     "${CONCORD_SHADER_SOURCE_DIR}/ui_toolkit.frag"
     "${CONCORD_SHADER_SOURCE_DIR}/post.comp"
-    "${CONCORD_SHADER_SOURCE_DIR}/smoke.frag" CACHE INTERNAL
+    "${CONCORD_SHADER_SOURCE_DIR}/smoke.frag"
+    "${CONCORD_SHADER_SOURCE_DIR}/skybox.vert"
+    "${CONCORD_SHADER_SOURCE_DIR}/skybox.frag" CACHE INTERNAL
     "Bundled Concord GLSL sources" FORCE)
 
 function(concord_configure_shaders)

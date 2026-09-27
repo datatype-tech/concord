@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <string>
 
 namespace Concord {
 namespace {
@@ -117,7 +118,8 @@ ImageLoadResult ImageLoader::LoadUri(std::string_view uri,
         try {
             if (!DecodePercent(uri, decoded) || decoded.empty()) return UriFailure();
             const std::string pathString(reinterpret_cast<const char*>(decoded.data()), decoded.size());
-            const std::filesystem::path relative{pathString};
+            const std::filesystem::path relative{
+                std::u8string(reinterpret_cast<const char8_t*>(pathString.data()), pathString.size())};
             return Load(relative.is_absolute() ? relative : baseDirectory / relative);
         } catch (...) {
             return ImageLoadResult{.error = ImageLoadError::AllocationFailure,

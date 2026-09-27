@@ -76,7 +76,8 @@ void RecordVulkanBoxColorPass(VkCommandBuffer commandBuffer, VkExtent2D extent,
                               const VulkanBoxPipeline& pipeline,
                               const RenderSceneSnapshot& snapshot,
                               VkDescriptorSet frameDataSet, Vec3 clearColor,
-                              VkDescriptorSet shadowMapSet, VkDescriptorSet rayTracingSet)
+                              VkDescriptorSet shadowMapSet, VkDescriptorSet rayTracingSet,
+                              bool preserveColor)
 {
     if (!pipeline.HasColor() || colorView == VK_NULL_HANDLE || depthView == VK_NULL_HANDLE ||
         frameDataSet == VK_NULL_HANDLE) {
@@ -86,7 +87,7 @@ void RecordVulkanBoxColorPass(VkCommandBuffer commandBuffer, VkExtent2D extent,
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colorAttachment.imageView = colorView;
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.loadOp = preserveColor ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.clearValue.color = {{clearColor.x, clearColor.y, clearColor.z, 1.0f}};
 

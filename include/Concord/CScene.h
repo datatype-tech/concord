@@ -20,5 +20,6 @@
 #include "engine/scene/EnvironmentSettings.h"
 #include "engine/scene/ModelRenderer.h"
 #include "engine/scene/Scene.h"
+#include "engine/scene/SceneFile.h"
 
 #endif // CONCORD_CSCENE_H

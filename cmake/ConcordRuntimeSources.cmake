@@ -47,6 +47,7 @@ set(CONCORD_RUNTIME_SOURCES
     src/engine/animation/JointMask.cpp
 
     src/engine/scene/DayCycle.cpp
+    src/engine/scene/SceneFile.cpp
 
     src/engine/particle/ParticleSampling.cpp
     src/engine/particle/ParticleSimulation.cpp

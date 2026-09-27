@@ -24,6 +24,15 @@ namespace Concord {
 inline constexpr u32 kMaxRayTracingTextureSlots = 64;
 
 /**
+ * Last sampler the miss shader reads when a scene has chosen a sky image.
+ *
+ * Model materials acquire slots from the front of the array. A skybox uses
+ * the final index so it does not displace those materials unless a scene
+ * has already filled every earlier slot.
+ */
+inline constexpr u32 kSkyboxTextureSlot = kMaxRayTracingTextureSlots - 1u;
+
+/**
  * Maps texture cache keys to the array indices the hit shader reads.
  *
  * Slot 0 is reserved for the cache's white fallback, so a primitive with no

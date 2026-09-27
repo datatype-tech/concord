@@ -43,7 +43,7 @@ bool CreateVulkanRayTracingTextures(const VulkanContext& context,
     bindings[0].binding = 0;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     bindings[0].descriptorCount = kMaxRayTracingTextureSlots;
-    bindings[0].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    bindings[0].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = 1;
@@ -97,7 +97,8 @@ void DestroyVulkanRayTracingTextures(const VulkanContext& context,
 bool UpdateVulkanRayTracingTextures(const VulkanContext& context,
                                     VulkanRayTracingTextures& textures,
                                     const VulkanTextureCache& cache,
-                                    const RayTracingTextureSlots& slots) noexcept
+                                    const RayTracingTextureSlots& slots,
+                                    std::string_view skyboxKey) noexcept
 {
     if (!textures.IsReady() || !cache.IsReady()) {
         return false;
@@ -106,9 +107,20 @@ bool UpdateVulkanRayTracingTextures(const VulkanContext& context,
     if (fallback == nullptr) {
         return false;
     }
+    const VulkanTexture* skybox = nullptr;
+    if (!skyboxKey.empty()) {
+        for (const VulkanTextureCacheEntry& entry : cache.entries) {
+            if (entry.key == skyboxKey && entry.texture.IsUploaded()) {
+                skybox = &entry.texture;
+                break;
+            }
+        }
+    }
     VkDescriptorImageInfo images[kMaxRayTracingTextureSlots]{};
     for (u32 slot = 0; slot < kMaxRayTracingTextureSlots; ++slot) {
-        const VulkanTexture* texture = ResolveSlot(cache, slots, slot);
+        const VulkanTexture* texture = slot == kSkyboxTextureSlot && skybox != nullptr
+                                           ? skybox
+                                           : ResolveSlot(cache, slots, slot);
         if (texture == nullptr) {
             texture = fallback;
         }

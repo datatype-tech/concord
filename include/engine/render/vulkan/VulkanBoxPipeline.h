@@ -60,7 +60,8 @@ void RecordVulkanBoxColorPass(VkCommandBuffer commandBuffer, VkExtent2D extent,
                               const RenderSceneSnapshot& snapshot,
                               VkDescriptorSet frameDataSet, Vec3 clearColor = {},
                               VkDescriptorSet shadowMapSet = VK_NULL_HANDLE,
-                              VkDescriptorSet rayTracingSet = VK_NULL_HANDLE);
+                              VkDescriptorSet rayTracingSet = VK_NULL_HANDLE,
+                              bool preserveColor = false);
 
 /** Makes depth writes from the pre-pass visible to the forward pass. */
 void InsertVulkanBoxDepthBarrier(VkCommandBuffer commandBuffer, VkImage depthImage);
